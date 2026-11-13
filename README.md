@@ -33,3 +33,4 @@ Arrives in PR #2.
 - [Architecture overview](docs/architecture/overview.md)
 - [Decisions log](docs/decisions.md)
 - [CI/CD](docs/ci-cd.md)
+- [Git workflow](docs/git-workflow.md)

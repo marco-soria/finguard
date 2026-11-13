@@ -73,6 +73,7 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 ## Conventions
 - Everything in the repo is written in English: code, comments, docs, commit messages, UI text, errors.
 - Conventional Commits. Small PRs. One slice or one concern per PR.
+- Git workflow: see docs/git-workflow.md (branch per brief, PR to main, squash merge, never commit to main).
 - Nullable reference types on, warnings as errors, `TimeProvider` instead of `DateTime.UtcNow`.
 - Structured logging with message templates. Never log monetary values, CSV rows or descriptions.
 - No secrets in the repo. Locally use user-secrets or environment variables; the app must also read
