@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Only pnpm-lock.yaml is allowed
+        run: |
+          found=$(git ls-files '*package-lock.json' '*yarn.lock' '*npm-shrinkwrap.json')
+          if [ -n "$found" ]; then
+            echo "::error::Forbidden lockfiles (use pnpm): $found"
+            exit 1
+          fi
+
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      dotnet: ${{ steps.detect.outputs.dotnet }}
+      frontend: ${{ steps.detect.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: detect
+        run: |
+          if [ -n "$(git ls-files '*.sln' '*.slnx')" ]; then echo "dotnet=true" >> "$GITHUB_OUTPUT"; else echo "dotnet=false" >> "$GITHUB_OUTPUT"; fi
+          if [ -f src/frontend/finguard-web/package.json ]; then echo "frontend=true" >> "$GITHUB_OUTPUT"; else echo "frontend=false" >> "$GITHUB_OUTPUT"; fi
+
+  backend:
+    needs: detect
+    if: needs.detect.outputs.dotnet == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: dotnet restore
+      - run: dotnet build --no-restore -c Release
+      - run: dotnet test --no-build -c Release
+
+  frontend:
+    needs: detect
+    if: needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend/finguard-web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: src/frontend/finguard-web/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: src/frontend/finguard-web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run --if-present lint
+      - run: pnpm run --if-present test
+      - run: pnpm run build
+
+  ci-gate:
+    if: always()
+    needs: [hygiene, detect, backend, frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any required job failed or was cancelled
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: |
+          echo "::error::One or more jobs failed or were cancelled."
+          exit 1
+      - run: echo "All jobs succeeded or were skipped."
