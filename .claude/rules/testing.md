@@ -12,6 +12,8 @@ paths:
 - Every slice has at least one integration test through its HTTP endpoint, including a tenant-isolation case
   (tenant A cannot read or affect tenant B).
 - Never mock the DbContext. Use PostgreSQL in a container.
+- Every Dapper query has an integration test against real PostgreSQL (Testcontainers), including a
+  tenant-isolation case.
 - Tests never call a real model. Use the deterministic `TemplateNarrator` or a fake `IChatClient`.
   Include a prompt-safety test proving no free-text CSV field reaches a prompt.
 - Architecture tests in `tests/FinGuard.ArchitectureTests` encode the module boundaries and must stay green.

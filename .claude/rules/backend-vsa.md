@@ -23,5 +23,10 @@ paths:
   new versioned type (`...V2`), never by editing the old one.
 - Use `TimeProvider`, `CancellationToken` everywhere, nullable enabled, warnings as errors.
 - Logging: message templates, never string interpolation; log ids and counts, never monetary values or CSV rows.
-- Do not add generic repositories or MediatR. Slices use their DbContext directly; aggregates with repositories
-  exist only in Compliance.
+- Do not add generic repositories or MediatR. Aggregates with repositories exist only in Compliance.
+- Persistence (ADR-0007): command handlers write with EF Core through the module DbContext. Query handlers read with
+  Dapper over `NpgsqlDataSource` and return read DTOs; they never load aggregates and never write.
+- Query SQL is a parameterized `const string` in the query handler. No string concatenation.
+- Every query on tenant-owned tables filters `tenant_id = @TenantId`, with the value from `ITenantContext`
+  (EF global query filters do not apply to Dapper).
+- A query reads only its own module schema. No cross-schema SQL; cross-module data comes from Contracts.

@@ -13,6 +13,7 @@
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="$(AspireVersion)" />
+    <PackageVersion Include="Aspire.Npgsql" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(AspireVersion)" />
   </ItemGroup>
   <ItemGroup Label="Messaging">
@@ -24,6 +25,8 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftNet10Version)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftNet10Version)" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <!-- Read-side queries (ADR-0007). -->
+    <PackageVersion Include="Dapper" Version="2.1.89" />
   </ItemGroup>
   <ItemGroup Label="Auth and config">
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(MicrosoftNet10Version)" />

@@ -3,6 +3,33 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-13 (session 3: Brief #1 executed)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-19 | .NET 10 package line: EF Core, EF Core Design, JwtBearer pinned to latest 10.x (10.0.15) via `MicrosoftNet10Version`; 11.x skipped | 11.0.0 targets .NET 11 |
+| D-20 | `Microsoft.Extensions.AI` pinned to 10.11.0 to match `Microsoft.Agents.AI` 1.28.0 | 11.0.0 pulls .NET 11 abstractions into net10.0 |
+| D-21 | GitHub Actions majors: checkout@v7, pnpm/action-setup@v6, setup-dotnet@v6, setup-node@v7 | Resolved via gh api 2026-11-13 |
+| D-22 | `ci-gate` is the single required status check | |
+| D-23 | EF Core for commands, Dapper for queries (ADR-0007) | Dapper 2.1.89 and `Aspire.Npgsql` added to `Directory.Packages.props` |
+| D-24 | Add `dotnet format --verify-no-changes` to the CI `backend` job in PR #2 | `dotnet build` does not report IDE0003 or using order |
+| D-25 | PascalCase for private `const` / `static readonly` fields | Naming rule placed before the `_camelCase` rule in `.editorconfig` |
+| D-26 | Repository visibility: public (portfolio; enables branch protection on GitHub Free). LICENSE: MIT | |
+
+### Verified on 2026-11-13
+| Area | Finding | Source |
+| --- | --- | --- |
+| Angular 22 | Node `^22.22.3 \|\| ^24.15.0 \|\| ^26.0.0`, TypeScript `>=6.0.0 <6.1.0`; no package-manager requirement | https://angular.dev/reference/versions |
+| pnpm | 12.18.0 installed locally; engines `node >=18` | `pnpm view pnpm@12.18.0 engines` |
+| Code style | `dotnet build` enforces IDE0161, IDE0065, IDE0011, IDE1006; IDE0003 and using order only via `dotnet format --verify-no-changes` | Probe in Brief #1 |
+
+### Open questions
+- `main` is unborn locally; create an initial commit before the first push.
+
+### Next step
+PR #2: .NET solution, AppHost, ServiceDefaults, Api, module projects.
+
 ## Delta 2026-11-13 (session 2: AI migration and Brief #1)
 
 ### Closed decisions

@@ -11,3 +11,4 @@ ADR to change its meaning: add a new one that supersedes it.
 | [0004](0004-multi-tenancy.md) | Multi-tenancy with `tenant_id` and a Tenancy module | Accepted |
 | [0005](0005-local-first-cloud-ready.md) | Local-first delivery, cloud-ready code | Accepted |
 | [0006](0006-ai-stack-agent-framework.md) | Microsoft Agent Framework behind a narrator port | Accepted |
+| [0007](0007-persistence-ef-commands-dapper-queries.md) | EF Core for commands, Dapper for queries | Accepted |

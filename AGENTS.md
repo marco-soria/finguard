@@ -13,6 +13,7 @@ This is a portfolio project: cost must stay near zero until Phase 5 (see ADR-000
 
 ## Stack (verified 2026-11-13; re-verify before upgrading, pin versions in `Directory.Packages.props`)
 - .NET 10, ASP.NET Core Minimal APIs, EF Core + Npgsql, PostgreSQL.
+- Dapper for read-side queries (ADR-0007).
 - Aspire 13.x AppHost orchestrates API, Angular app and PostgreSQL container locally.
 - Wolverine 6.x (CQRS handlers, messaging, PostgreSQL transactional outbox).
 - Angular 22 (TypeScript 6, Node 24 LTS) with **pnpm** only.
@@ -46,7 +47,8 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 7. Every tenant-owned row has `tenant_id`, enforced by EF global query filters. Never take the tenant
    from a request body, route or CSV; it comes from `ITenantContext`.
 8. The LLM never computes amounts, never decides compliance, never receives free-text CSV fields.
-9. No event sourcing, no microservices, no generic repositories, no MediatR.
+9. No event sourcing, no microservices, no generic repositories, no MediatR. Commands write with EF Core; queries
+   read with Dapper over `NpgsqlDataSource`, own schema only, with a mandatory `tenant_id` filter (ADR-0007).
 
 ## Domain rules (source of truth: `docs/decisions.md`)
 - Limits (max, % of total portfolio): cash 40, fixed_income 30, shares 25, real_estate 25. Versioned policy;
