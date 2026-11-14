@@ -65,3 +65,8 @@ dotnet_diagnostic.IDE0055.severity = warning
 [**/Migrations/**.cs]
 generated_code = true
 dotnet_analyzer_diagnostic.severity = none
+
+# Test code: relax only what the test conventions make impossible to follow.
+[tests/**.cs]
+# Test names follow Method_Scenario_ExpectedResult (testing rules), which needs underscores.
+dotnet_diagnostic.CA1707.severity = none

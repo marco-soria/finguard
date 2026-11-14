@@ -23,4 +23,9 @@
     <Project Path="src/backend/Modules/Tenancy/FinGuard.Tenancy.Contracts/FinGuard.Tenancy.Contracts.csproj" />
     <Project Path="src/backend/Modules/Tenancy/FinGuard.Tenancy/FinGuard.Tenancy.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FinGuard.Api.IntegrationTests/FinGuard.Api.IntegrationTests.csproj" />
+    <Project Path="tests/FinGuard.ArchitectureTests/FinGuard.ArchitectureTests.csproj" />
+    <Project Path="tests/FinGuard.UnitTests/FinGuard.UnitTests.csproj" />
+  </Folder>
 </Solution>

@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="TngTech.ArchUnitNET" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\backend\FinGuard.Api\FinGuard.Api.csproj" />
+    <ProjectReference Include="..\..\src\backend\FinGuard.ServiceDefaults\FinGuard.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\src\backend\BuildingBlocks\FinGuard.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Tenancy\FinGuard.Tenancy\FinGuard.Tenancy.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Tenancy\FinGuard.Tenancy.Contracts\FinGuard.Tenancy.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Portfolio\FinGuard.Portfolio\FinGuard.Portfolio.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Portfolio\FinGuard.Portfolio.Contracts\FinGuard.Portfolio.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Compliance\FinGuard.Compliance\FinGuard.Compliance.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Compliance\FinGuard.Compliance.Contracts\FinGuard.Compliance.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Advisory\FinGuard.Advisory\FinGuard.Advisory.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Advisory\FinGuard.Advisory.Contracts\FinGuard.Advisory.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>
