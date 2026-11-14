@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Npgsql" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="WolverineFx" />
+    <PackageReference Include="WolverineFx.Postgresql" />
+    <PackageReference Include="WolverineFx.RuntimeCompilation" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FinGuard.ServiceDefaults\FinGuard.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\BuildingBlocks\FinGuard.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\Modules\Tenancy\FinGuard.Tenancy\FinGuard.Tenancy.csproj" />
+    <ProjectReference Include="..\Modules\Portfolio\FinGuard.Portfolio\FinGuard.Portfolio.csproj" />
+    <ProjectReference Include="..\Modules\Compliance\FinGuard.Compliance\FinGuard.Compliance.csproj" />
+    <ProjectReference Include="..\Modules\Advisory\FinGuard.Advisory\FinGuard.Advisory.csproj" />
+  </ItemGroup>
+
+</Project>

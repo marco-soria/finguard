@@ -7,7 +7,7 @@ Runs on every push to `main` and on every pull request. Superseded runs are canc
 | --- | --- | --- |
 | `hygiene` | Fails if `package-lock.json`, `yarn.lock` or `npm-shrinkwrap.json` is tracked (pnpm only). | Always |
 | `detect` | Sets `dotnet` (a `.sln`/`.slnx` is tracked) and `frontend` (`src/frontend/finguard-web/package.json` exists). | Always |
-| `backend` | `dotnet restore`, `build -c Release`, `test`, with the SDK from `global.json`. | `dotnet == 'true'` |
+| `backend` | `dotnet restore`, `format --verify-no-changes` (D-24), `build -c Release`, `test`, with the SDK from `global.json`. | `dotnet == 'true'` |
 | `frontend` | pnpm (version from `packageManager`), Node from `.node-version`, `install --frozen-lockfile`, lint, test, build. | `frontend == 'true'` |
 | `ci-gate` | Fails if any job failed or was cancelled; skipped jobs are fine. | Always |
 
