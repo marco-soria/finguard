@@ -1,38 +1,42 @@
 version: 2
+
+# Development phases (0-4): monthly, one grouped PR per ecosystem, no major version updates.
+# Majors (.NET 11, Aspire 14, Wolverine 7, Angular 23, ...) are adopted in dedicated briefs.
+# `update-types` in `ignore` scopes the rule to version updates only: Dependabot security updates
+# still open immediately, including for majors when the fix needs one.
 updates:
   - package-ecosystem: nuget
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
       nuget-minor-patch:
+        patterns: ["*"]
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     groups:
-      actions-minor-patch:
-        update-types: [minor, patch]
+      actions-all:
+        patterns: ["*"]
 
   # Dependabot's npm ecosystem also covers pnpm (pnpm-lock.yaml).
   - package-ecosystem: npm
     directory: /src/frontend/finguard-web
     schedule:
-      interval: weekly
+      interval: monthly
     cooldown:
       default-days: 3 # PRs wait past pnpm 11's minimumReleaseAge window, or CI fails (R-12)
     groups:
       web-minor-patch:
+        patterns: ["*"]
         update-types: [minor, patch]
     ignore:
-      # Majors go through `ng update` in a dedicated brief.
-      - dependency-name: "@angular/*"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "@angular-devkit/*"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "angular-eslint"
-        update-types: ["version-update:semver-major"]
-      - dependency-name: "typescript"
+      # Angular, angular-eslint and TypeScript majors go through `ng update` in a dedicated brief.
+      - dependency-name: "*"
         update-types: ["version-update:semver-major"]
