@@ -27,6 +27,7 @@ Arrives in PR #2.
 - `CLAUDE.md`: Claude Code specifics. Path-scoped rules live in `.claude/rules/`.
 - `.cursor/rules/`: the same path-scoped rules for Cursor.
 - `docs/briefs/`: one brief per PR, executed by an agent.
+- [AI rules guide](docs/ai-rules.md): how the rules load, where content goes, and how to keep them in sync.
 
 ## Documentation
 - [Architecture decision records](docs/adr/README.md)
