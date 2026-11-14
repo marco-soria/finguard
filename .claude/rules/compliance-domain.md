@@ -1,7 +1,7 @@
 ---
 paths:
   - "src/backend/Modules/Compliance/**"
-  - "tests/**/Compliance*/**"
+  - "tests/**/*Compliance*/**"
 ---
 
 # Compliance domain rules

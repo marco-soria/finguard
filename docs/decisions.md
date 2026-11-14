@@ -3,6 +3,92 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-14 (session 10: Brief #4 executed)
+
+### Resolved versions (2026-11-14, `scripts/Get-LatestNuGetVersion.ps1`, stable only)
+| Package | Version | Notes |
+| --- | --- | --- |
+| xunit.v3 | 4.0.3 | MTP v2 (`xunit.v3.mtp-v2`) |
+| Microsoft.AspNetCore.Mvc.Testing | 10.0.15 | `$(MicrosoftNet10Version)`; 11.0.0 is the .NET 11 line |
+| Microsoft.Extensions.Diagnostics.Testing | 10.11.0 | Same 10.x line as Http.Resilience; 11.0.0 skipped |
+| Testcontainers.PostgreSql | 4.16.0 | Image `postgres:18.3` |
+| TngTech.ArchUnitNET | 0.13.5 | Core only, no framework extension |
+| Microsoft.CodeAnalysis.BannedApiAnalyzers | 5.6.0 | Not 3.3.4, see findings |
+
+### Deviations
+- BannedApiAnalyzers 5.6.0 instead of the 3.3.4 the brief named: the resolver returned 5.6.0 (stable 4.14.0, 5.0.0,
+  5.3.0 and 5.6.0 exist). 5.6.0 needs Roslyn 5.6+; SDK 10.0.403 ships Roslyn 5.9. Approved by the owner before execution.
+- `CloudSeamsStartupLogger` still receives two bools; `Extensions.cs` computes them once through `CloudSeams`, so the
+  check runs once per seam and the log lines are byte-identical.
+- The generic-repository and one-DbContext rules use reflection, not ArchUnitNET: they inspect generic type definitions
+  and a `const` value, which reflection reads directly. ArchUnitNET is used where it adds value: type dependencies
+  (Compliance `Domain/`).
+- `tests/Directory.Build.props` also adds a global `using Xunit` (xunit.v3 does not add one).
+- `.editorconfig` `[tests/**.cs]` relaxes only CA1707. CA2007 never fired, so it stays on.
+- The integration fixture blanks `KeyVault:Uri` and `APPLICATIONINSIGHTS_CONNECTION_STRING` so local user-secrets or
+  environment variables cannot switch a seam on during tests.
+
+### Findings
+- `dotnet test --no-build -c Release` works unchanged in MTP mode from the repo root; CI needs no edit.
+- `UseSetting("ConnectionStrings:finguard", ...)` reaches the module registration that reads the connection string while
+  the builder runs; no other hook was needed.
+- EFCore.NamingConventions also snake-cases the migrations history columns (`migration_id`, `product_version`).
+- With an `IExceptionHandler` that handles the exception, .NET 10 does not log the exception from the middleware;
+  the only record is `GlobalExceptionHandler`'s (type + trace id). Proven by `UnhandledException_AnyRequest_DoesNotLogExceptionMessage`.
+- The test-only throwing route is added after the Api pipeline (`next(app)` first in the `IStartupFilter`) so the Api's
+  exception handler wraps it.
+- RS0030 probe: a temporary `DateTime.UtcNow` in BuildingBlocks failed the build with
+  `error RS0030: The symbol 'DateTime.UtcNow' is banned in this project: Use TimeProvider (AGENTS.md)`; a temporary
+  `EnableSensitiveDataLogging()` in Compliance failed with `... Never log query parameters (D-35)`. Both removed.
+- Architecture probes (temporary, reverted) failed all seven rules with messages naming the offender, identically in
+  Debug and Release (R-14: no difference seen). Note that an unused `ProjectReference` is dropped by the compiler in both
+  configurations, so assembly rules see only references that code actually uses.
+- Tests: 43 (unit 25, integration 10, architecture 8), all green; `dotnet test` about 6 s locally with the image cached.
+
+### Risks and flags
+- **R-15 updated.** BannedApiAnalyzers has stable 5.x releases; the risk becomes "keep the analyzer at or below the
+  SDK's Roslyn version", not "the analyzer is stuck at 3.3.4".
+
+## Delta 2026-11-14 (session 9: Dependabot tuning and Brief #4 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-48 | Dependabot during Phases 0-4: `monthly` for nuget, npm and github-actions; one grouped minor/patch PR per ecosystem; `semver-major` version updates ignored for nuget and npm | Supersedes the schedule and ignore list of D-46. Security updates are unaffected. Majors (.NET 11, Aspire 14, Angular 23) arrive through dedicated briefs. Revisit before Phase 5 |
+| D-49 | Backend tests use xUnit v3 4.x on Microsoft Testing Platform v2; `global.json` selects MTP for `dotnet test` | Closes open question 3 of the kickoff delta (with D-50 to D-52) |
+| D-50 | Assertions: xUnit's built-in `Assert`; no FluentAssertions (commercial licence from v8) and no mocking library | Shouldly can be adopted later by ADR if tests become hard to read |
+| D-51 | Architecture tests: ArchUnitNET core (no framework extension) for type rules, reflection for assembly rules; modules discovered by convention | Avoids coupling the arch library to the xUnit major |
+| D-52 | Integration tests: `WebApplicationFactory<Program>` + Testcontainers PostgreSQL (`postgres:18.3`), one container per test assembly; `Aspire.Hosting.Testing` not used now and removed from CPM | AppHost-level tests reconsidered in Phase 5 |
+| D-53 | Test projects now: `FinGuard.UnitTests`, `FinGuard.Api.IntegrationTests`, `FinGuard.ArchitectureTests`; module test projects arrive with each module's first slice | Compliance rule glob becomes `tests/**/*Compliance*/**` so it matches `tests/FinGuard.Compliance.Tests/` |
+| D-54 | `Microsoft.CodeAnalysis.BannedApiAnalyzers` on `src/backend`: bans `DateTime/DateTimeOffset.Now/UtcNow` and `EnableSensitiveDataLogging` | Prose rule turned into a build error |
+| D-55 | Cloud-seam checks live in `CloudSeams` (ServiceDefaults) and are unit tested; the enabled Key Vault path is only proven in Phase 5 | R-03 stays open |
+
+### Verified on 2026-11-14
+| Area | Finding | Source |
+| --- | --- | --- |
+| Dependabot | Adding or changing `dependabot.yml` triggers an immediate version-update check (explains the burst of PRs #5-#9) | https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference |
+| Dependabot | `ignore` with `update-types` applies to version updates, not security updates | https://pydevtools.com/handbook/how-to/how-to-ignore-a-dependency-in-dependabot-without-blocking-security-updates/ |
+| .NET 10 testing | `dotnet test` uses MTP only with `"test": { "runner": "Microsoft.Testing.Platform" }` in `global.json` | https://learn.microsoft.com/dotnet/core/testing/migrating-vstest-microsoft-testing-platform |
+| xUnit v3 | 4.0 defaults to MTP v2 and drops official MTP v1 support | https://xunit.net/releases/v3/4.0.0 |
+| ArchUnitNET | Core API `HasNoViolations(architecture)` works without an extension; Debug builds recommended | https://archunitnet.readthedocs.io/en/stable/guide/ |
+| Testcontainers | `Testcontainers.PostgreSql` 4.x current | https://www.nuget.org/packages/Testcontainers.PostgreSql |
+| FluentAssertions | v8+ requires a paid licence for commercial use | https://www.infoq.com/news/2025/01/fluent-assertions-v8-license |
+
+### Risks and flags
+- **R-13 Majors pile up.** With majors ignored, .NET 11 / Aspire 14 / Angular 23 drift silently. Mitigation: a
+  "dependency majors" review at the start of each phase, and before Phase 5 at the latest.
+- **R-14 Release-mode architecture analysis.** ArchUnitNET reads binaries; CI tests a Release build. Watch for rules
+  that pass in Release only because the compiler removed a dependency.
+- **R-15 Old banned-API analyzer.** Latest stable BannedApiAnalyzers is 3.3.4; newer builds are prerelease only. Replace
+  it if it ever breaks with a newer Roslyn.
+
+### Open questions
+1. Whether to add a single Aspire AppHost smoke test (`Aspire.Hosting.Testing`) in Phase 5, when images are built.
+
+### Next step
+Brief #5: `ITenantContext`, Tenancy mapping, `ITenantOwned` with EF global query filters and stamping interceptor,
+development-only JWT issuer, and the first tenant-isolation tests.
+
 ## Delta 2026-11-14 (session 8: Brief #3 executed)
 
 ### Resolved versions (2026-11-14, `pnpm view`, stable only)

@@ -17,6 +17,10 @@ paths:
 - Tests never call a real model. Use the deterministic `TemplateNarrator` or a fake `IChatClient`.
   Include a prompt-safety test proving no free-text CSV field reaches a prompt.
 - Architecture tests in `tests/FinGuard.ArchitectureTests` encode the module boundaries and must stay green.
+- Backend tests use xUnit v3 with its built-in `Assert`. No FluentAssertions and no mocking library without an ADR.
+- Integration tests use the shared PostgreSQL container fixture (one per test assembly), never an in-memory provider.
+- Architecture tests discover modules by convention (`FinGuard.<Module>` + `FinGuard.<Module>.Contracts`); never
+  hard-code the module list.
 - Compliance boundary tables are mandatory (see `compliance-domain.md`).
 - Frontend: test component logic and services; do not snapshot-test.
 - A bug fix starts with a failing test that reproduces it.
