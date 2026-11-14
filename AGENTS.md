@@ -64,9 +64,11 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 - Several submissions per cut-off date are allowed. Submissions are immutable; latest accepted = current.
   Rejected submissions are stored with their errors. Same SHA-256 + same cut-off date returns the existing submission.
 
-## Commands (update after the Phase 0 scaffold exists)
-- Run everything locally: `aspire run` (Docker must be running).
-- Backend tests: `dotnet test`.
+## Commands
+- Run everything locally: `aspire run` (Docker must be running). Dashboard URL is printed on start.
+- Backend: `dotnet build`, `dotnet test`, `dotnet format` (CI runs `dotnet format --verify-no-changes`).
+- New migration (per module, design-time factory as startup):
+  `dotnet tool run dotnet-ef migrations add <Name> --project src/backend/Modules/<M>/FinGuard.<M> --startup-project src/backend/Modules/<M>/FinGuard.<M> --context <M>DbContext --output-dir Persistence/Migrations`
 - Frontend: `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm lint`, `pnpm build` (from `src/frontend/finguard-web`).
 - Never use `npm`, `yarn` or `npx`. Use `pnpm`, `pnpm exec`, `pnpm dlx`.
 

@@ -3,6 +3,93 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-14 (session 6: Brief #2 executed)
+
+### Resolved versions (2026-11-14, `scripts/Get-LatestNuGetVersion.ps1`, stable only)
+| Package | Version | Notes |
+| --- | --- | --- |
+| Aspire.* (`AspireVersion`), `Aspire.AppHost.Sdk` | 13.6.5 | Unchanged; Aspire CLI 13.6.5 (now a .NET global tool `Aspire.Cli`) |
+| WolverineFx, .Postgresql, .EntityFrameworkCore, .RuntimeCompilation (`WolverineVersion`) | 6.64.0 | Unchanged; all four equal |
+| EFCore.NamingConventions | 10.0.1 | |
+| dotnet-ef (local tool) | 10.0.15 | 11.0.0 is latest but targets EF 11; matches `MicrosoftNet10Version` |
+| Microsoft.Extensions.Http.Resilience / ServiceDiscovery | 10.11.0 | Template uses 10.10.0; 11.0.0 skipped (pulls .NET 11 abstractions, same reason as D-20) |
+| Microsoft.EntityFrameworkCore.Relational (transitive pin) | 10.0.15 | New entry; otherwise 10.0.14 and 10.0.15 both resolve (MSB3277) |
+| PostgreSQL container image (Aspire default) | `postgres:18.3` | |
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-37 | No `PackageVersion` for `Aspire.Hosting.AppHost`: the SDK references it implicitly and CPM fails restore with NU1009 | Version comes only from the `Aspire.AppHost.Sdk/13.6.5` literal (R-08) |
+| D-38 | Modules register `AddScoped<DbContext>(sp => sp.GetRequiredService<XxxDbContext>())` so the Api applies migrations without seeing the internal DbContext types | Never inject the base `DbContext` elsewhere |
+| D-39 | Connection name and the "fail fast when missing" lookup live in BuildingBlocks (`ModuleDbContextOptions.ConnectionName`, `GetRequiredFinGuardConnectionString`); design-time factories use the placeholder `DesignTimeConnection.Placeholder` (no credentials) | One place for the four modules |
+| D-40 | `Npgsql.Command` logs at Warning in `appsettings.json` | Health checks otherwise log every `SELECT 1` at Information |
+| D-41 | `Error` keeps its name; CA1716 suppressed on the type with a justification | Brief/D-35 name; C#-only codebase |
+
+### Deviations from the brief
+- Tool manifest: .NET 10 `dotnet new tool-manifest` writes `dotnet-tools.json` at the root; moved to `.config/dotnet-tools.json` as the brief asks (both locations are honored by `dotnet tool`).
+- Wolverine runtime compilation: `WolverineFx.RuntimeCompilation` auto-registers when referenced (`RuntimeCompilationModule`); `opts.UseRuntimeCompilation()` is also called explicitly (idempotent) to make the opt-in visible.
+- Wolverine storage auto-create: no setting needed. `AutoBuildMessageStorageOnStartup` defaults to `CreateOrDefault` (Wolverine 6.64 XML docs).
+- Wolverine telemetry: tracing source `Wolverine`, meter wildcard `Wolverine*`; the meter is named `Wolverine:{ApplicationName}`, a bare `AddMeter("Wolverine")` matches nothing (https://wolverine.netlify.app/guide/logging.html).
+- Aspire 13.6 AppHost template entry file is `AppHost.cs` (not `Program.cs`) and adds `<AspireUseCliBundle>true</AspireUseCliBundle>`; both kept.
+- Migration logger uses its own category: `ILogger<WebApplication>` falls under `Microsoft.AspNetCore` (Warning) and was silent.
+- Module libraries work as their own dotnet-ef startup project; the Api was not needed.
+
+### Findings
+- `__ef_migrations_history` columns are snake-cased by the naming convention: `migration_id`, `product_version`.
+- On a fresh database EF logs one `fail` (`Microsoft.EntityFrameworkCore.Database.Command[20102]`) per module for the first `SELECT ... FROM <schema>.__ef_migrations_history`, then creates the table and applies the migration. It does not recur on later runs. Expected noise, not an error.
+- `wolverine` schema tables created at startup: `wolverine_agent_restrictions`, `wolverine_control_queue`, `wolverine_dead_letter_history`, `wolverine_dead_letters`, `wolverine_incoming_envelopes`, `wolverine_node_assignments`, `wolverine_node_records`, `wolverine_nodes`, `wolverine_outgoing_envelopes`.
+- Wolverine logs "found no handlers" as a warning; expected until the first slice.
+- Probe: unhandled exception returns 500 `application/problem+json` with `title`, `status`, `traceId` only; the exception message did not appear in the response or the logs. Unknown route returns 404 ProblemDetails with `traceId`.
+- Aspire CLI installed from npm cannot self-update and conflicts with the no-npm rule; replaced with the `Aspire.Cli` .NET global tool. In Git Bash the tool shim is `aspire.cmd`; use PowerShell.
+
+### Next step
+Brief #3: Angular 22 app with pnpm, added to the AppHost with `AddJavaScriptApp(...).WithPnpm()`.
+
+## Delta 2026-11-14 (session 5: Brief #2 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-28 | Every brief states its branch and exact PR title (Conventional Commits). Squash merge uses "Pull request title". Brief numbers and GitHub PR numbers differ (Brief #2 = PR #3); refer to work by brief number | PR #1 squash title "Chore/repo hygiene (#1)" stays; `main` is not rewritten |
+| D-29 | Wolverine in Brief #2 = durable message storage only, schema `wolverine`, via `PersistMessagesWithPostgresqlUsingDataSourceFromContainer` on the Aspire `NpgsqlDataSource`; plus `WolverineFx.RuntimeCompilation` | EF transactional integration stays in the Phase 1 spike (R-02) |
+| D-30 | Wolverine/Weasel-managed EF schema (`UseEntityFrameworkCoreWolverineManagedMigrations`) is not used; EF Core migrations own module schemas | ADR-0007; Wolverine docs say not to mix both |
+| D-31 | One empty `InitialSchema` migration per module; history table `__ef_migrations_history` in the module schema; applied at Api startup in Development only | Production strategy decided in Phase 5 |
+| D-32 | snake_case via `EFCore.NamingConventions` (10.x); Dapper `MatchNamesWithUnderscores = true` | Closes the choice left open in ADR-0007 |
+| D-33 | DbContexts registered with `AddDbContext` + shared `UseModuleNpgsql` + `EnrichNpgsqlDbContext` (DbContext health checks off); the `NpgsqlDataSource` health check covers the database | Same options for runtime and design time |
+| D-34 | Cloud seams (Key Vault source, Azure Monitor toggle) move into Brief #2 (ServiceDefaults); Brief #5 keeps `ITenantContext` and the dev JWT | Roadmap item 5 narrowed |
+| D-35 | `ErrorType` to HTTP: Validation 400, NotFound 404, Conflict 409, BusinessRule 422; ProblemDetails carry `code` and `traceId`; unexpected exceptions are a generic 500 in every environment | Correlation id = W3C trace id |
+| D-36 | Solution file is `FinGuard.slnx` at the repo root; AppHost uses `Aspire.AppHost.Sdk` as its only SDK | |
+
+### Closed open questions
+- `main` is unborn: closed. `main` has the initial commit and the PR #1 squash commit.
+
+### Verified on 2026-11-14
+| Area | Finding | Source |
+| --- | --- | --- |
+| Aspire | 13.6 released 2026-09-29; 13.6.5 is the latest patch on NuGet (`Aspire.Npgsql`) | https://devblogs.microsoft.com/aspire/whats-new-aspire-13-6 , https://nuget.org/packages/Aspire.Npgsql/13.6.5 |
+| Aspire AppHost | Since 13.0 `Aspire.AppHost.Sdk` can be the sole SDK and implicitly references `Aspire.Hosting.AppHost` | https://learn.microsoft.com/dotnet/aspire/fundamentals/app-host-overview |
+| Aspire EF | `EnrichNpgsqlDbContext<T>` adds retries, health check, logging, telemetry to a self-registered DbContext | https://aspire.dev/integrations/databases/efcore/postgres/postgresql-client |
+| Wolverine 6 | Requires .NET 9/10; Roslyn moved to `WolverineFx.RuntimeCompilation`; `ServiceLocationPolicy` default `NotAllowed` | https://wolverine.netlify.app/guide/migration |
+| Wolverine PG | `PersistMessagesWithPostgresqlUsingDataSourceFromContainer(schemaName:)` uses a DI-registered `NpgsqlDataSource` | https://wolverine.netlify.app/guide/durability/postgresql |
+| Wolverine EF | Weasel-managed EF migrations are opt-in; docs advise choosing one approach | https://wolverine.netlify.app/guide/durability/efcore/migrations |
+| EF naming | `EFCore.NamingConventions` 10.0.1 stable, community-maintained | https://www.nuget.org/packages/EFCore.NamingConventions/ |
+| .slnx | .NET 10 `dotnet new sln` creates `.slnx` | https://learn.microsoft.com/dotnet/core/compatibility/sdk/10.0/dotnet-new-sln-slnx-default |
+
+### Risks and flags
+- **R-08 AppHost SDK version outside CPM.** The `Sdk` attribute holds a literal version; keep it equal to `AspireVersion`
+  on every Aspire upgrade (Dependabot may not bump it).
+- **R-09 Wolverine 6 cadence and defaults.** Very frequent 6.x releases; Roslyn opt-in and `ServiceLocationPolicy.NotAllowed`
+  change behaviour from older samples. Pin, read the changelog, never copy 5.x snippets.
+- **R-10 Community naming package.** `EFCore.NamingConventions` is not Microsoft-supported and may lag EF majors.
+
+### Open questions
+1. Compliance `Domain/` "depends on nothing", but `Result`/`Error` live in BuildingBlocks next to ASP.NET-specific
+   mapping. Decide in Phase 3: allow BuildingBlocks `Results/` in the domain, or move HTTP mapping out.
+2. Production migration strategy (migration bundle, job or startup with lock): Phase 5.
+
+### Next step
+Brief #3: Angular 22 app with pnpm, added to the AppHost with `AddJavaScriptApp(...).WithPnpm()`.
+
 ## Delta 2026-11-14 (session 4: AI rules guide)
 
 ### Closed decisions
