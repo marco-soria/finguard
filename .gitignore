@@ -505,3 +505,21 @@ TestResults/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Angular CLI (merged from the generated src/frontend/finguard-web/.gitignore)
+src/frontend/finguard-web/tmp/
+src/frontend/finguard-web/out-tsc/
+src/frontend/finguard-web/bazel-out/
+src/frontend/finguard-web/typings/
+src/frontend/finguard-web/connect.lock
+src/frontend/finguard-web/libpeerconnection.log
+npm-debug.log
+yarn-error.log
+testem.log
+__screenshots__/
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace

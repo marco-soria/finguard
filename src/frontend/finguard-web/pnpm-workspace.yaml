@@ -1,0 +1,9 @@
+# pnpm settings for the single-project workspace. No `packages:` key: only the root package.
+shellEmulator: true     # `$PORT` in scripts works on Windows and Linux
+
+# Install scripts denied: the Angular toolchain ships prebuilt binaries for these.
+allowBuilds:
+  '@parcel/watcher': false
+  esbuild: false
+  lmdb: false
+  msgpackr-extract: false
