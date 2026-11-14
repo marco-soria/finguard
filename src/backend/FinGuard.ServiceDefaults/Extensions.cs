@@ -28,11 +28,10 @@ public static class Extensions
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
         // Cloud seam (ADR-0005): Key Vault only when KeyVault:Uri is set; otherwise no Azure call is made.
-        var keyVaultUri = builder.Configuration["KeyVault:Uri"];
-        var keyVaultEnabled = !string.IsNullOrWhiteSpace(keyVaultUri);
+        var keyVaultEnabled = CloudSeams.IsKeyVaultEnabled(builder.Configuration);
         if (keyVaultEnabled)
         {
-            builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri!), new DefaultAzureCredential());
+            builder.Configuration.AddAzureKeyVault(new Uri(builder.Configuration["KeyVault:Uri"]!), new DefaultAzureCredential());
         }
 
         builder.ConfigureOpenTelemetry();
@@ -50,7 +49,7 @@ public static class Extensions
             http.AddServiceDiscovery();
         });
 
-        var azureMonitorEnabled = IsAzureMonitorEnabled(builder.Configuration);
+        var azureMonitorEnabled = CloudSeams.IsAzureMonitorEnabled(builder.Configuration);
         builder.Services.AddHostedService(sp => new CloudSeamsStartupLogger(
             sp.GetRequiredService<ILogger<CloudSeamsStartupLogger>>(), keyVaultEnabled, azureMonitorEnabled));
 
@@ -100,16 +99,13 @@ public static class Extensions
         }
 
         // Cloud seam (ADR-0005): Azure Monitor only when the Application Insights connection string is set.
-        if (IsAzureMonitorEnabled(builder.Configuration))
+        if (CloudSeams.IsAzureMonitorEnabled(builder.Configuration))
         {
             builder.Services.AddOpenTelemetry().UseAzureMonitor();
         }
 
         return builder;
     }
-
-    private static bool IsAzureMonitorEnabled(IConfiguration configuration) =>
-        !string.IsNullOrWhiteSpace(configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]);
 
     public static TBuilder AddDefaultHealthChecks<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
