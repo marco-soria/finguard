@@ -2,14 +2,15 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
-    <!-- Resolved on 2026-11-13 with scripts/Get-LatestNuGetVersion.ps1. Stable versions only. -->
+    <!-- Resolved on 2026-11-14 with scripts/Get-LatestNuGetVersion.ps1. Stable versions only. -->
     <AspireVersion>13.6.5</AspireVersion>
     <WolverineVersion>6.64.0</WolverineVersion>
     <!-- Latest stable 10.x; the 11.x line targets .NET 11 and is out of scope for net10.0. -->
     <MicrosoftNet10Version>10.0.15</MicrosoftNet10Version>
   </PropertyGroup>
   <ItemGroup Label="Aspire">
-    <PackageVersion Include="Aspire.Hosting.AppHost" Version="$(AspireVersion)" />
+    <!-- Aspire.Hosting.AppHost is referenced implicitly by Aspire.AppHost.Sdk (version in the AppHost csproj Sdk
+         attribute); a PackageVersion for it fails restore with NU1009. -->
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="$(AspireVersion)" />
@@ -20,13 +21,23 @@
     <PackageVersion Include="WolverineFx" Version="$(WolverineVersion)" />
     <PackageVersion Include="WolverineFx.Postgresql" Version="$(WolverineVersion)" />
     <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="$(WolverineVersion)" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="$(WolverineVersion)" />
   </ItemGroup>
   <ItemGroup Label="Data">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftNet10Version)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftNet10Version)" />
+    <!-- Transitive pin: Npgsql EF 10.0.3 and EF 10.0.15 otherwise resolve Relational 10.0.14 and 10.0.15 (MSB3277). -->
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftNet10Version)" />
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     <!-- Read-side queries (ADR-0007). -->
     <PackageVersion Include="Dapper" Version="2.1.89" />
+    <!-- Community package (R-10); snake_case naming (D-32). -->
+    <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
+  </ItemGroup>
+  <ItemGroup Label="Service defaults">
+    <!-- 10.x line (template uses 10.10.0); 11.x pulls .NET 11 abstractions into net10.0. -->
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.0" />
   </ItemGroup>
   <ItemGroup Label="Auth and config">
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(MicrosoftNet10Version)" />

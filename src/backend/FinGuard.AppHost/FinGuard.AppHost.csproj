@@ -1,0 +1,18 @@
+<!-- keep equal to AspireVersion in Directory.Packages.props -->
+<Project Sdk="Aspire.AppHost.Sdk/13.6.5">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <UserSecretsId>45a8c4f7-9fe1-40ae-b7b8-2bc5442f10d4</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FinGuard.Api\FinGuard.Api.csproj" />
+  </ItemGroup>
+
+</Project>

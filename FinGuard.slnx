@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/backend/">
+    <Project Path="src/backend/BuildingBlocks/FinGuard.BuildingBlocks.csproj" />
+    <Project Path="src/backend/FinGuard.Api/FinGuard.Api.csproj" />
+    <Project Path="src/backend/FinGuard.AppHost/FinGuard.AppHost.csproj" />
+    <Project Path="src/backend/FinGuard.ServiceDefaults/FinGuard.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/src/backend/Modules/" />
+  <Folder Name="/src/backend/Modules/Advisory/">
+    <Project Path="src/backend/Modules/Advisory/FinGuard.Advisory.Contracts/FinGuard.Advisory.Contracts.csproj" />
+    <Project Path="src/backend/Modules/Advisory/FinGuard.Advisory/FinGuard.Advisory.csproj" />
+  </Folder>
+  <Folder Name="/src/backend/Modules/Compliance/">
+    <Project Path="src/backend/Modules/Compliance/FinGuard.Compliance.Contracts/FinGuard.Compliance.Contracts.csproj" />
+    <Project Path="src/backend/Modules/Compliance/FinGuard.Compliance/FinGuard.Compliance.csproj" />
+  </Folder>
+  <Folder Name="/src/backend/Modules/Portfolio/">
+    <Project Path="src/backend/Modules/Portfolio/FinGuard.Portfolio.Contracts/FinGuard.Portfolio.Contracts.csproj" />
+    <Project Path="src/backend/Modules/Portfolio/FinGuard.Portfolio/FinGuard.Portfolio.csproj" />
+  </Folder>
+  <Folder Name="/src/backend/Modules/Tenancy/">
+    <Project Path="src/backend/Modules/Tenancy/FinGuard.Tenancy.Contracts/FinGuard.Tenancy.Contracts.csproj" />
+    <Project Path="src/backend/Modules/Tenancy/FinGuard.Tenancy/FinGuard.Tenancy.csproj" />
+  </Folder>
+</Solution>
