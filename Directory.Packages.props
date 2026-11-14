@@ -37,7 +37,7 @@
   <ItemGroup Label="Service defaults">
     <!-- 10.x line (template uses 10.10.0); 11.x pulls .NET 11 abstractions into net10.0. -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="11.0.0" />
   </ItemGroup>
   <ItemGroup Label="Auth and config">
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="$(MicrosoftNet10Version)" />
