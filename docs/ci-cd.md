@@ -11,11 +11,12 @@ Runs on every push to `main` and on every pull request. Superseded runs are canc
 | `frontend` | pnpm (version from `packageManager`), Node from `.node-version`, `install --frozen-lockfile`, lint, test, build. | `frontend == 'true'` |
 | `ci-gate` | Fails if any job failed or was cancelled; skipped jobs are fine. | Always |
 
-`ci-gate` is the only status check to require in branch protection. Until PR #2 adds a solution and PR #3 adds
-the Angular app, `backend` and `frontend` are skipped and CI is green.
+`ci-gate` is the only status check to require in branch protection. Since Brief #2 (solution) and Brief #3 (Angular app)
+both `backend` and `frontend` are active.
 
-Dependabot (`.github/dependabot.yml`) opens weekly grouped minor/patch updates for NuGet and GitHub Actions.
-The `npm` ecosystem (served by pnpm lockfiles) is added with the Angular app in PR #3.
+Dependabot (`.github/dependabot.yml`) opens weekly grouped minor/patch updates for NuGet, GitHub Actions and the web app
+(`npm` ecosystem, which reads `pnpm-lock.yaml`). Web app majors of Angular, angular-eslint and TypeScript are ignored
+(they go through `ng update`), and a 3-day cooldown keeps PRs past pnpm 11's `minimumReleaseAge` (D-46, R-12).
 
 ## CD (`.github/workflows/cd.yml`)
 A manual placeholder until Phase 5 (ADR-0005). No secrets and no Azure steps.

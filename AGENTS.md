@@ -65,11 +65,11 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
   Rejected submissions are stored with their errors. Same SHA-256 + same cut-off date returns the existing submission.
 
 ## Commands
-- Run everything locally: `aspire run` (Docker must be running). Dashboard URL is printed on start.
+- Run everything locally: `aspire run` (Docker must be running). Starts `postgres`, `api` and `web`; the dashboard URL is printed on start.
 - Backend: `dotnet build`, `dotnet test`, `dotnet format` (CI runs `dotnet format --verify-no-changes`).
 - New migration (per module, design-time factory as startup):
   `dotnet tool run dotnet-ef migrations add <Name> --project src/backend/Modules/<M>/FinGuard.<M> --startup-project src/backend/Modules/<M>/FinGuard.<M> --context <M>DbContext --output-dir Persistence/Migrations`
-- Frontend: `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm lint`, `pnpm build` (from `src/frontend/finguard-web`).
+- Frontend (from `src/frontend/finguard-web`): `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm lint`, `pnpm build`. `pnpm start` only works under Aspire (it needs `PORT` and the Api URL).
 - Never use `npm`, `yarn` or `npx`. Use `pnpm`, `pnpm exec`, `pnpm dlx`.
 
 ## Conventions
