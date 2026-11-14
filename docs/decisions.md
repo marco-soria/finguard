@@ -3,6 +3,84 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-14 (session 8: Brief #3 executed)
+
+### Resolved versions (2026-11-14, `pnpm view`, stable only)
+| Package | Version | Notes |
+| --- | --- | --- |
+| pnpm (`packageManager`) | 11.28.9 | `latest-11`; global pnpm 12.18.0 switches to it automatically |
+| Node | 24.16.0 (local) | `engines.node` = `^24.15.0` |
+| @angular/cli, @angular/build | 22.2.7 | |
+| @angular/core and framework packages | 22.2.6 | Caret ranges from the CLI; 22.2.7 is newer than pnpm 11's `minimumReleaseAge` window |
+| TypeScript | 6.0.3 | `~6.0.2`, inside Angular's `>=6.0.0 <6.1.0` |
+| Vitest | 5.1.0 | jsdom 30.1.3 |
+| angular-eslint, @angular-eslint/builder | 22.6.0 | |
+| ESLint | 10.14.0 | Chosen by the schematic (`^10.12.0`); typescript-eslint 8.71.0, @eslint/js 10.0.1 |
+
+### Build scripts
+None approved. The Angular CLI writes `allowBuilds` with `@parcel/watcher`, `esbuild`, `lmdb` and `msgpackr-extract`
+set to `false`; install, build, test and `ng serve` work with their prebuilt binaries, so the denials stay (with a
+comment) in `pnpm-workspace.yaml`. pnpm reports no ignored build scripts.
+
+### Deviations from the brief
+- `ng new` ran with `--skip-install --interactive false --zoneless --test-runner vitest --ai-config none` so the first
+  install used the pinned pnpm 11 (the CLI wrote `packageManager: pnpm@12.18.0` from the global pnpm).
+- The generated `pnpm-workspace.yaml` had `packages: ['.']`; replaced by the brief's file (no `packages:` key) plus the
+  CLI's `allowBuilds` denials. The generated `watch` and `ng` scripts are kept.
+- `AppHost.cs` had no Api variable; `var api =` was added to the existing chain. The `web` resource matches the brief
+  (the 13.6.5 API is unchanged).
+- Dependabot `cooldown.default-days: 3`: Dependabot's own default is 3 days, stated explicitly (brief asks for at least 2).
+- `.gitignore` entries from the CLI were merged into the root file; root-anchored ones are prefixed with
+  `src/frontend/finguard-web/`. `index.html` title is `FinGuard`.
+
+### Findings
+- `pnpm start` outside Aspire: without `PORT`, the pnpm shell emulator stops at once with `Unbound variable "PORT"`.
+  With `PORT` set, `ng serve` prints the proxy error (`API endpoint is not configured. Run the app through Aspire
+  (aspire run).`), does not listen, but keeps its watch process alive until stopped. No silent fallback URL.
+- Peer warning on install: `@napi-rs/wasm-runtime@1.2.7` wants `@emnapi/core`/`@emnapi/runtime` `^1.7.1`, gets
+  `2.0.0-alpha.6` (transitive WASM fallback, unused on supported platforms).
+- `aspire run` shows `web-installer` (the pnpm install step) as `Finished` next to `postgres`, `finguard`, `api`, `web`.
+- Proxy check: `GET http://localhost:<web port>/api/does-not-exist` returned the Api's `404 application/problem+json`
+  with `traceId`.
+- `pnpm-lock.yaml` is a single document (`lockfileVersion: '9.0'`). Proxy config stays CommonJS (`proxy.conf.js`).
+
+## Delta 2026-11-14 (session 7: Brief #3 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-42 | Frontend pins **pnpm 11.x** through the legacy `packageManager` field; `devEngines.packageManager` is not used | Pinning pnpm 12+ writes a two-document lockfile that Dependabot cannot read for alerts. Revisit when GitHub fixes it (R-11) |
+| D-43 | Development uses the Angular dev-server proxy for `/api` (target from Aspire `API_HTTPS`/`API_HTTP`); the Api gets no CORS policy | Production serving is decided in Phase 5 |
+| D-44 | `shellEmulator: true` in the app's `pnpm-workspace.yaml`; `start` = `ng serve --port $PORT --proxy-config proxy.conf.js` | Cross-platform scripts without extra packages |
+| D-45 | Angular app: no SSR, no zone.js, Vitest, angular-eslint 22 (flat config), no UI library yet, no CLI AI configuration | UI library decided with the first real screen (Phase 1) |
+| D-46 | Dependabot `npm` ecosystem for `src/frontend/finguard-web`: weekly, grouped minor/patch, majors of Angular/angular-eslint/TypeScript ignored, cooldown ≥ 2 days | Angular majors go through `ng update` briefs |
+| D-47 | Aspire resource names: `api`, `web`, `postgres`, `finguard` | Env var prefixes derive from them (`API_HTTPS`) |
+
+### Verified on 2026-11-14
+| Area | Finding | Source |
+| --- | --- | --- |
+| Aspire JS | `WithPnpm(installArgs: [...])`, `runScriptName` default `dev`, Angular sample proxy reads `API_HTTPS`/`API_HTTP` | https://aspire.dev/integrations/frameworks/javascript |
+| Aspire env vars | `WithReference(api)` injects `{RESOURCE}_{ENDPOINT}` variables such as `API_HTTPS` | https://aspire.dev/fundamentals/environment-variables |
+| Angular testing | Vitest is the default runner for new projects | https://angular.dev/guide/testing/migrating-to-vitest |
+| angular-eslint | 22.x: Angular 22 + TS 6, flat config only, Node 20 dropped | https://github.com/angular-eslint/angular-eslint/releases |
+| pnpm lockfile | Two documents when `devEngines.packageManager` is set or `packageManager` pins pnpm 12+ | https://pnpm.io/lockfile |
+| Dependabot | Supports pnpm 11 and 12; two-document lockfiles get no alerts or security updates yet | https://github.blog/changelog/2025-01-09-dependabot-now-supports-npm-12-pnpm-11-and-12-and-bun-1-4/ |
+| pnpm scripts | `shellEmulator` runs scripts in a cross-platform bash-like shell | https://pnpm.io/cli/run |
+
+### Risks and flags
+- **R-11 pnpm 12 and Dependabot.** Staying on pnpm 11 until Dependabot reads two-document lockfiles; re-check each quarter.
+- **R-12 `minimumReleaseAge` vs Dependabot.** pnpm 11 rejects lockfile entries younger than its release-age window; a
+  Dependabot PR can fail CI until the window passes. Mitigated by the Dependabot cooldown; re-run CI if it still happens.
+
+### Open questions
+1. Production serving of the SPA (Phase 5): static files from the Api container, or a separate static container. Decide
+   with the Container Apps design.
+2. UI component library (Angular Material, none, other): decide at the first real screen.
+3. Browser end-to-end test tool: decide in Phase 1.
+
+### Next step
+Brief #4: test stack and architecture tests (`tests/FinGuard.ArchitectureTests`), plus the tests named in Briefs #2 and #3.
+
 ## Delta 2026-11-14 (session 6: Brief #2 executed)
 
 ### Resolved versions (2026-11-14, `scripts/Get-LatestNuGetVersion.ps1`, stable only)
