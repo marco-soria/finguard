@@ -1,24 +1,28 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { App } from './app';
 
 describe('App', () => {
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
+  beforeEach(() => {
+    TestBed.configureTestingModule({
       imports: [App],
-    })
-      .compileComponents();
+      providers: [provideRouter([])],
+    });
   });
 
-  it('should create the app', () => {
+  it('renders a header with the FinGuard title', () => {
     const fixture = TestBed.createComponent(App);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
+    fixture.detectChanges();
+
+    const header = (fixture.nativeElement as HTMLElement).querySelector('header');
+    expect(header?.textContent).toContain('FinGuard');
   });
 
-  it('should render title', async () => {
+  it('renders a router outlet inside main', () => {
     const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('Hello, finguard-web');
+    fixture.detectChanges();
+
+    const outlet = (fixture.nativeElement as HTMLElement).querySelector('main router-outlet');
+    expect(outlet).not.toBeNull();
   });
 });
