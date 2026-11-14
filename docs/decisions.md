@@ -3,6 +3,13 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-14 (session 4: AI rules guide)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-27 | Path-scoped AI rules policy documented in `docs/ai-rules.md`: no always-loaded rules, Claude and Cursor rule files mirrored and edited in the same commit | Cursor `compliance-domain.mdc` globs fixed to `src/backend/Modules/Compliance/**,tests/**/Compliance*/**` to match `.claude/rules/compliance-domain.md` |
+
 ## Delta 2026-11-13 (session 3: Brief #1 executed)
 
 ### Closed decisions
