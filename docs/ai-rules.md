@@ -20,7 +20,7 @@ correct and in sync.
 | Rule | Claude Code `paths:` | Cursor `globs:` |
 | --- | --- | --- |
 | `backend-vsa` | `src/backend/**/*.cs` | `src/backend/**/*.cs` |
-| `compliance-domain` | `src/backend/Modules/Compliance/**`, `tests/**/Compliance*/**` | `src/backend/Modules/Compliance/**,tests/**/Compliance*/**` |
+| `compliance-domain` | `src/backend/Modules/Compliance/**`, `tests/**/*Compliance*/**` | `src/backend/Modules/Compliance/**,tests/**/*Compliance*/**` |
 | `frontend` | `src/frontend/**` | `src/frontend/**` |
 | `testing` | `tests/**`, `**/*.spec.ts` | `tests/**,**/*.spec.ts` |
 

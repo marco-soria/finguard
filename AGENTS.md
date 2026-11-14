@@ -67,6 +67,8 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 ## Commands
 - Run everything locally: `aspire run` (Docker must be running). Starts `postgres`, `api` and `web`; the dashboard URL is printed on start.
 - Backend: `dotnet build`, `dotnet test`, `dotnet format` (CI runs `dotnet format --verify-no-changes`).
+  `dotnet test` runs on Microsoft.Testing.Platform (`global.json`) and needs Docker running (integration tests start
+  PostgreSQL with Testcontainers). Filter example: `dotnet test --project tests/FinGuard.UnitTests --filter-method "*Result*"`.
 - New migration (per module, design-time factory as startup):
   `dotnet tool run dotnet-ef migrations add <Name> --project src/backend/Modules/<M>/FinGuard.<M> --startup-project src/backend/Modules/<M>/FinGuard.<M> --context <M>DbContext --output-dir Persistence/Migrations`
 - Frontend (from `src/frontend/finguard-web`): `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm lint`, `pnpm build`. `pnpm start` only works under Aspire (it needs `PORT` and the Api URL).

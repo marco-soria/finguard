@@ -1,0 +1,5 @@
+P:System.DateTime.Now;Use TimeProvider (AGENTS.md)
+P:System.DateTime.UtcNow;Use TimeProvider (AGENTS.md)
+P:System.DateTimeOffset.Now;Use TimeProvider (AGENTS.md)
+P:System.DateTimeOffset.UtcNow;Use TimeProvider (AGENTS.md)
+M:Microsoft.EntityFrameworkCore.DbContextOptionsBuilder.EnableSensitiveDataLogging(System.Boolean);Never log query parameters (D-35)

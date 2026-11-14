@@ -60,3 +60,5 @@ app.MapComplianceEndpoints();
 app.MapAdvisoryEndpoints();
 
 await app.RunAsync();
+
+public partial class Program;
