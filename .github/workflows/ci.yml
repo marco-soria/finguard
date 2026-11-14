@@ -47,6 +47,7 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet restore
+      - run: dotnet format --verify-no-changes --no-restore
       - run: dotnet build --no-restore -c Release
       - run: dotnet test --no-build -c Release
 
