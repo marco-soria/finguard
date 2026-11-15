@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using FinGuard.Api.DevAuth;
+using FinGuard.Api.IntegrationTests.Messaging;
 using FinGuard.Api.IntegrationTests.Tenancy;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
@@ -26,6 +27,9 @@ public sealed class ApiFixture : IAsyncLifetime
 
     public string ConnectionString => _postgres.GetConnectionString();
 
+    /// <summary>The Api with the messaging probe modules, on its own database in the same container.</summary>
+    public MessagingHost Messaging { get; private set; } = null!;
+
     public FakeLogCollector Logs => Factory.Services.GetFakeLogCollector();
 
     /// <summary>A client carrying a token from the Api's development issuer, issued now unless told otherwise.</summary>
@@ -47,6 +51,8 @@ public sealed class ApiFixture : IAsyncLifetime
 
         await using var probe = CreateProbeContext(tenantId: null);
         await probe.Database.ExecuteSqlRawAsync(probe.Database.GenerateCreateScript());
+
+        Messaging = await MessagingHost.StartAsync(ConnectionString);
     }
 
     /// <summary>
@@ -69,6 +75,11 @@ public sealed class ApiFixture : IAsyncLifetime
 
     public async ValueTask DisposeAsync()
     {
+        if (Messaging is not null)
+        {
+            await Messaging.DisposeAsync();
+        }
+
         if (Factory is not null)
         {
             await Factory.DisposeAsync();
