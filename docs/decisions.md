@@ -48,7 +48,7 @@ No new package versions. New references to packages already pinned in `Directory
 - RS0030 probe: both overloads in Portfolio failed with `The symbol 'EntityFrameworkQueryableExtensions.IgnoreQueryFilters<TEntity>(...)'
   is banned in this project: Tenant filter must not be bypassed (ADR-0004)`.
 - An IDE-generated `finguard.sln` next to `FinGuard.slnx` makes bare `dotnet build` fail with MSB1011; the owner
-  deleted it. Consider ignoring `*.sln` in `.gitignore`.
+  deleted it; `*.sln` is now in `.gitignore`.
 - Tests: 72 (unit 30, integration 31, architecture 11), all green.
 
 ### Risks and flags

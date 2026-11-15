@@ -523,3 +523,6 @@ __screenshots__/
 *.launch
 .settings/
 *.sublime-workspace
+
+# IDE-generated solution files; the repo uses FinGuard.slnx only (a second solution breaks bare dotnet build, MSB1011).
+*.sln
