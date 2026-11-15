@@ -58,6 +58,11 @@ public sealed class TenantPropagationMiddlewareTests
         Assert.Equal(Tenant, context.TenantId);
     }
 
+    [Fact]
+    public void Before_ContextIsNotTenantContext_Throws() =>
+        Assert.Throws<InvalidOperationException>(() => TenantPropagationMiddleware.Before(
+            new Envelope(new Command()) { TenantId = Tenant.ToString() }, NoTenantContext.Instance));
+
     private sealed record Command;
 
     private sealed record Event(Guid TenantId);

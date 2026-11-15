@@ -2,14 +2,13 @@ using System.Diagnostics;
 using FinGuard.Advisory;
 using FinGuard.Api.DevAuth;
 using FinGuard.Api.Errors;
+using FinGuard.Api.Messaging;
 using FinGuard.Api.Persistence;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.Compliance;
 using FinGuard.Portfolio;
 using FinGuard.Tenancy;
 using FinGuard.Tenancy.Development;
-using Wolverine;
-using Wolverine.Postgresql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,22 +22,7 @@ builder.AddComplianceModule();
 builder.AddAdvisoryModule();
 builder.AddFinGuardAuthentication();
 
-builder.Host.UseWolverine(opts =>
-{
-    // Durable message storage only (D-29). Tables are created on startup by the default
-    // AutoBuildMessageStorageOnStartup = CreateOrDefault. EF transactional integration is the Phase 1 spike.
-    opts.PersistMessagesWithPostgresqlUsingDataSourceFromContainer(schemaName: "wolverine");
-    opts.UseRuntimeCompilation();
-    opts.Discovery.IncludeAssembly(typeof(TenancyModule).Assembly);
-    opts.Discovery.IncludeAssembly(typeof(PortfolioModule).Assembly);
-    opts.Discovery.IncludeAssembly(typeof(ComplianceModule).Assembly);
-    opts.Discovery.IncludeAssembly(typeof(AdvisoryModule).Assembly);
-
-    if (builder.Environment.IsDevelopment())
-    {
-        opts.Durability.Mode = DurabilityMode.Solo;
-    }
-});
+builder.AddFinGuardMessaging();
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 

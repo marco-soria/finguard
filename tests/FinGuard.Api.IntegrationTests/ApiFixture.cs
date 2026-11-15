@@ -63,7 +63,7 @@ public sealed class ApiFixture : IAsyncLifetime
 
         var options = new DbContextOptionsBuilder<ProbeDbContext>();
         options.UseModuleNpgsql(ConnectionString, ProbeDbContext.Schema)
-            .AddInterceptors(new TenantStampingInterceptor(tenantContext));
+            .AddInterceptors(TenantStampingInterceptor.Instance);
         return new ProbeDbContext(options.Options, tenantContext);
     }
 

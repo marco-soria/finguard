@@ -12,10 +12,13 @@ public static class TenantPropagationMiddleware
 {
     private const string TenantIdPropertyName = "TenantId";
 
-    public static void Before(Envelope envelope, TenantContext tenantContext)
+    // Takes ITenantContext, the type-based registration, so the generated handler shares this exact instance with the
+    // handler and its DbContext; TenantContext itself is a forwarding factory registration (R-19).
+    public static void Before(Envelope envelope, ITenantContext tenantContext)
     {
         ArgumentNullException.ThrowIfNull(envelope);
-        ArgumentNullException.ThrowIfNull(tenantContext);
+        var settable = tenantContext as TenantContext
+            ?? throw new InvalidOperationException("The scoped ITenantContext must be a TenantContext.");
 
         if (string.IsNullOrEmpty(envelope.TenantId))
         {
@@ -36,6 +39,6 @@ public static class TenantPropagationMiddleware
             throw new InvalidOperationException("The message tenant id differs from the envelope tenant id.");
         }
 
-        tenantContext.SetTenant(tenantId);
+        settable.SetTenant(tenantId);
     }
 }

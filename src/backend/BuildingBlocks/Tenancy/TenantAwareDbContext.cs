@@ -15,6 +15,8 @@ public abstract class TenantAwareDbContext(DbContextOptions options, ITenantCont
 
     protected Guid? CurrentTenantId => tenantContext.TenantId;
 
+    internal Guid RequiredTenantId => tenantContext.RequiredTenantId;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ArgumentNullException.ThrowIfNull(modelBuilder);
