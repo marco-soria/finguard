@@ -19,7 +19,7 @@ public static class PortfolioModule
         builder.Services.AddDbContext<PortfolioDbContext>(
             o => o.UseModuleNpgsql(connectionString, PortfolioDbContext.Schema).AddInterceptors(TenantStampingInterceptor.Instance),
             optionsLifetime: ServiceLifetime.Singleton);
-        // EF retries off: Wolverine's Eager transactions refuse EnableRetryOnFailure; a Wolverine error policy retries (ADR-0009).
+        // EF retries off: Wolverine's Eager transactions refuse EF retry strategies; a Wolverine error policy retries (ADR-0009).
         builder.EnrichNpgsqlDbContext<PortfolioDbContext>(s =>
         {
             s.DisableHealthChecks = true;

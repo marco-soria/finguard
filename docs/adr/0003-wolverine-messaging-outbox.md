@@ -22,6 +22,8 @@ Delivery is at-least-once, so every consumer must be idempotent (key: event id).
 - Risk: using one DbContext per module with a single Wolverine envelope store needs validation. Phase 1 starts with a
   spike that proves the outbox works with two DbContexts before slices depend on it.
 - Tracing across handlers needs the correlation id propagated; ServiceDefaults must register it.
+- R-02 resolved by ADR-0009 (Brief #6): one main envelope store shared by all module DbContexts, Eager EF Core
+  transactions, durable local queues.
 
 ## Alternatives considered
 - MediatR plus a hand-written outbox: rejected, more code to own.

@@ -13,3 +13,4 @@ ADR to change its meaning: add a new one that supersedes it.
 | [0006](0006-ai-stack-agent-framework.md) | Microsoft Agent Framework behind a narrator port | Accepted |
 | [0007](0007-persistence-ef-commands-dapper-queries.md) | EF Core for commands, Dapper for queries | Accepted |
 | [0008](0008-development-identity.md) | Development identity with an in-process token issuer | Accepted |
+| [0009](0009-module-messaging-conventions.md) | Module messaging conventions (outbox, retries, tenant propagation, events) | Accepted |

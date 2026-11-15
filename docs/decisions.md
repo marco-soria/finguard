@@ -3,6 +3,125 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-15 (session 14: Brief #6 executed)
+
+### Resolved versions
+No upgrades. WolverineFx 6.64.0 is still the newest stable 6.x on NuGet (checked 2026-11-15). New references to pinned
+packages: `WolverineFx` (BuildingBlocks, D-72) and `WolverineFx.EntityFrameworkCore` (Api).
+
+### Spike verdict
+| Row | Result | Evidence |
+| --- | --- | --- |
+| Envelope storage | Baseline kept: one main store in `wolverine`, shared through the DbContext connection and transaction | `PlaceOrder_ForTenant_WritesOrderAndLedgerEntry`, `PlaceOrder_HandlerThrowsAfterChanges_WritesNothingAndPublishesNothing`; `aspire run`: `wolverine` holds 9 tables, no module schema has a `wolverine*` table |
+| Transaction mode | Baseline kept: Eager, Aspire EF retries off, Wolverine `RetryWithCooldown(50ms, 250ms, 1s).Then.MoveToErrorQueue()` on transient `NpgsqlException` | `OrderPlaced_ConsumerFailsTransientlyTwice_IsRetriedAndWritesOnce` (3 attempts, all after the command finished) |
+| Tenant propagation | Baseline kept: envelope tenant id, `InvokeForCurrentTenantAsync`, `TenantPropagationMiddleware` | `PlaceOrder_ViaHttpWithAliceToken_StampsAcmeOnBothRows`, `PlaceOrder_AliceThenBob_EachLedgerSeesOnlyOwnEntries`, `OrderPlaced_WithoutTenant_FailsClosedAndWritesNothing`, `OrderPlaced_PayloadTenantDiffersFromEnvelope_IsRejected` |
+| Idempotent consumers | Baseline kept: unique index on `SourceEventId`, duplicate ignored | `OrderPlaced_DeliveredTwiceWithSameEventId_WritesOneLedgerEntry` |
+| Local delivery | Baseline kept: `UseDurableLocalQueues()` | Handled `ProbeOrderPlaced` rows in `wolverine_incoming_envelopes` (status `Handled`) |
+
+R-02 and R-16 are closed.
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-73 | Test-only: the messaging probe host runs on its own database `finguard_messaging` in the shared Testcontainers PostgreSQL container | Two Wolverine hosts in Solo mode on one envelope store would both claim the durability agents and recover each other's envelopes. Approved by the owner before execution |
+| D-74 | No service location (R-19): `ITenantContext` is the type-based registration (`AddScoped<ITenantContext, TenantContext>()`, `TenantContext` forwards to it); module `DbContextOptions` are singletons; `TenantStampingInterceptor` is a stateless singleton (`Instance`) that reads the tenant from the intercepted `TenantAwareDbContext` | Generated handler code creates one `TenantContext` per message and shares it with the middleware, the handler and every DbContext. `AlwaysUseServiceLocationFor` is not used |
+| D-75 | `TenantPropagationMiddleware.Before(Envelope, ITenantContext)` takes the interface and requires the instance to be a `TenantContext` | Taking `TenantContext` (a forwarding factory) would have needed service location |
+| D-76 | `DurabilityMode.Solo` is Development-only; multi-replica environments (Phase 5) need `Balanced` | Comment in `WolverineSetup.cs` and ADR-0009 |
+
+### Deviations
+- **R-19 restructure instead of an escape hatch.** At the first handler, code generation refused two opaque scoped
+  factories: `ITenantContext` (Tenancy's lambda) and `DbContextOptions<T>` (EF's `CreateDbContextOptions`, whose lambda
+  resolved the scoped interceptor). Error: `InvalidServiceLocationException : Found service locations while generating
+  code for Message Handler for ...PlaceProbeOrder, but ServiceLocationPolicy.NotAllowed is in effect`. As the brief
+  asked, I restructured first (D-74, D-75). Owner condition 2 is met without the hatch: the HTTP test proves the same
+  instance end to end. With `SetTenant` turned into a no-op, 6 of 8 messaging tests failed, including
+  `PlaceOrder_ViaHttpWithAliceToken_StampsAcmeOnBothRows`.
+- The Brief #5 interceptor changed shape (no constructor, `Instance`). A tenant-owned entity saved through a plain
+  `DbContext` now throws `Tenant-owned entities must be saved through a TenantAwareDbContext.` New unit test:
+  `TenantStampingInterceptorTests`.
+- Wolverine configuration moved to `src/backend/FinGuard.Api/Messaging/WolverineSetup.cs` (`AddFinGuardMessaging`).
+- Test extension point: no production code. Wolverine's `services.ConfigureWolverine(...)` (6.64 XML docs:
+  `HostBuilderExtensions.ConfigureWolverine(IServiceCollection, Action<WolverineOptions>)`) adds the test assembly to
+  discovery from the probe `WebApplicationFactory`.
+- `ApiFixture` starts the `MessagingHost` instead of a separate xUnit fixture; the brief's "second
+  `WebApplicationFactory` subclass" is `MessagingHost.MessagingFactory`.
+- `PlaceProbeOrderHandler` calls `SaveChangesAsync` before throwing, so the atomicity test proves a rollback of rows
+  already sent to the database, not just a skipped save.
+- The optional `Handler_WithTwoDbContexts_FailsAtStartupUnlessDesignated` was not written (a third host boot); the rule
+  is documented in ADR-0009 and enforced by `ModuleHandlers_Always_DependOnAtMostOneDbContext`.
+- Extra unit tests: `Before_PayloadTenantMatchesEnvelope_SetsTenant`, `Before_ContextIsNotTenantContext_Throws`.
+- Rules: `backend-vsa` also documents the module DbContext registration pattern, and that `SetTenant` is allowed in the
+  BuildingBlocks middleware.
+
+### Wolverine 6.64 API names checked (XML docs in the NuGet package)
+All names used match the brief: `UseEntityFrameworkCoreTransactions()`, `Policies.AutoApplyTransactions()`,
+`Policies.UseDurableLocalQueues()`, `Policies.AddMiddleware(Type, ...)`, `OnException<T>(Func<T,bool>)`,
+`RetryWithCooldown(params TimeSpan[])`, `IAdditionalActions.Then`, `MoveToErrorQueue()`,
+`IMessageBus.InvokeForTenantAsync`, `Envelope.TenantId`, `IServiceProvider.TrackActivity()`,
+`DoNotAssertOnExceptionsDetected()`, `ExecuteAndWaitAsync(Func<IMessageContext, Task>)`. Differences:
+- `AlwaysUseServiceLocationFor<T>()` lives on JasperFx `GenerationRules` (`opts.CodeGeneration`); not used.
+- `InvokeAsync` is declared on `ICommandBus`, not `IMessageBus`. The architecture rule bans any `Wolverine.*`
+  `InvokeAsync` / `InvokeForTenantAsync` call.
+- `ExecuteAndWaitAsync` has `Task` and `ValueTask` overloads; async lambdas need an explicit `Func<IMessageContext, Task>`.
+- Inline retries show in tracked sessions as repeated `ExecutionStarted` records, not as `MessageFailed`.
+
+### Findings
+- Architecture probes (temporary, reverted): `TempBadEvent` record → `Integration events must follow ADR-0009:
+  FinGuard.Portfolio.Contracts.Events.TempBadEvent is not a sealed record; ... lacks Guid TenantId; ... lacks
+  DateTimeOffset OccurredAt`; a handler with two contexts → `A handler owns one DbContext; cross-module effects go
+  through events: FinGuard.Portfolio.TempTwoContextsHandler -> PortfolioDbContext, TempOtherDbContext`; a direct call →
+  `Send commands with InvokeForCurrentTenantAsync: FinGuard.Portfolio.TempDirectInvokeEndpoint calls
+  Wolverine.ICommandBus.InvokeAsync(System.Object,System.Threading.CancellationToken,System.Nullable`1<System.TimeSpan>)`.
+  Rule 3 uses ArchUnitNET's `GetCalledMethods()`; rules 1 and 2 use reflection (D-51 style).
+- `aspire run`: `postgres`, `finguard`, `api`, `web` healthy; the api log has no `fail`/`crit` lines and no
+  code-generation or service-location errors; module schemas hold only their own tables.
+- Tests: 90 (unit 37, integration 39, architecture 14), all green; the 8 messaging tests take about 10 s including
+  container and host boot.
+
+### Risks and flags
+- **R-02, R-16** closed (see Spike verdict).
+- **R-19** closed without `AlwaysUseServiceLocationFor`. New modules must copy the registration pattern, or codegen fails
+  at the first handler.
+- **R-21 Wolverine logs message payloads.** On a failed invocation, Wolverine logs `Invocation of {message} failed!` at
+  Error under the message-type category, and records print every property. This conflicts with "never log payloads".
+  Until it is fixed, messages carry no amounts or free text. Options for Brief #7/#8: override `ToString` by
+  convention (architecture test), a logging filter for message categories, or a Wolverine log-level setting.
+
+## Delta 2026-11-15 (session 13: Brief #6 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-65 | Brief #6 is a spike with production output: Wolverine config, tenant middleware and conventions are real; the two DbContexts, the command and the event are test-only probes that stay as regression tests | No business tables before Brief #8 |
+| D-66 | Baseline envelope storage: one main store in schema `wolverine`, shared by all module DbContexts through their connection and transaction; no `MapWolverineEnvelopeStorage` in module models | Fallback: ancillary store per DbContext |
+| D-67 | Eager transactional middleware with `AutoApplyTransactions`; EF/Aspire retries disabled for module DbContexts; transient database faults retried by a Wolverine error policy around the whole handler | Eager + `EnableRetryOnFailure` fails at startup |
+| D-68 | Tenant propagation through Wolverine's envelope tenant id: endpoints use `InvokeForCurrentTenantAsync`; cascaded messages inherit the tenant; a BuildingBlocks middleware sets `TenantContext` before every handler; no tenant means fail closed | Fallback: explicit `TenantId` on every message |
+| D-69 | Integration events: sealed records in `FinGuard.<Module>.Contracts.Events` with `EventId`, `TenantId`, `OccurredAt`; payload tenant must match the envelope; consumers are idempotent by `EventId` (unique index) | `CorrelationId` leaves the payload; Wolverine and OpenTelemetry carry correlation |
+| D-70 | One DbContext per handler; cross-module effects only through events | Wolverine refuses to guess between two DbContexts |
+| D-71 | Durable local queues for all local messages | Events survive a crash between commit and handling |
+| D-72 | BuildingBlocks may reference `WolverineFx` for messaging primitives | Compliance `Domain/` still cannot |
+
+### Verified on 2026-11-15
+| Area | Finding | Source |
+| --- | --- | --- |
+| Wolverine EF Core | `UseEntityFrameworkCoreTransactions()` for separately registered DbContexts; multiple DbContexts supported; ancillary store per DbContext available | https://wolverine.netlify.app/guide/durability/efcore/ |
+| Wolverine EF Core | Several DbContexts in one handler fail at startup unless designated; `AutoApplyTransactions`; Eager vs Lightweight; Eager + `EnableRetryOnFailure` fails at startup | https://wolverine.netlify.app/guide/durability/efcore/transactional-middleware |
+| Wolverine tenancy | `InvokeForTenantAsync`; cascaded messages keep the tenant id; `TenantId` injectable in handlers | https://wolverine.netlify.app/guide/handlers/multi-tenancy |
+
+### Risks and flags
+- **R-02 and R-16** are expected to close with this brief; the execution delta confirms or reopens them.
+- **R-19 Wolverine service location.** Factory-lambda registrations (`ITenantContext`, DbContext options) may require
+  `AlwaysUseServiceLocationFor`; keep that list short and documented.
+- **R-20 Retry ownership.** With EF retries off, only Wolverine retries transient faults; Dapper queries (outside
+  Wolverine transactions) get no automatic retry. Revisit if queries show transient failures.
+
+### Open questions
+1. Per-module local queues and parallelism: decide when the first real event exists (Brief #8 or #10).
+
+### Next step
+Brief #7: Angular login against the development issuer (`AuthService`, interceptor, ProblemDetails mapping) and the
+first real slice `GET /api/tenancy/me` through Wolverine.
+
 ## Delta 2026-11-15 (session 12: Brief #5 executed)
 
 ### Resolved versions

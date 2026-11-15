@@ -32,7 +32,7 @@ public static class TenancyModule
         var connectionString = builder.Configuration.GetRequiredFinGuardConnectionString();
         builder.Services.AddDbContext<TenancyDbContext>(
             o => o.UseModuleNpgsql(connectionString, TenancyDbContext.Schema), optionsLifetime: ServiceLifetime.Singleton);
-        // EF retries off: Wolverine's Eager transactions refuse EnableRetryOnFailure; a Wolverine error policy retries (ADR-0009).
+        // EF retries off: Wolverine's Eager transactions refuse EF retry strategies; a Wolverine error policy retries (ADR-0009).
         builder.EnrichNpgsqlDbContext<TenancyDbContext>(s =>
         {
             s.DisableHealthChecks = true;
