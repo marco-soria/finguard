@@ -3,6 +3,97 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-15 (session 12: Brief #5 executed)
+
+### Resolved versions
+No new package versions. New references to packages already pinned in `Directory.Packages.props`:
+`Microsoft.AspNetCore.Authentication.JwtBearer` 10.0.15 (Api) and `Dapper` 2.1.89 (Tenancy).
+
+### Deviations
+- Design-time factories pass `NoTenantContext.Instance` (new, BuildingBlocks) instead of `new TenantContext()`: the new
+  architecture rule forbids depending on the concrete `TenantContext` outside BuildingBlocks and Tenancy. Approved by
+  the owner before execution.
+- `TenantContext`, `ITenantContext` and `TenantStampingInterceptor` are registered by `AddTenancyModule` from commit 1,
+  so every commit boots. The `TenantMember` policy, its handler and the 403 result handler are registered by Tenancy;
+  the Api registers authentication and the fallback policy (`DevAuth/AuthenticationSetup.cs`).
+- Existing tests touched outside commit 4, so every commit stays green: `StartupTests` now checks that the first
+  migration per schema is `InitialSchema` (Tenancy has two); `ErrorHandlingTests` send Alice's token (commit 3).
+- Extra tests beyond the brief: `UnknownRoute_NoToken_Returns401` (confirms D-61) and
+  `DevToken_SeededUser_ReturnsUsableToken` (the only test of the issuer's success path through HTTP).
+- `TenantContext.SetTenant(Guid.Empty)` throws `ArgumentException`; the interceptor also refuses a `Modified` entry
+  whose original tenant differs from the current one (defence in depth; not reachable through the filter).
+- `DevTokenIssuer.CreateToken(identity, issuedAt)` is public so tests can issue expired and unprovisioned tokens; the
+  endpoint always passes `TimeProvider.GetUtcNow()`. Unknown user error code: `DevAuth.User.Unknown`.
+- `Health_NoToken_Returns200` calls `/alive`; the existing `Health_DatabaseUp_Returns200` keeps covering `/health`.
+
+### Findings
+- The filter must compare `(Guid?)e.TenantId == this.CurrentTenantId`. A first version used `CurrentTenantId.Value`;
+  EF evaluates that member client-side as a parameter and threw `Nullable object must have a value` without a tenant.
+  `QueryFilter_NoTenant_SeesNoRows` caught it. `QueryFilter_SequentialContextsWithDifferentTenants_DoNotLeak` proves
+  the filter reads the context instance, not a value cached in the model.
+- `has-pending-model-changes` reports no changes for Portfolio, Compliance and Advisory (filters are not part of
+  migrations; no entities yet).
+- With the fallback policy, unknown routes answer 401 without a token and 404 ProblemDetails with one. In `Production`,
+  `POST /dev/token` answers 401 (no endpoint, fallback policy) and never returns a token.
+- Test-only routes added by an `IStartupFilter` after `next(app)` get the Api's authentication and tenant resolution;
+  adding `UseRouting` → `UseAuthorization` → `UseEndpoints` there applies endpoint policies (`TenantMember`, 403 handler).
+- `aspire run`: `api` healthy; `/dev/token` issued Alice's token; `/api/portfolio` answered 401 without a token and 404
+  ProblemDetails with Alice's token (the group has no endpoints yet); `tenancy.tenants` holds Acme Pension Fund and
+  Globex Insurance; `web` reached ready.
+- Architecture probes (temporary, reverted): Portfolio registering `TenantContext` →
+  `FinGuard.Portfolio.PortfolioModule does depend on "FinGuard.BuildingBlocks.Tenancy.TenantContext"`; Advisory context
+  on plain `DbContext` → `Module DbContexts must derive from TenantAwareDbContext: FinGuard.Advisory.Persistence.AdvisoryDbContext`;
+  an `ITenantOwned` entity in Tenancy → `Tenant-owned entities must be mapped only by a TenantAwareDbContext:
+  FinGuard.Tenancy.Persistence.ProbeOwned in FinGuard.Tenancy.Persistence.TenancyDbContext`.
+- RS0030 probe: both overloads in Portfolio failed with `The symbol 'EntityFrameworkQueryableExtensions.IgnoreQueryFilters<TEntity>(...)'
+  is banned in this project: Tenant filter must not be bypassed (ADR-0004)`.
+- An IDE-generated `finguard.sln` next to `FinGuard.slnx` makes bare `dotnet build` fail with MSB1011; the owner
+  deleted it. Consider ignoring `*.sln` in `.gitignore`.
+- Tests: 72 (unit 30, integration 31, architecture 11), all green.
+
+### Risks and flags
+- **R-17** mitigated as planned (Development-only mapping, Production test, fail-fast `Authority`).
+- **R-18 Dev tokens die on restart.** The signing key is per process, so the SPA (Brief #7) must request a new token
+  after a 401.
+
+## Delta 2026-11-14 (session 11: roadmap, Entra timing and Brief #5 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-56 | The repository is the source of truth for `docs/decisions.md`, `AGENTS.md`, rules and briefs. The planning assistant reads the repo at the start of each session and syncs the Claude Project copies itself; the owner no longer re-uploads them | Project copies of decisions.md, AGENTS.md, testing.md and compliance-domain.md synced on 2026-11-14 |
+| D-57 | Microsoft Entra External ID tenant is created in Phase 5 (planned Brief #21), linked to an Azure subscription at creation. No trial tenant now | A trial tenant without subscription lasts 30 days; one active trial per account |
+| D-58 | Phase 0 ends with Brief #5. The former roadmap item 6 (CI) was delivered by Briefs #1, #3 and #4 | Tentative map: Phase 1 = #6-#9, Phase 2 = #10-#12, Phase 3 = #13-#15, Phase 4 = #16-#19, Phase 5 = #20-#24 |
+| D-59 | Development identity: in-process token issuer in the Api (`POST /dev/token`), Development only, random signing key per process, issuer `finguard-dev`, audience `finguard-api` | ADR-0008. Rejected: `dotnet user-jwts` (no SPA flow), Keycloak (`Aspire.Hosting.Keycloak` preview only) |
+| D-60 | Non-Development environments bind `Authentication:Schemes:Bearer` (`Authority`, `Audience`) and fail fast without `Authority` | Entra External ID becomes configuration in Phase 5 |
+| D-61 | Authorization: fallback policy requires an authenticated user; module endpoint groups require `TenantMember`; health endpoints anonymous | Unknown routes now answer 401 without a token |
+| D-62 | Tenant filter: EF Core 10 named filter `"Tenant"` in `TenantAwareDbContext`, reading the context instance's `CurrentTenantId`; fail closed without a tenant; stamping and guards in `TenantStampingInterceptor` | `IgnoreQueryFilters` banned in `src/backend` (RS0030) |
+| D-63 | Tenant resolution: Tenancy maps (`iss`, `sub`) to a tenant through `tenancy.users`; that Dapper lookup is the only query without a `tenant_id` filter; unknown identities get 403 `Tenancy.User.NotProvisioned` | `User` is not `ITenantOwned` |
+| D-64 | Two development tenants seeded in Development only: `alice` → Acme Pension Fund, `bob` → Globex Insurance | Real onboarding arrives with Entra in Phase 5 |
+
+### Verified on 2026-11-14
+| Area | Finding | Source |
+| --- | --- | --- |
+| Entra External ID | Core offer free for the first 50,000 MAU | https://learn.microsoft.com/entra/external-id/external-identities-pricing |
+| Entra External ID | Trial external tenant without subscription lasts 30 days; one active trial per account | https://learn.microsoft.com/entra/external-id/customers/quickstart-trial-setup |
+| EF Core 10 | Named query filters; `IgnoreQueryFilters` can disable filters by name | https://learn.microsoft.com/ef/core/querying/filters |
+| ASP.NET Core | JWT bearer options bind from `Authentication:Schemes:Bearer` | https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis/security |
+| Aspire Keycloak | `Aspire.Hosting.Keycloak` is preview | https://aspire.dev/integrations/security/keycloak |
+
+### Risks and flags
+- **R-16 Wolverine scope and the tenant.** `IMessageBus.InvokeAsync` may resolve handler services in a new scope, so the
+  HTTP request's `ITenantContext` might not reach handlers. Brief #6 proves propagation (tenant id carried by the message,
+  set by Wolverine middleware) before any slice depends on it.
+- **R-17 Dev issuer leaking to production.** Mitigated by mapping only in Development, a Production test, and fail-fast
+  configuration outside Development.
+
+### Open questions
+1. Whether the SPA keeps a generic OIDC client for both the dev issuer and Entra, or uses MSAL only in Phase 5 (frontend
+   rule says MSAL behind `AuthService`). Decide in Brief #7.
+
+### Next step
+Brief #6 (Phase 1): Wolverine outbox spike with two DbContexts and tenant propagation into handlers.
+
 ## Delta 2026-11-14 (session 10: Brief #4 executed)
 
 ### Resolved versions (2026-11-14, `scripts/Get-LatestNuGetVersion.ps1`, stable only)

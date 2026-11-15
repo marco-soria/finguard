@@ -19,6 +19,12 @@ paths:
 - Each module owns one DbContext, a schema named after the module (lowercase) and its own migrations history table.
 - Tenant-owned entities implement `ITenantOwned`: global query filter plus a SaveChanges interceptor that sets
   `tenant_id`. The tenant always comes from `ITenantContext`, never from the request.
+- Module DbContexts derive from `TenantAwareDbContext` (named filter `"Tenant"` + `TenantStampingInterceptor`),
+  except Tenancy's, whose tables are global. `IgnoreQueryFilters` is banned (RS0030).
+- Module endpoint groups call `.RequireAuthorization(AuthorizationPolicies.TenantMember)`. Every other endpoint needs
+  an authenticated user (fallback policy); only health checks and `/dev/token` allow anonymous callers.
+- Never call `TenantContext.SetTenant` outside the Tenancy module; everything else reads `ITenantContext`.
+- Wolverine handlers must not assume the HTTP request's `ITenantContext` until Brief #6 proves tenant propagation.
 - Integration events are immutable records carrying `TenantId`, `CorrelationId`, `OccurredAt`. Change one by adding a
   new versioned type (`...V2`), never by editing the old one.
 - Use `TimeProvider`, `CancellationToken` everywhere, nullable enabled, warnings as errors.

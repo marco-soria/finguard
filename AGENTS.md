@@ -66,6 +66,8 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 
 ## Commands
 - Run everything locally: `aspire run` (Docker must be running). Starts `postgres`, `api` and `web`; the dashboard URL is printed on start.
+- Development token (Development only; users `alice`, `bob`; send as `Authorization: Bearer <accessToken>`):
+  `Invoke-RestMethod -Method Post -Uri <api>/dev/token -Body '{"user":"alice"}' -ContentType 'application/json'`
 - Backend: `dotnet build`, `dotnet test`, `dotnet format` (CI runs `dotnet format --verify-no-changes`).
   `dotnet test` runs on Microsoft.Testing.Platform (`global.json`) and needs Docker running (integration tests start
   PostgreSQL with Testcontainers). Filter example: `dotnet test --project tests/FinGuard.UnitTests --filter-method "*Result*"`.
