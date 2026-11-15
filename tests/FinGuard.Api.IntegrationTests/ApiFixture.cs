@@ -1,3 +1,6 @@
+using System.Net.Http.Headers;
+using FinGuard.Api.DevAuth;
+using FinGuard.Tenancy.Development;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +23,16 @@ public sealed class ApiFixture : IAsyncLifetime
     public string ConnectionString => _postgres.GetConnectionString();
 
     public FakeLogCollector Logs => Factory.Services.GetFakeLogCollector();
+
+    /// <summary>A client carrying a token from the Api's development issuer, issued now unless told otherwise.</summary>
+    public HttpClient CreateClient(DevIdentity identity, DateTimeOffset? issuedAt = null)
+    {
+        var token = Factory.Services.GetRequiredService<DevTokenIssuer>()
+            .CreateToken(identity, issuedAt ?? TimeProvider.System.GetUtcNow());
+        var client = Factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token.AccessToken);
+        return client;
+    }
 
     public async ValueTask InitializeAsync()
     {
