@@ -15,10 +15,16 @@ public static class PortfolioModule
     public static IHostApplicationBuilder AddPortfolioModule(this IHostApplicationBuilder builder)
     {
         var connectionString = builder.Configuration.GetRequiredFinGuardConnectionString();
-        builder.Services.AddDbContext<PortfolioDbContext>((sp, o) => o
-            .UseModuleNpgsql(connectionString, PortfolioDbContext.Schema)
-            .AddInterceptors(sp.GetRequiredService<TenantStampingInterceptor>()));
-        builder.EnrichNpgsqlDbContext<PortfolioDbContext>(s => s.DisableHealthChecks = true);
+        // Singleton options: Wolverine generates handler code for them without service location (ADR-0009).
+        builder.Services.AddDbContext<PortfolioDbContext>(
+            o => o.UseModuleNpgsql(connectionString, PortfolioDbContext.Schema).AddInterceptors(TenantStampingInterceptor.Instance),
+            optionsLifetime: ServiceLifetime.Singleton);
+        // EF retries off: Wolverine's Eager transactions refuse EF retry strategies; a Wolverine error policy retries (ADR-0009).
+        builder.EnrichNpgsqlDbContext<PortfolioDbContext>(s =>
+        {
+            s.DisableHealthChecks = true;
+            s.DisableRetry = true;
+        });
         // Lets the Api apply every module's migrations without seeing the internal DbContext types.
         builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<PortfolioDbContext>());
         return builder;

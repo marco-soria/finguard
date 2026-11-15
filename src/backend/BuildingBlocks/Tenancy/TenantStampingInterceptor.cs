@@ -3,9 +3,19 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace FinGuard.BuildingBlocks.Tenancy;
 
-/// <summary>Stamps <c>tenant_id</c> on added tenant-owned entities and refuses any cross-tenant write.</summary>
-public sealed class TenantStampingInterceptor(ITenantContext tenantContext) : SaveChangesInterceptor
+/// <summary>
+/// Stamps <c>tenant_id</c> on added tenant-owned entities and refuses any cross-tenant write. Stateless: the tenant
+/// comes from the intercepted <see cref="TenantAwareDbContext"/>, so module DbContext options can be singletons and
+/// Wolverine can generate handler code without service location (ADR-0009, R-19).
+/// </summary>
+public sealed class TenantStampingInterceptor : SaveChangesInterceptor
 {
+    public static TenantStampingInterceptor Instance { get; } = new();
+
+    private TenantStampingInterceptor()
+    {
+    }
+
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
     {
         ArgumentNullException.ThrowIfNull(eventData);
@@ -21,7 +31,7 @@ public sealed class TenantStampingInterceptor(ITenantContext tenantContext) : Sa
         return ValueTask.FromResult(result);
     }
 
-    private void Stamp(DbContext? context)
+    private static void Stamp(DbContext? context)
     {
         if (context is null)
         {
@@ -35,7 +45,9 @@ public sealed class TenantStampingInterceptor(ITenantContext tenantContext) : Sa
                 continue;
             }
 
-            var tenantId = tenantContext.RequiredTenantId;
+            var tenantId = context is TenantAwareDbContext tenantAware
+                ? tenantAware.RequiredTenantId
+                : throw new InvalidOperationException("Tenant-owned entities must be saved through a TenantAwareDbContext.");
             var property = entry.Property(e => e.TenantId);
 
             if (entry.State == EntityState.Added)

@@ -15,7 +15,9 @@ so only portfolio-derived data is tenant-owned.
   `ITenantContext` resolves the tenant through that mapping, so local development tokens and Entra External ID tokens
   behave identically.
 - User and Tenant are separate concepts even though the ratio is 1:1; that is a constraint, not the model.
-- Integration events carry `TenantId`; handlers set the tenant context from the event before touching data.
+- Tenant propagation to handlers goes through Wolverine's envelope tenant id (ADR-0009): endpoints send with
+  `InvokeForCurrentTenantAsync`, cascaded messages inherit the tenant, and a BuildingBlocks middleware sets the tenant
+  context before every handler. Integration events also carry `TenantId`, which must match the envelope.
 - Mandatory test per slice: tenant A cannot read or modify tenant B.
 
 ## Consequences
@@ -24,8 +26,8 @@ so only portfolio-derived data is tenant-owned.
   (tenant-owned entities must implement `ITenantOwned`).
 - The `tenancy.users` lookup that maps (`iss`, `sub`) to a tenant is the only query without a `tenant_id` filter: it
   is how the tenant is found (D-63).
-- Wolverine documents a "conjoined multi-tenancy" mode for EF Core; evaluate it in the Phase 1 spike but keep the
-  explicit filter unless it clearly removes code.
+- Wolverine documents a "conjoined multi-tenancy" mode for EF Core. The Phase 1 spike (Brief #6, ADR-0009) kept the
+  explicit filter and uses only the envelope tenant id.
 
 ## Alternatives considered
 - Schema or database per tenant: rejected, operational weight for a single-user-per-tenant portfolio project.

@@ -10,7 +10,8 @@ alwaysApply: false
 - One folder per use case: `Features/<UseCase>/` with endpoint, command or query record, Wolverine handler,
   validator and response DTO. A slice owns its whole path down to the database.
 - Endpoints are Minimal APIs and contain no logic: bind the request, call
-  `bus.InvokeAsync<Result<T>>(command, ct)`, map the result with `ToHttpResult()`.
+  `bus.InvokeForCurrentTenantAsync<Result<T>>(tenant, command, ct)`, map the result with `ToHttpResult()`. Never call
+  `InvokeAsync` or `InvokeForTenantAsync` directly (architecture test).
 - Handlers are plain classes with a `Handle` method (Wolverine convention) and return `Result<T>`.
 - Expected failures (validation, business rule, not found, conflict) are `Error` values from BuildingBlocks.
   Throw only for unexpected faults. Never use exceptions for control flow.
@@ -25,10 +26,16 @@ alwaysApply: false
   except Tenancy's, whose tables are global. `IgnoreQueryFilters` is banned (RS0030).
 - Module endpoint groups call `.RequireAuthorization(AuthorizationPolicies.TenantMember)`. Every other endpoint needs
   an authenticated user (fallback policy); only health checks and `/dev/token` allow anonymous callers.
-- Never call `TenantContext.SetTenant` outside the Tenancy module; everything else reads `ITenantContext`.
-- Wolverine handlers must not assume the HTTP request's `ITenantContext` until Brief #6 proves tenant propagation.
-- Integration events are immutable records carrying `TenantId`, `CorrelationId`, `OccurredAt`. Change one by adding a
-  new versioned type (`...V2`), never by editing the old one.
+- Never call `TenantContext.SetTenant` outside the Tenancy module and the BuildingBlocks `TenantPropagationMiddleware`;
+  everything else reads `ITenantContext`. Handlers get the tenant from the envelope (ADR-0009).
+- One DbContext per handler. Cross-module effects go only through integration events.
+- Integration events (ADR-0009) are `sealed record`s in `FinGuard.<Module>.Contracts.Events` carrying `EventId`,
+  `TenantId`, `OccurredAt`. Change one by adding a new versioned type (`...V2`), never by editing the old one.
+- Consumers are idempotent by `EventId`: store it with a unique index and ignore duplicates.
+- Module DbContext registration: singleton options (`optionsLifetime: ServiceLifetime.Singleton`),
+  `TenantStampingInterceptor.Instance`, and `DisableRetry = true` in `EnrichNpgsqlDbContext`. Otherwise Wolverine code
+  generation or Eager transactions fail.
+- Messages must not carry amounts or free text while Wolverine logs failed messages with `ToString()` (R-21).
 - Use `TimeProvider`, `CancellationToken` everywhere, nullable enabled, warnings as errors.
 - Logging: message templates, never string interpolation; log ids and counts, never monetary values or CSV rows.
 - Do not add generic repositories or MediatR. Aggregates with repositories exist only in Compliance.
