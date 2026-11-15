@@ -26,7 +26,7 @@ public static class AdvisoryModule
 
     public static IEndpointRouteBuilder MapAdvisoryEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/advisory");
+        endpoints.MapGroup("/api/advisory").RequireAuthorization(AuthorizationPolicies.TenantMember);
         return endpoints;
     }
 }

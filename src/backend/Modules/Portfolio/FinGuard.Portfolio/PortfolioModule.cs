@@ -26,7 +26,7 @@ public static class PortfolioModule
 
     public static IEndpointRouteBuilder MapPortfolioEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/portfolio");
+        endpoints.MapGroup("/api/portfolio").RequireAuthorization(AuthorizationPolicies.TenantMember);
         return endpoints;
     }
 }

@@ -6,6 +6,7 @@ using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.Compliance;
 using FinGuard.Portfolio;
 using FinGuard.Tenancy;
+using FinGuard.Tenancy.Development;
 using Wolverine;
 using Wolverine.Postgresql;
 
@@ -51,7 +52,10 @@ app.UseStatusCodePages();
 if (app.Environment.IsDevelopment())
 {
     await app.ApplyModuleMigrationsAsync();
+    await app.Services.SeedDevelopmentTenantsAsync(app.Lifetime.ApplicationStopping);
 }
+
+app.UseTenancy();
 
 app.MapDefaultEndpoints();
 app.MapTenancyEndpoints();

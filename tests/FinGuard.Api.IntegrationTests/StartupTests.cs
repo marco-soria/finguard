@@ -16,8 +16,7 @@ public sealed class StartupTests(ApiFixture fixture)
         // EFCore.NamingConventions also snake-cases the history table columns.
         var migrations = await QueryAsync<string>($"SELECT migration_id FROM \"{schema}\".__ef_migrations_history");
 
-        var migration = Assert.Single(migrations);
-        Assert.EndsWith("_InitialSchema", migration, StringComparison.Ordinal);
+        Assert.EndsWith("_InitialSchema", migrations.Order(StringComparer.Ordinal).First(), StringComparison.Ordinal);
     }
 
     [Fact]

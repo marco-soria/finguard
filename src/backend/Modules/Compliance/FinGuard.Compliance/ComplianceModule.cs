@@ -26,7 +26,7 @@ public static class ComplianceModule
 
     public static IEndpointRouteBuilder MapComplianceEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/compliance");
+        endpoints.MapGroup("/api/compliance").RequireAuthorization(AuthorizationPolicies.TenantMember);
         return endpoints;
     }
 }
