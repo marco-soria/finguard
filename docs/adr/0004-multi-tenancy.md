@@ -22,6 +22,8 @@ so only portfolio-derived data is tenant-owned.
 - Simple operations and cheap local development.
 - A forgotten filter would leak data, so tenant isolation is covered by tests and an architecture rule
   (tenant-owned entities must implement `ITenantOwned`).
+- The `tenancy.users` lookup that maps (`iss`, `sub`) to a tenant is the only query without a `tenant_id` filter: it
+  is how the tenant is found (D-63).
 - Wolverine documents a "conjoined multi-tenancy" mode for EF Core; evaluate it in the Phase 1 spike but keep the
   explicit filter unless it clearly removes code.
 

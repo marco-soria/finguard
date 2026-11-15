@@ -1,4 +1,5 @@
 using FinGuard.BuildingBlocks.Persistence;
+using FinGuard.BuildingBlocks.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -11,6 +12,6 @@ internal sealed class PortfolioDbContextFactory : IDesignTimeDbContextFactory<Po
     {
         var options = new DbContextOptionsBuilder<PortfolioDbContext>();
         options.UseModuleNpgsql(DesignTimeConnection.Placeholder, PortfolioDbContext.Schema);
-        return new PortfolioDbContext(options.Options);
+        return new PortfolioDbContext(options.Options, NoTenantContext.Instance);
     }
 }

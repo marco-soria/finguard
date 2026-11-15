@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using FinGuard.Tenancy.Development;
 
 namespace FinGuard.Api.IntegrationTests;
 
@@ -11,7 +12,7 @@ public sealed class ErrorHandlingTests(ApiFixture fixture)
     public async Task UnhandledException_AnyRequest_Returns500ProblemWithoutDetails()
     {
         var secret = Guid.NewGuid().ToString();
-        using var client = fixture.Factory.CreateClient();
+        using var client = fixture.CreateClient(DevIdentities.Alice);
 
         using var response = await client.GetAsync(ThrowUri(secret), TestContext.Current.CancellationToken);
         var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
@@ -28,7 +29,7 @@ public sealed class ErrorHandlingTests(ApiFixture fixture)
     public async Task UnhandledException_AnyRequest_DoesNotLogExceptionMessage()
     {
         var secret = Guid.NewGuid().ToString();
-        using var client = fixture.Factory.CreateClient();
+        using var client = fixture.CreateClient(DevIdentities.Alice);
 
         using var response = await client.GetAsync(ThrowUri(secret), TestContext.Current.CancellationToken);
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
@@ -46,7 +47,7 @@ public sealed class ErrorHandlingTests(ApiFixture fixture)
     [Fact]
     public async Task UnknownRoute_AnyRequest_Returns404Problem()
     {
-        using var client = fixture.Factory.CreateClient();
+        using var client = fixture.CreateClient(DevIdentities.Alice);
 
         using var response = await client.GetAsync(new Uri("/no-such-route", UriKind.Relative), TestContext.Current.CancellationToken);
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));

@@ -12,3 +12,4 @@ ADR to change its meaning: add a new one that supersedes it.
 | [0005](0005-local-first-cloud-ready.md) | Local-first delivery, cloud-ready code | Accepted |
 | [0006](0006-ai-stack-agent-framework.md) | Microsoft Agent Framework behind a narrator port | Accepted |
 | [0007](0007-persistence-ef-commands-dapper-queries.md) | EF Core for commands, Dapper for queries | Accepted |
+| [0008](0008-development-identity.md) | Development identity with an in-process token issuer | Accepted |

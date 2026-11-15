@@ -1,4 +1,5 @@
 using FinGuard.BuildingBlocks.Persistence;
+using FinGuard.BuildingBlocks.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -11,6 +12,6 @@ internal sealed class ComplianceDbContextFactory : IDesignTimeDbContextFactory<C
     {
         var options = new DbContextOptionsBuilder<ComplianceDbContext>();
         options.UseModuleNpgsql(DesignTimeConnection.Placeholder, ComplianceDbContext.Schema);
-        return new ComplianceDbContext(options.Options);
+        return new ComplianceDbContext(options.Options, NoTenantContext.Instance);
     }
 }

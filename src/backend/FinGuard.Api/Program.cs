@@ -1,11 +1,13 @@
 using System.Diagnostics;
 using FinGuard.Advisory;
+using FinGuard.Api.DevAuth;
 using FinGuard.Api.Errors;
 using FinGuard.Api.Persistence;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.Compliance;
 using FinGuard.Portfolio;
 using FinGuard.Tenancy;
+using FinGuard.Tenancy.Development;
 using Wolverine;
 using Wolverine.Postgresql;
 
@@ -19,6 +21,7 @@ builder.AddTenancyModule();
 builder.AddPortfolioModule();
 builder.AddComplianceModule();
 builder.AddAdvisoryModule();
+builder.AddFinGuardAuthentication();
 
 builder.Host.UseWolverine(opts =>
 {
@@ -51,9 +54,19 @@ app.UseStatusCodePages();
 if (app.Environment.IsDevelopment())
 {
     await app.ApplyModuleMigrationsAsync();
+    await app.Services.SeedDevelopmentTenantsAsync(app.Lifetime.ApplicationStopping);
 }
 
+app.UseAuthentication();
+app.UseTenancy();
+app.UseAuthorization();
+
 app.MapDefaultEndpoints();
+if (app.Environment.IsDevelopment())
+{
+    app.MapDevTokenEndpoints();
+}
+
 app.MapTenancyEndpoints();
 app.MapPortfolioEndpoints();
 app.MapComplianceEndpoints();

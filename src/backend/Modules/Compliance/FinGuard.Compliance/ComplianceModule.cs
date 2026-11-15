@@ -1,4 +1,5 @@
 using FinGuard.BuildingBlocks.Persistence;
+using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Compliance.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -14,7 +15,9 @@ public static class ComplianceModule
     public static IHostApplicationBuilder AddComplianceModule(this IHostApplicationBuilder builder)
     {
         var connectionString = builder.Configuration.GetRequiredFinGuardConnectionString();
-        builder.Services.AddDbContext<ComplianceDbContext>(o => o.UseModuleNpgsql(connectionString, ComplianceDbContext.Schema));
+        builder.Services.AddDbContext<ComplianceDbContext>((sp, o) => o
+            .UseModuleNpgsql(connectionString, ComplianceDbContext.Schema)
+            .AddInterceptors(sp.GetRequiredService<TenantStampingInterceptor>()));
         builder.EnrichNpgsqlDbContext<ComplianceDbContext>(s => s.DisableHealthChecks = true);
         // Lets the Api apply every module's migrations without seeing the internal DbContext types.
         builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ComplianceDbContext>());
@@ -23,7 +26,7 @@ public static class ComplianceModule
 
     public static IEndpointRouteBuilder MapComplianceEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/compliance");
+        endpoints.MapGroup("/api/compliance").RequireAuthorization(AuthorizationPolicies.TenantMember);
         return endpoints;
     }
 }
