@@ -1,8 +1,12 @@
 using System.Net.Http.Headers;
 using FinGuard.Api.DevAuth;
+using FinGuard.Api.IntegrationTests.Tenancy;
+using FinGuard.BuildingBlocks.Persistence;
+using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Tenancy.Development;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
@@ -40,6 +44,27 @@ public sealed class ApiFixture : IAsyncLifetime
         Factory = new ApiFactory(ConnectionString);
         // Boots the host: module migrations and Wolverine storage are created here.
         _ = Factory.Server;
+
+        await using var probe = CreateProbeContext(tenantId: null);
+        await probe.Database.ExecuteSqlRawAsync(probe.Database.GenerateCreateScript());
+    }
+
+    /// <summary>
+    /// A <see cref="ProbeDbContext"/> with the real <see cref="TenantStampingInterceptor"/>. The tenant is set through a
+    /// fresh <see cref="TenantContext"/>, the way the Tenancy middleware sets it for a request.
+    /// </summary>
+    internal ProbeDbContext CreateProbeContext(Guid? tenantId)
+    {
+        var tenantContext = new TenantContext();
+        if (tenantId is { } id)
+        {
+            tenantContext.SetTenant(id);
+        }
+
+        var options = new DbContextOptionsBuilder<ProbeDbContext>();
+        options.UseModuleNpgsql(ConnectionString, ProbeDbContext.Schema)
+            .AddInterceptors(new TenantStampingInterceptor(tenantContext));
+        return new ProbeDbContext(options.Options, tenantContext);
     }
 
     public async ValueTask DisposeAsync()
@@ -65,6 +90,7 @@ public sealed class ApiFixture : IAsyncLifetime
             {
                 services.AddLogging(logging => logging.AddFakeLogging());
                 services.AddTransient<IStartupFilter, ThrowingEndpointStartupFilter>();
+                services.AddTransient<IStartupFilter, TenantProbeStartupFilter>();
             });
         }
     }
