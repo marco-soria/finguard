@@ -1,4 +1,5 @@
 using FinGuard.BuildingBlocks.Persistence;
+using FinGuard.BuildingBlocks.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -11,6 +12,6 @@ internal sealed class AdvisoryDbContextFactory : IDesignTimeDbContextFactory<Adv
     {
         var options = new DbContextOptionsBuilder<AdvisoryDbContext>();
         options.UseModuleNpgsql(DesignTimeConnection.Placeholder, AdvisoryDbContext.Schema);
-        return new AdvisoryDbContext(options.Options);
+        return new AdvisoryDbContext(options.Options, NoTenantContext.Instance);
     }
 }

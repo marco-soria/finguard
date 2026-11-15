@@ -1,5 +1,6 @@
 using FinGuard.Advisory.Persistence;
 using FinGuard.BuildingBlocks.Persistence;
+using FinGuard.BuildingBlocks.Tenancy;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,9 @@ public static class AdvisoryModule
     public static IHostApplicationBuilder AddAdvisoryModule(this IHostApplicationBuilder builder)
     {
         var connectionString = builder.Configuration.GetRequiredFinGuardConnectionString();
-        builder.Services.AddDbContext<AdvisoryDbContext>(o => o.UseModuleNpgsql(connectionString, AdvisoryDbContext.Schema));
+        builder.Services.AddDbContext<AdvisoryDbContext>((sp, o) => o
+            .UseModuleNpgsql(connectionString, AdvisoryDbContext.Schema)
+            .AddInterceptors(sp.GetRequiredService<TenantStampingInterceptor>()));
         builder.EnrichNpgsqlDbContext<AdvisoryDbContext>(s => s.DisableHealthChecks = true);
         // Lets the Api apply every module's migrations without seeing the internal DbContext types.
         builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AdvisoryDbContext>());
