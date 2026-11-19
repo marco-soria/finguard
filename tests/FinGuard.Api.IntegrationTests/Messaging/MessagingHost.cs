@@ -11,6 +11,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Testing;
 using Npgsql;
 using Wolverine;
 
@@ -24,6 +26,12 @@ public sealed class MessagingHost : IAsyncDisposable
 {
     public const string DatabaseName = "finguard_messaging";
 
+    /// <summary>
+    /// xUnit collection for every test class that uses this host: TrackActivity sessions see all host activity, so
+    /// classes running in parallel would see each other's messages.
+    /// </summary>
+    public const string Collection = "MessagingHost";
+
     private readonly WebApplicationFactory<Program> _factory;
 
     private MessagingHost(string connectionString)
@@ -35,6 +43,8 @@ public sealed class MessagingHost : IAsyncDisposable
     public string ConnectionString { get; }
 
     public IServiceProvider Services => _factory.Services;
+
+    public FakeLogCollector Logs => Services.GetFakeLogCollector();
 
     public static async Task<MessagingHost> StartAsync(string serverConnectionString)
     {
@@ -107,6 +117,7 @@ public sealed class MessagingHost : IAsyncDisposable
             builder.UseSetting("APPLICATIONINSIGHTS_CONNECTION_STRING", string.Empty);
             builder.ConfigureServices(services =>
             {
+                services.AddLogging(logging => logging.AddFakeLogging());
                 // Registered the way modules register theirs (singleton options, stateless interceptor).
                 services.AddDbContext<ProbeOrdersDbContext>(
                     o => o.UseModuleNpgsql(connectionString, ProbeOrdersDbContext.Schema)

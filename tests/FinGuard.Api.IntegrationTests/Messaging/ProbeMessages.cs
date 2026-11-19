@@ -4,10 +4,18 @@ using Npgsql;
 
 namespace FinGuard.Api.IntegrationTests.Messaging;
 
-public sealed record PlaceProbeOrder(Guid OrderId, string Reference, bool FailAfterSave);
+// ToString overrides keep Reference (free text) out of Wolverine's logs (R-21, D-77).
+public sealed record PlaceProbeOrder(Guid OrderId, string Reference, bool FailAfterSave)
+{
+    public override string ToString() => $"{nameof(PlaceProbeOrder)} {{ OrderId = {OrderId} }}";
+}
 
 /// <summary>Shaped like an integration event (ADR-0009).</summary>
-public sealed record ProbeOrderPlaced(Guid EventId, Guid TenantId, DateTimeOffset OccurredAt, Guid OrderId, string Reference);
+public sealed record ProbeOrderPlaced(Guid EventId, Guid TenantId, DateTimeOffset OccurredAt, Guid OrderId, string Reference)
+{
+    public override string ToString() =>
+        $"{nameof(ProbeOrderPlaced)} {{ EventId = {EventId}, TenantId = {TenantId}, OccurredAt = {OccurredAt:O}, OrderId = {OrderId} }}";
+}
 
 /// <summary>Writes through the orders context only; the event cascades through the outbox.</summary>
 public static class PlaceProbeOrderHandler

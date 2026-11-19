@@ -60,6 +60,43 @@ public sealed partial class MessagingRulesTests
             $"Send commands with {nameof(MessageBusTenantExtensions.InvokeForCurrentTenantAsync)}: {string.Join("; ", violations)}");
     }
 
+    [Fact]
+    public void MessageTypes_Always_OverrideToString()
+    {
+        // R-21 (D-77): Wolverine logs a failed message with ToString(); a record prints every property by default.
+        var handled = Modules.Values
+            .SelectMany(m => m.GetTypes())
+            .SelectMany(t => t.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+            .Where(m => HandlerMethodNames.Contains(m.Name) && m.GetParameters().Length > 0)
+            .Select(m => m.GetParameters()[0].ParameterType)
+            // Messages are FinGuard types; this skips framework handlers such as IAuthorizationMiddlewareResultHandler.
+            .Where(t => t.Assembly.GetName().Name!.StartsWith(Prefix, StringComparison.Ordinal));
+        var events = Contracts
+            .SelectMany(c => c.GetTypes())
+            .Where(t => t.Namespace?.EndsWith(IntegrationEventConventions.EventsNamespaceSuffix, StringComparison.Ordinal) == true
+                        && !t.IsNested && !IsCompilerGenerated(t));
+
+        var violations = handled.Concat(events)
+            .Distinct()
+            .Where(t => !OverridesToString(t))
+            .Select(t => t.FullName)
+            .ToList();
+
+        Assert.True(violations.Count == 0,
+            $"Message types must override ToString() with type name and identifiers only: {string.Join("; ", violations)}");
+    }
+
+    private static readonly HashSet<string> HandlerMethodNames = new(StringComparer.Ordinal)
+    {
+        "Handle", "HandleAsync", "Consume", "ConsumeAsync",
+    };
+
+    // A record's synthesized ToString() is declared on the record too, so the compiler-generated marker tells them apart.
+    private static bool OverridesToString(Type type) =>
+        type.GetMethod(nameof(ToString), BindingFlags.Public | BindingFlags.Instance, Type.EmptyTypes) is { } method
+        && method.DeclaringType == type
+        && !method.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), inherit: false);
+
     private static IEnumerable<string> EventConventionViolations(Type type)
     {
         if (!type.IsSealed || type.GetMethod("<Clone>$") is null)
