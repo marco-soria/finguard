@@ -37,7 +37,7 @@ public sealed class PortfolioDbContext(DbContextOptions<PortfolioDbContext> opti
             position.Property(p => p.AssetClass)
                 .HasConversion(a => a.ToCode(), code => AssetClassCodes.FromCode(code))
                 .HasMaxLength(AssetClassCodes.MaxLength);
-            position.Property(p => p.MarketValueUsd).HasPrecision(18, 2);
+            position.Property(p => p.BookValue).HasPrecision(18, 2);
             position.HasOne<Submission>().WithMany().HasForeignKey(p => p.SubmissionId).OnDelete(DeleteBehavior.Cascade);
         });
 

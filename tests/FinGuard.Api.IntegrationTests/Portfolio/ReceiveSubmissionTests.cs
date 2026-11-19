@@ -30,7 +30,7 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
     public async Task Upload_ValidCsv_Returns201AcceptedAndStoresPositions()
     {
         var content = Encoding.UTF8.GetBytes(
-            "position_id,asset_class,market_value_usd,currency,description\nP-1,cash,1000.00,USD,Bills\nP-2,Fixed_Income,250.5,usd,Bonds\n");
+            "position_id,asset_class,book_value,currency,description\nP-1,cash,1000.00,USD,Bills\nP-2,Fixed_Income,250.5,usd,Bonds\n");
 
         using var response = await UploadAsync(DevIdentities.Alice, content, "portfolio.csv", Today);
 
@@ -74,7 +74,7 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
     [Fact]
     public async Task Upload_TenThousandRows_IsAccepted()
     {
-        var csv = new StringBuilder("position_id,asset_class,market_value_usd,currency,description\n");
+        var csv = new StringBuilder("position_id,asset_class,book_value,currency,description\n");
         for (var i = 1; i <= 10_000; i++)
         {
             csv.Append(CultureInfo.InvariantCulture, $"P-{i},shares,{i}.25,USD,Position {i}\n");
@@ -96,7 +96,7 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
     [Fact]
     public async Task Upload_ManyBadRows_StoresFirst100ErrorsAndTotalCount()
     {
-        var csv = new StringBuilder("position_id,asset_class,market_value_usd,currency,description\n");
+        var csv = new StringBuilder("position_id,asset_class,book_value,currency,description\n");
         for (var i = 1; i <= 150; i++)
         {
             csv.Append(CultureInfo.InvariantCulture, $"P-{i},cash,1,EUR,\n");
@@ -289,9 +289,9 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
         var marker = $"marker{Guid.NewGuid():N}";
         var amount = "73519.47";
         var valid = Encoding.UTF8.GetBytes(
-            $"position_id,asset_class,market_value_usd,currency,description\nID{marker},cash,{amount},USD,Desc{marker}\n");
+            $"position_id,asset_class,book_value,currency,description\nID{marker},cash,{amount},USD,Desc{marker}\n");
         var invalid = Encoding.UTF8.GetBytes(
-            $"position_id,asset_class,market_value_usd,currency,description\nID{marker},Class{marker},-{amount},Ccy{marker},Desc{marker}\n");
+            $"position_id,asset_class,book_value,currency,description\nID{marker},Class{marker},-{amount},Ccy{marker},Desc{marker}\n");
         var hash = Convert.ToHexStringLower(SHA256.HashData(valid));
 
         var acceptedId = await UploadOkAsync(DevIdentities.Alice, valid, $"{marker}.csv");
@@ -316,7 +316,7 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
     }
 
     private static byte[] Csv(string description = "Treasury bills") => Encoding.UTF8.GetBytes(
-        $"position_id,asset_class,market_value_usd,currency,description\nP-1,cash,1000.00,USD,{description}\n");
+        $"position_id,asset_class,book_value,currency,description\nP-1,cash,1000.00,USD,{description}\n");
 
     private static MultipartFormDataContent Form(byte[] content, string fileName, string cutOffDate)
     {
@@ -364,12 +364,12 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
             reader.GetString(4), reader.GetString(5), reader.GetGuid(6), reader.GetFieldValue<byte[]>(7), reader.GetInt32(8));
     }
 
-    private async Task<List<(int Row, string PositionId, string AssetClass, decimal MarketValueUsd)>> ReadPositionsAsync(Guid id)
+    private async Task<List<(int Row, string PositionId, string AssetClass, decimal BookValue)>> ReadPositionsAsync(Guid id)
     {
         await using var connection = new NpgsqlConnection(fixture.ConnectionString);
         await connection.OpenAsync(_ct);
         await using var command = new NpgsqlCommand(
-            "SELECT row_number, position_id, asset_class, market_value_usd FROM portfolio.positions WHERE submission_id = @id ORDER BY row_number",
+            "SELECT row_number, position_id, asset_class, book_value FROM portfolio.positions WHERE submission_id = @id ORDER BY row_number",
             connection);
         command.Parameters.AddWithValue("id", id);
         await using var reader = await command.ExecuteReaderAsync(_ct);

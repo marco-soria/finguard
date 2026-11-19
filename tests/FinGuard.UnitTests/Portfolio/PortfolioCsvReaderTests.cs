@@ -8,7 +8,7 @@ namespace FinGuard.UnitTests.Portfolio;
 
 public sealed class PortfolioCsvReaderTests
 {
-    private const string Header = "position_id,asset_class,market_value_usd,currency,description";
+    private const string Header = "position_id,asset_class,book_value,currency,description";
 
     // ---- Encoding
 
@@ -48,16 +48,16 @@ public sealed class PortfolioCsvReaderTests
 
     [Theory]
     [InlineData(Header)]
-    [InlineData("description,currency,market_value_usd,asset_class,position_id")]
-    [InlineData("POSITION_ID,ASSET_CLASS,MARKET_VALUE_USD,CURRENCY,DESCRIPTION")]
-    [InlineData(" position_id , asset_class,market_value_usd ,currency,  description")]
+    [InlineData("description,currency,book_value,asset_class,position_id")]
+    [InlineData("POSITION_ID,ASSET_CLASS,BOOK_VALUE,CURRENCY,DESCRIPTION")]
+    [InlineData(" position_id , asset_class,book_value ,currency,  description")]
     public void Read_HeaderVariant_IsAccepted(string header)
     {
         var values = new Dictionary<string, string>
         {
             ["position_id"] = "P-1",
             ["asset_class"] = "shares",
-            ["market_value_usd"] = "10",
+            ["book_value"] = "10",
             ["currency"] = "USD",
             ["description"] = "x",
         };
@@ -70,7 +70,7 @@ public sealed class PortfolioCsvReaderTests
     }
 
     [Theory]
-    [InlineData("position_id,asset_class,market_value_usd,currency", E.ColumnMissing, "description")]
+    [InlineData("position_id,asset_class,book_value,currency", E.ColumnMissing, "description")]
     [InlineData(Header + ",notes", E.ColumnUnknown, null)]
     [InlineData(Header + ",currency", E.ColumnDuplicated, "currency")]
     public void Read_BadHeader_ReturnsColumnError(string header, string code, string? column)
@@ -88,6 +88,17 @@ public sealed class PortfolioCsvReaderTests
         AssertSingleError(Read(csv), E.HeaderMissing, null, null);
 
     [Fact]
+    public void Read_OldMarketValueHeader_ReturnsColumnUnknownAndColumnMissing()
+    {
+        var result = Read("position_id,asset_class,market_value_usd,currency,description\nP-1,cash,1,USD,x");
+
+        Assert.Equal(
+            [(E.ColumnUnknown, (string?)null), (E.ColumnMissing, "book_value")],
+            result.Errors.Select(e => (e.Code, e.Column)));
+        Assert.Empty(result.Positions);
+    }
+
+    [Fact]
     public void Read_HeaderOnly_ReturnsNoRows() => AssertSingleError(Read($"{Header}\n"), E.NoRows, null, null);
 
     // ---- Rows: one case per row error code
@@ -98,14 +109,14 @@ public sealed class PortfolioCsvReaderTests
         { $"{new string('P', 65)},cash,1,USD,x", E.PositionIdTooLong, "position_id" },
         { "P-1,,1,USD,x", E.AssetClassRequired, "asset_class" },
         { "P-1,crypto,1,USD,x", E.AssetClassUnknown, "asset_class" },
-        { "P-1,cash,,USD,x", E.MarketValueRequired, "market_value_usd" },
-        { "P-1,cash,abc,USD,x", E.MarketValueInvalid, "market_value_usd" },
-        { "P-1,cash,-1,USD,x", E.MarketValueNegative, "market_value_usd" },
-        { "P-1,cash,1.505,USD,x", E.MarketValueTooPrecise, "market_value_usd" },
-        { "P-1,cash,10000000000000000.00,USD,x", E.MarketValueOutOfRange, "market_value_usd" },
+        { "P-1,cash,,USD,x", E.BookValueRequired, "book_value" },
+        { "P-1,cash,abc,USD,x", E.BookValueInvalid, "book_value" },
+        { "P-1,cash,-1,USD,x", E.BookValueNegative, "book_value" },
+        { "P-1,cash,1.505,USD,x", E.BookValueTooPrecise, "book_value" },
+        { "P-1,cash,10000000000000000.00,USD,x", E.BookValueOutOfRange, "book_value" },
         { "P-1,cash,1,,x", E.CurrencyRequired, "currency" },
-        { "P-1,cash,1,EUR,x", E.CurrencyNotUsd, "currency" },
-        { $"P-1,cash,1,USD,{new string('d', 501)}", E.DescriptionTooLong, "description" },
+        { "P-1,cash,1,EUR,x", E.CurrencyNotSupported, "currency" },
+        { $"P-1,cash,1,USD,{new string('d', 151)}", E.DescriptionTooLong, "description" },
     };
 
     [Theory]
@@ -131,10 +142,10 @@ public sealed class PortfolioCsvReaderTests
     public void Read_SeveralErrorsInOneRow_OrdersByCanonicalColumn()
     {
         // Columns reordered in the file; errors still follow the canonical header order.
-        var result = Read("description,currency,market_value_usd,asset_class,position_id\nx,EUR,-1,,");
+        var result = Read("description,currency,book_value,asset_class,position_id\nx,EUR,-1,,");
 
         Assert.Equal(
-            ["position_id", "asset_class", "market_value_usd", "currency"],
+            ["position_id", "asset_class", "book_value", "currency"],
             result.Errors.Select(e => e.Column));
         Assert.All(result.Errors, e => Assert.Equal(2, e.Row));
     }
@@ -162,7 +173,7 @@ public sealed class PortfolioCsvReaderTests
     {
         var result = Read($"{Header}\nP-1,cash,1,USD,\"line one\nline two\nline three\"\nP-2,cash,1,EUR,");
 
-        AssertSingleError(result, E.CurrencyNotUsd, 3, "currency");
+        AssertSingleError(result, E.CurrencyNotSupported, 3, "currency");
     }
 
     [Fact]
@@ -170,7 +181,7 @@ public sealed class PortfolioCsvReaderTests
     {
         var result = Read($"{Header}\r\nP-1,cash,1,USD,\"a\r\nb\"\r\nP-2,cash,1,EUR,\r\n");
 
-        AssertSingleError(result, E.CurrencyNotUsd, 3, "currency");
+        AssertSingleError(result, E.CurrencyNotSupported, 3, "currency");
     }
 
     [Fact]
@@ -178,7 +189,7 @@ public sealed class PortfolioCsvReaderTests
     {
         var result = Read($"{Header}\n\nP-1,cash,1,USD,\n\n\nP-2,cash,1,EUR,\n\n");
 
-        AssertSingleError(result, E.CurrencyNotUsd, 6, "currency");
+        AssertSingleError(result, E.CurrencyNotSupported, 6, "currency");
         Assert.Equal(2, result.RowCount);
     }
 
@@ -206,7 +217,7 @@ public sealed class PortfolioCsvReaderTests
     {
         var result = Read($"{Header}\nP-1,cash,1,EUR,\nP-2,cash\n");
 
-        Assert.Equal([E.CurrencyNotUsd, E.MalformedRow], result.Errors.Select(e => e.Code));
+        Assert.Equal([E.CurrencyNotSupported, E.MalformedRow], result.Errors.Select(e => e.Code));
         Assert.Equal(2, result.ErrorCount);
     }
 
@@ -215,6 +226,7 @@ public sealed class PortfolioCsvReaderTests
     [Theory]
     [InlineData("0", "0")]
     [InlineData("0.00", "0")]
+    [InlineData("0.01", "0.01")]
     [InlineData("1", "1")]
     [InlineData("1.5", "1.5")]
     [InlineData("1.50", "1.5")]
@@ -226,19 +238,20 @@ public sealed class PortfolioCsvReaderTests
     }
 
     [Theory]
-    [InlineData("-1", E.MarketValueNegative)]
-    [InlineData("-0.5", E.MarketValueNegative)]
-    [InlineData("1.505", E.MarketValueTooPrecise)]
-    [InlineData("1,000", E.MarketValueInvalid)]
-    [InlineData("1e3", E.MarketValueInvalid)]
-    [InlineData("+1", E.MarketValueInvalid)]
-    [InlineData("abc", E.MarketValueInvalid)]
-    [InlineData(".5", E.MarketValueInvalid)]
-    [InlineData("1.", E.MarketValueInvalid)]
-    [InlineData("$1", E.MarketValueInvalid)]
-    [InlineData("10000000000000000.00", E.MarketValueOutOfRange)]
-    [InlineData("99999999999999999999999999999999999", E.MarketValueOutOfRange)]
-    [InlineData("", E.MarketValueRequired)]
+    [InlineData("-1", E.BookValueNegative)]
+    [InlineData("-0.5", E.BookValueNegative)]
+    [InlineData("-0.01", E.BookValueNegative)]
+    [InlineData("1.505", E.BookValueTooPrecise)]
+    [InlineData("1,000", E.BookValueInvalid)]
+    [InlineData("1e3", E.BookValueInvalid)]
+    [InlineData("+1", E.BookValueInvalid)]
+    [InlineData("abc", E.BookValueInvalid)]
+    [InlineData(".5", E.BookValueInvalid)]
+    [InlineData("1.", E.BookValueInvalid)]
+    [InlineData("$1", E.BookValueInvalid)]
+    [InlineData("10000000000000000.00", E.BookValueOutOfRange)]
+    [InlineData("99999999999999999999999999999999999", E.BookValueOutOfRange)]
+    [InlineData("", E.BookValueRequired)]
     public void ValidateAmount_Rejected(string text, string code) =>
         Assert.Equal(code, PortfolioCsvReader.ValidateAmount(text, out _));
 
@@ -247,7 +260,39 @@ public sealed class PortfolioCsvReaderTests
     {
         var result = Read($"{Header}\nP-1,cash,\"1,000.00\",USD,");
 
-        AssertSingleError(result, E.MarketValueInvalid, 2, "market_value_usd");
+        AssertSingleError(result, E.BookValueInvalid, 2, "book_value");
+    }
+
+    [Fact]
+    public void Read_LeadingMinus_IsReportedAsNegativeNotInvalid()
+    {
+        var result = Read($"{Header}\nP-1,cash,-1,USD,");
+
+        AssertSingleError(result, E.BookValueNegative, 2, "book_value");
+    }
+
+    // ---- Currency
+
+    [Theory]
+    [InlineData("USD")]
+    [InlineData("usd")]
+    [InlineData(" Usd ")]
+    public void Read_UsdInAnyCase_IsAccepted(string currency) =>
+        Assert.True(Read($"{Header}\nP-1,cash,1,{currency},").IsValid);
+
+    [Theory]
+    [InlineData("EUR", E.CurrencyNotSupported)]
+    [InlineData("PEN", E.CurrencyNotSupported)]
+    [InlineData("", E.CurrencyRequired)]
+    public void Read_OtherCurrency_ReturnsCurrencyError(string currency, string code) =>
+        AssertSingleError(Read($"{Header}\nP-1,cash,1,{currency},"), code, 2, "currency");
+
+    [Fact]
+    public void Read_NonUsdCurrency_ExplainsOnlyUsdIsSupported()
+    {
+        var error = Assert.Single(Read($"{Header}\nP-1,cash,1,EUR,").Errors);
+
+        Assert.Equal("Only USD positions are supported in this version.", error.Message);
     }
 
     // ---- Limits
@@ -280,8 +325,8 @@ public sealed class PortfolioCsvReaderTests
     }
 
     [Theory]
-    [InlineData(500, true)]
-    [InlineData(501, false)]
+    [InlineData(150, true)]
+    [InlineData(151, false)]
     public void Read_DescriptionLength_Boundary(int length, bool valid) =>
         Assert.Equal(valid, Read($"{Header}\nP-1,cash,1,USD,{new string('d', length)}").IsValid);
 
@@ -307,12 +352,12 @@ public sealed class PortfolioCsvReaderTests
     {
         var result = Read($"{Header}\nP-1,cash,0,EUR,");
 
-        AssertSingleError(result, E.CurrencyNotUsd, 2, "currency");
+        AssertSingleError(result, E.CurrencyNotSupported, 2, "currency");
     }
 
     [Fact]
     public void Read_ZeroValueRowInPositiveTotal_IsAccepted() =>
-        Assert.True(Read($"{Header}\nP-1,cash,0,USD,\nP-2,shares,1,USD,").IsValid);
+        Assert.True(Read($"{Header}\nP-1,cash,0,USD,\nP-2,shares,10,USD,").IsValid);
 
     // ---- Messages never echo cell content (D-115)
 

@@ -76,9 +76,9 @@ describe('SubmissionDetail', () => {
         { row: null, column: 'currency', code: 'Portfolio.Csv.ColumnMissing', message: 'Missing.' },
         {
           row: 3,
-          column: 'market_value_usd',
-          code: 'Portfolio.Csv.MarketValueNegative',
-          message: 'The market value must not be negative.',
+          column: 'book_value',
+          code: 'Portfolio.Csv.BookValueNegative',
+          message: 'The book value must not be negative.',
         },
       ],
     });
@@ -87,7 +87,7 @@ describe('SubmissionDetail', () => {
     expect(errorLines()).toEqual([
       'The file has no rows.',
       'currency: Missing.',
-      'Row 3, market_value_usd: The market value must not be negative.',
+      'Row 3, book_value: The book value must not be negative.',
     ]);
   });
 

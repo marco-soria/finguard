@@ -34,7 +34,7 @@ public sealed partial class ReceiveSubmissionHandler(
                 id, command.CutOffDate, fileName, command.Content.Length, sha256, receivedAt, csv.RowCount, csv.ErrorCount);
         db.Add(submission);
         db.Add(SubmissionContent.For(id, command.Content));
-        db.AddRange(csv.Positions.Select(p => Position.Create(id, p.RowNumber, p.PositionId, p.AssetClass, p.MarketValueUsd)));
+        db.AddRange(csv.Positions.Select(p => Position.Create(id, p.RowNumber, p.PositionId, p.AssetClass, p.BookValue)));
         db.AddRange(csv.Errors.Select((e, i) => SubmissionError.Create(id, i, e.Row, e.Column, e.Code, e.Message)));
 
         LogStored(logger, id, submission.SizeBytes, submission.Status, submission.RowCount, submission.ErrorCount);

@@ -37,7 +37,7 @@ namespace FinGuard.Portfolio.Persistence.Migrations
                     tenant_id = table.Column<Guid>(type: "uuid", nullable: false),
                     position_id = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
                     asset_class = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    market_value_usd = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false)
+                    book_value = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false)
                 },
                 constraints: table =>
                 {

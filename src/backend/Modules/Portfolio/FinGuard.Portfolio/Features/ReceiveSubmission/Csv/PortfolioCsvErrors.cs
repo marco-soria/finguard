@@ -25,13 +25,13 @@ public static class PortfolioCsvErrors
     public const string PositionIdDuplicated = "Portfolio.Csv.PositionIdDuplicated";
     public const string AssetClassRequired = "Portfolio.Csv.AssetClassRequired";
     public const string AssetClassUnknown = "Portfolio.Csv.AssetClassUnknown";
-    public const string MarketValueRequired = "Portfolio.Csv.MarketValueRequired";
-    public const string MarketValueInvalid = "Portfolio.Csv.MarketValueInvalid";
-    public const string MarketValueNegative = "Portfolio.Csv.MarketValueNegative";
-    public const string MarketValueTooPrecise = "Portfolio.Csv.MarketValueTooPrecise";
-    public const string MarketValueOutOfRange = "Portfolio.Csv.MarketValueOutOfRange";
+    public const string BookValueRequired = "Portfolio.Csv.BookValueRequired";
+    public const string BookValueInvalid = "Portfolio.Csv.BookValueInvalid";
+    public const string BookValueNegative = "Portfolio.Csv.BookValueNegative";
+    public const string BookValueTooPrecise = "Portfolio.Csv.BookValueTooPrecise";
+    public const string BookValueOutOfRange = "Portfolio.Csv.BookValueOutOfRange";
     public const string CurrencyRequired = "Portfolio.Csv.CurrencyRequired";
-    public const string CurrencyNotUsd = "Portfolio.Csv.CurrencyNotUsd";
+    public const string CurrencyNotSupported = "Portfolio.Csv.CurrencyNotSupported";
     public const string DescriptionTooLong = "Portfolio.Csv.DescriptionTooLong";
 
     // File-level total, only when nothing else is wrong.
@@ -52,15 +52,15 @@ public static class PortfolioCsvErrors
         [PositionIdDuplicated] = "The position id appears on an earlier row.",
         [AssetClassRequired] = "The asset class is required.",
         [AssetClassUnknown] = "The asset class must be cash, fixed_income, shares or real_estate.",
-        [MarketValueRequired] = "The market value is required.",
-        [MarketValueInvalid] = "The market value must be a plain number such as 1234.56.",
-        [MarketValueNegative] = "The market value must not be negative.",
-        [MarketValueTooPrecise] = "The market value must have at most 2 decimals.",
-        [MarketValueOutOfRange] = "The market value is too large.",
+        [BookValueRequired] = "The book value is required.",
+        [BookValueInvalid] = "The book value must be a plain number such as 1234.56.",
+        [BookValueNegative] = "The book value must not be negative.",
+        [BookValueTooPrecise] = "The book value must have at most 2 decimals.",
+        [BookValueOutOfRange] = "The book value is too large.",
         [CurrencyRequired] = "The currency is required.",
-        [CurrencyNotUsd] = "The currency must be USD.",
+        [CurrencyNotSupported] = "Only USD positions are supported in this version.",
         [DescriptionTooLong] = $"The description must be at most {PortfolioCsvReader.MaxDescriptionLength} characters.",
-        [TotalNotPositive] = "The total market value of the portfolio must be greater than zero.",
+        [TotalNotPositive] = "The total book value of the portfolio must be greater than zero.",
     };
 
     internal static CsvError Create(string code, int? row = null, string? column = null) =>

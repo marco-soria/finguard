@@ -19,17 +19,17 @@ internal static class SubmissionTestData
     public const string CutOffDate = "2026-01-01";
 
     public static byte[] Csv() => Encoding.UTF8.GetBytes(
-        "position_id,asset_class,market_value_usd,currency,description\nP-1,cash,1000.00,USD,Treasury bills\n");
+        "position_id,asset_class,book_value,currency,description\nP-1,cash,1000.00,USD,Treasury bills\n");
 
     /// <summary>Two data rows, three errors: a negative amount on row 2; an unknown class and a non-USD currency on row 3.</summary>
     public static byte[] InvalidCsv() => Encoding.UTF8.GetBytes(
-        "position_id,asset_class,market_value_usd,currency,description\nP-1,cash,-1,USD,a\nP-2,crypto,5,EUR,b\n");
+        "position_id,asset_class,book_value,currency,description\nP-1,cash,-1,USD,a\nP-2,crypto,5,EUR,b\n");
 
     public static readonly (int? Row, string? Column, string Code)[] InvalidCsvErrors =
     [
-        (2, "market_value_usd", "Portfolio.Csv.MarketValueNegative"),
+        (2, "book_value", "Portfolio.Csv.BookValueNegative"),
         (3, "asset_class", "Portfolio.Csv.AssetClassUnknown"),
-        (3, "currency", "Portfolio.Csv.CurrencyNotUsd"),
+        (3, "currency", "Portfolio.Csv.CurrencyNotSupported"),
     ];
 
     public static async Task<HttpResponseMessage> UploadAsync(

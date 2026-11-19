@@ -1,4 +1,4 @@
-position_id,asset_class,market_value_usd,currency,description
+position_id,asset_class,book_value,currency,description
 CSH-101,cash,300000.00,USD,Operating account at Example Bank
 FI-101,fixed_income,400000.00,USD,Short-term treasury fund
 SH-101,shares,1500000.00,USD,Growth equity fund (fictional)

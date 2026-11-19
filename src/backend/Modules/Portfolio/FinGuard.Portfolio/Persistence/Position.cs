@@ -22,16 +22,16 @@ internal sealed class Position : ITenantOwned
 
     public AssetClass AssetClass { get; private set; }
 
-    public decimal MarketValueUsd { get; private set; }
+    public decimal BookValue { get; private set; }
 
     public static Position Create(
-        Guid submissionId, int rowNumber, string positionId, AssetClass assetClass, decimal marketValueUsd) =>
+        Guid submissionId, int rowNumber, string positionId, AssetClass assetClass, decimal bookValue) =>
         new()
         {
             SubmissionId = submissionId,
             RowNumber = rowNumber,
             PositionId = positionId,
             AssetClass = assetClass,
-            MarketValueUsd = marketValueUsd,
+            BookValue = bookValue,
         };
 }

@@ -55,7 +55,7 @@ public sealed class ReceiveSubmissionHandlerTests
     {
         using var db = CreateContext();
         var csv = Encoding.UTF8.GetBytes(
-            "position_id,asset_class,market_value_usd,currency,description\nP-1,cash,100.25,USD,x\nP-2,real_estate,50,USD,y\n");
+            "position_id,asset_class,book_value,currency,description\nP-1,cash,100.25,USD,x\nP-2,real_estate,50,USD,y\n");
 
         var result = Handle(db, csv, "portfolio.csv", "2026-03-15");
 
@@ -66,7 +66,7 @@ public sealed class ReceiveSubmissionHandlerTests
         var positions = db.ChangeTracker.Entries<Position>().Select(e => e.Entity).OrderBy(p => p.RowNumber).ToList();
         Assert.Equal(
             [(2, "P-1", AssetClass.Cash, 100.25m), (3, "P-2", AssetClass.RealEstate, 50m)],
-            positions.Select(p => (p.RowNumber, p.PositionId, p.AssetClass, p.MarketValueUsd)));
+            positions.Select(p => (p.RowNumber, p.PositionId, p.AssetClass, p.BookValue)));
         Assert.All(positions, p => Assert.Equal(submission.Id, p.SubmissionId));
         Assert.Empty(db.ChangeTracker.Entries<SubmissionError>());
     }
@@ -76,7 +76,7 @@ public sealed class ReceiveSubmissionHandlerTests
     {
         using var db = CreateContext();
         var csv = Encoding.UTF8.GetBytes(
-            "position_id,asset_class,market_value_usd,currency,description\nP-1,cash,-1,USD,x\nP-2,crypto,5,EUR,y\n");
+            "position_id,asset_class,book_value,currency,description\nP-1,cash,-1,USD,x\nP-2,crypto,5,EUR,y\n");
 
         var result = Handle(db, csv, "portfolio.csv", "2026-03-15");
 
@@ -88,9 +88,9 @@ public sealed class ReceiveSubmissionHandlerTests
         Assert.Empty(db.ChangeTracker.Entries<Position>());
         var errors = db.ChangeTracker.Entries<SubmissionError>().Select(e => e.Entity).OrderBy(e => e.Ordinal).ToList();
         Assert.Equal(
-            [(0, 2, "market_value_usd", "Portfolio.Csv.MarketValueNegative"),
+            [(0, 2, "book_value", "Portfolio.Csv.BookValueNegative"),
              (1, 3, "asset_class", "Portfolio.Csv.AssetClassUnknown"),
-             (2, 3, "currency", "Portfolio.Csv.CurrencyNotUsd")],
+             (2, 3, "currency", "Portfolio.Csv.CurrencyNotSupported")],
             errors.Select(e => (e.Ordinal, e.RowNumber!.Value, e.Column!, e.Code)));
     }
 

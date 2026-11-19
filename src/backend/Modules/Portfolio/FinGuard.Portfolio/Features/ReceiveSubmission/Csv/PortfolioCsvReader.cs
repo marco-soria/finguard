@@ -6,7 +6,7 @@ using FinGuard.Portfolio.Persistence;
 
 namespace FinGuard.Portfolio.Features.ReceiveSubmission.Csv;
 
-internal sealed record ParsedPosition(int RowNumber, string PositionId, AssetClass AssetClass, decimal MarketValueUsd);
+internal sealed record ParsedPosition(int RowNumber, string PositionId, AssetClass AssetClass, decimal BookValue);
 
 /// <summary>Positions when <see cref="ErrorCount"/> is 0; otherwise the first <see cref="PortfolioCsvReader.MaxErrors"/> errors.</summary>
 internal sealed record PortfolioCsvResult(
@@ -24,20 +24,20 @@ internal static partial class PortfolioCsvReader
     public const int MaxRows = 10_000;
     public const int MaxErrors = 100;
     public const int MaxPositionIdLength = 64;
-    public const int MaxDescriptionLength = 500;
+    public const int MaxDescriptionLength = 150;
 
     /// <summary>numeric(18,2).</summary>
-    public const decimal MaxMarketValue = 9_999_999_999_999_999.99m;
+    public const decimal MaxBookValue = 9_999_999_999_999_999.99m;
 
     public const string PositionIdColumn = "position_id";
     public const string AssetClassColumn = "asset_class";
-    public const string MarketValueColumn = "market_value_usd";
+    public const string BookValueColumn = "book_value";
     public const string CurrencyColumn = "currency";
     public const string DescriptionColumn = "description";
 
     /// <summary>Canonical order: errors of one row follow it.</summary>
     private static readonly string[] Columns =
-        [PositionIdColumn, AssetClassColumn, MarketValueColumn, CurrencyColumn, DescriptionColumn];
+        [PositionIdColumn, AssetClassColumn, BookValueColumn, CurrencyColumn, DescriptionColumn];
 
     private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
 
@@ -113,7 +113,7 @@ internal static partial class PortfolioCsvReader
         {
             errors.Add(PortfolioCsvErrors.Create(PortfolioCsvErrors.NoRows));
         }
-        else if (errors.Count == 0 && positions.Sum(p => p.MarketValueUsd) <= 0)
+        else if (errors.Count == 0 && positions.Sum(p => p.BookValue) <= 0)
         {
             errors.Add(PortfolioCsvErrors.Create(PortfolioCsvErrors.TotalNotPositive));
         }
@@ -212,9 +212,9 @@ internal static partial class PortfolioCsvReader
             Fail(PortfolioCsvErrors.AssetClassUnknown, AssetClassColumn);
         }
 
-        if (ValidateAmount(Field(2), out var marketValue) is { } amountError)
+        if (ValidateAmount(Field(2), out var bookValue) is { } amountError)
         {
-            Fail(amountError, MarketValueColumn);
+            Fail(amountError, BookValueColumn);
         }
 
         var currency = Field(3);
@@ -224,7 +224,7 @@ internal static partial class PortfolioCsvReader
         }
         else if (!currency.Equals("USD", StringComparison.OrdinalIgnoreCase))
         {
-            Fail(PortfolioCsvErrors.CurrencyNotUsd, CurrencyColumn);
+            Fail(PortfolioCsvErrors.CurrencyNotSupported, CurrencyColumn);
         }
 
         // Checked, never kept: free text stays in the raw file only (D-114).
@@ -233,7 +233,7 @@ internal static partial class PortfolioCsvReader
             Fail(PortfolioCsvErrors.DescriptionTooLong, DescriptionColumn);
         }
 
-        return errors.Count == before ? new ParsedPosition(row, positionId, assetClass, marketValue) : null;
+        return errors.Count == before ? new ParsedPosition(row, positionId, assetClass, bookValue) : null;
     }
 
     /// <summary>Invariant digits, optional '.', at most 2 decimals; no sign, thousands separator or exponent (D-114).</summary>
@@ -242,30 +242,30 @@ internal static partial class PortfolioCsvReader
         value = 0m;
         if (text.Length == 0)
         {
-            return PortfolioCsvErrors.MarketValueRequired;
+            return PortfolioCsvErrors.BookValueRequired;
         }
 
         var match = AmountPattern().Match(text);
         if (!match.Success)
         {
-            return PortfolioCsvErrors.MarketValueInvalid;
+            return PortfolioCsvErrors.BookValueInvalid;
         }
 
         if (match.Groups["sign"].Success)
         {
-            return PortfolioCsvErrors.MarketValueNegative;
+            return PortfolioCsvErrors.BookValueNegative;
         }
 
         if (match.Groups["decimals"].Length > 2)
         {
-            return PortfolioCsvErrors.MarketValueTooPrecise;
+            return PortfolioCsvErrors.BookValueTooPrecise;
         }
 
         var number = match.Groups["number"].Value;
         return decimal.TryParse(number, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out value)
-               && value <= MaxMarketValue
+               && value <= MaxBookValue
             ? null
-            : PortfolioCsvErrors.MarketValueOutOfRange;
+            : PortfolioCsvErrors.BookValueOutOfRange;
     }
 
     private static int LineBreaks(IReadOnlyList<string> headers) => headers.Sum(h => h.Count(c => c == '\n'));

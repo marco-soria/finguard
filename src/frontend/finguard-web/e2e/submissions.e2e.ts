@@ -1,6 +1,6 @@
 import { expect, Page, test } from '@playwright/test';
 
-const header = 'position_id,asset_class,market_value_usd,currency,description';
+const header = 'position_id,asset_class,book_value,currency,description';
 
 // Runs against the shared development database: assert only on this run's unique file name.
 async function signInAs(page: Page, user: 'Alice' | 'Bob'): Promise<void> {
@@ -64,7 +64,7 @@ test('Alice uploads an invalid CSV and sees it rejected with its errors', async 
   await expect(page.getByRole('heading', { name: 'Errors' })).toBeVisible();
   const errors = page.getByRole('list', { name: 'Errors' }).getByRole('listitem');
   await expect(errors).toHaveText([
-    'Row 2, market_value_usd: The market value must not be negative.',
+    'Row 2, book_value: The book value must not be negative.',
     'Row 3, currency: The currency must be USD.',
   ]);
 });

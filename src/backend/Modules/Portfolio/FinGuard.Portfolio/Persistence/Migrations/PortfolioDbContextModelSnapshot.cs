@@ -39,10 +39,10 @@ namespace FinGuard.Portfolio.Persistence.Migrations
                         .HasColumnType("character varying(20)")
                         .HasColumnName("asset_class");
 
-                    b.Property<decimal>("MarketValueUsd")
+                    b.Property<decimal>("BookValue")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)")
-                        .HasColumnName("market_value_usd");
+                        .HasColumnName("book_value");
 
                     b.Property<string>("PositionId")
                         .IsRequired()

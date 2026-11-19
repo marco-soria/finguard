@@ -6,7 +6,7 @@ namespace FinGuard.UnitTests.Portfolio;
 public sealed class SamplePortfoliosTests
 {
     [Theory]
-    [InlineData("valid-balanced.csv", 8, 0)]
+    [InlineData("valid-balanced.csv", 9, 0)]
     [InlineData("valid-shares-heavy.csv", 5, 0)]
     [InlineData("invalid-mixed.csv", 9, 8)]
     public void Read_SampleFile_MatchesReadme(string file, int rowCount, int errorCount)
@@ -23,9 +23,9 @@ public sealed class SamplePortfoliosTests
 
         Assert.Equal(
             [
-                (3, "PositionIdRequired"), (4, "AssetClassUnknown"), (5, "MarketValueNegative"),
-                (6, "MarketValueTooPrecise"), (7, "MarketValueInvalid"), (8, "MarketValueRequired"),
-                (9, "CurrencyNotUsd"), (10, "PositionIdDuplicated"),
+                (3, "PositionIdRequired"), (4, "AssetClassUnknown"), (5, "BookValueNegative"),
+                (6, "BookValueTooPrecise"), (7, "BookValueInvalid"), (8, "BookValueRequired"),
+                (9, "CurrencyNotSupported"), (10, "PositionIdDuplicated"),
             ],
             result.Errors.Select(e => (e.Row!.Value, e.Code["Portfolio.Csv.".Length..])));
     }
