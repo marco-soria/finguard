@@ -526,3 +526,7 @@ __screenshots__/
 
 # IDE-generated solution files; the repo uses FinGuard.slnx only (a second solution breaks bare dotnet build, MSB1011).
 *.sln
+
+# Playwright output (src/frontend/finguard-web)
+test-results/
+playwright-report/
