@@ -24,6 +24,9 @@ paths:
   except Tenancy's, whose tables are global. `IgnoreQueryFilters` is banned (RS0030).
 - Module endpoint groups call `.RequireAuthorization(AuthorizationPolicies.TenantMember)`. Every other endpoint needs
   an authenticated user (fallback policy); only health checks and `/dev/token` allow anonymous callers.
+- Upload endpoints (`IFormFile`) call `.DisableAntiforgery()` only because authentication is JWT bearer, no cookies
+  (D-92). They set a per-endpoint body limit (`RequestSizeLimitAttribute` metadata) and a matching `WithFormOptions`.
+  Never log file names, file contents or file hashes; log the submission id and the size only (D-91).
 - Never call `TenantContext.SetTenant` outside the Tenancy module and the BuildingBlocks `TenantPropagationMiddleware`;
   everything else reads `ITenantContext`. Handlers get the tenant from the envelope (ADR-0009).
 - One DbContext per handler. Cross-module effects go only through integration events.
@@ -33,6 +36,11 @@ paths:
 - Module DbContext registration: singleton options (`optionsLifetime: ServiceLifetime.Singleton`),
   `TenantStampingInterceptor.Instance`, and `DisableRetry = true` in `EnrichNpgsqlDbContext`. Otherwise Wolverine code
   generation or Eager transactions fail.
+- Module DbContexts are `sealed`. A module whose command handlers inject it makes it `public` (Wolverine's generated
+  code needs public types, D-94); other modules still cannot reach it (they reference only Contracts). Its entities
+  stay `internal` and are reached through `Set<T>()`.
+- Wolverine resolves `ITenantContext` from the message scope (`AlwaysUseServiceLocationFor`, D-95). Never remove it:
+  module DbContexts are service-located, and an inlined tenant context would leave them without a tenant.
 - Every message type (handled message, integration event) overrides `ToString()` to return its type name and
   identifiers only, because Wolverine logs failed messages with `ToString()` (D-77, architecture test).
 - Use `TimeProvider`, `CancellationToken` everywhere, nullable enabled, warnings as errors.
@@ -50,7 +58,8 @@ Copy `src/backend/Modules/Tenancy/FinGuard.Tenancy/Features/GetCurrentTenant/` f
 - `<UseCase>.cs`: public sealed record command or query with a `ToString()` override (identifiers only).
 - `<Response>.cs`: public sealed record read DTO.
 - `<UseCase>Handler.cs`: public Wolverine handler returning `Result<T>`; queries use Dapper over `NpgsqlDataSource`
-  with a `const` SQL string and the tenant from `ITenantContext`; commands use the module DbContext.
+  with a `const` SQL string and the tenant from `ITenantContext`; commands use the module DbContext, add entities and
+  never call `SaveChangesAsync` (Wolverine's EF transaction middleware saves and commits).
 - `<UseCase>Endpoint.cs`: internal `Map<UseCase>(this RouteGroupBuilder)` extension, called from the module's
   `Map<Module>Endpoints`; it sends with `InvokeForCurrentTenantAsync<Result<T>>` and maps with `ToHttpResult`.
 - Wolverine discovers only public handler and message types.

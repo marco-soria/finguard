@@ -69,7 +69,7 @@ public sealed class ModuleBoundaryTests
     }
 
     [Fact]
-    public void Modules_AnyAssembly_HaveOneInternalDbContextWithModuleSchema()
+    public void Modules_AnyAssembly_HaveOneSealedDbContextWithModuleSchema()
     {
         var violations = new List<string>();
         foreach (var (module, assembly) in Modules)
@@ -81,10 +81,12 @@ public sealed class ModuleBoundaryTests
                 continue;
             }
 
+            // Public is allowed: Wolverine's generated handler code needs a public DbContext (D-94). Other modules still
+            // cannot reach it, because modules reference only BuildingBlocks and Contracts (test above).
             var context = contexts[0];
-            if (context.IsPublic || context.IsNestedPublic)
+            if (!context.IsSealed)
             {
-                violations.Add($"{context.FullName} must not be public");
+                violations.Add($"{context.FullName} must be sealed");
             }
 
             var schema = context.GetField("Schema", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);

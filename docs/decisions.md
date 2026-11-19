@@ -3,6 +3,108 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-19 (session 16: Brief #8 executed)
+
+### Resolved versions
+`Microsoft.Extensions.TimeProvider.Testing` 10.11.0 added to CPM (unit tests, `FakeTimeProvider`); same release train
+as `Microsoft.Extensions.Diagnostics.Testing` 10.11.0. No other package changes.
+
+### APIs used (checked against the ASP.NET Core 10.0.14 shared framework and Mvc.Testing 10.0 XML docs)
+| Concern | API | Notes |
+| --- | --- | --- |
+| Antiforgery opt-out | `RouteHandlerBuilder.DisableAntiforgery()` | JWT bearer only (D-92) |
+| Request body limit | `.WithMetadata(new RequestSizeLimitAttribute(6 MB))` | `RequestSizeLimitAttribute` implements `IRequestSizeLimitMetadata`; `EndpointRoutingMiddleware` applies it. There is no `WithRequestSizeLimit` extension in .NET 10 |
+| Form limit | `.WithFormOptions(multipartBodyLengthLimit: 6 MB)` | `IFormOptionsMetadata` |
+| No `SaveChanges` in the handler | Wolverine's generated code for `ReceiveSubmission` calls `portfolioDbContext.SaveChangesAsync` ("Added by EF Core Transaction Middleware"), then commits | Read from the generated source in a temporary test |
+| 413 test on Kestrel | `WebApplicationFactory<T>.UseKestrel(int port)` + `StartServer()` (new in .NET 10) | TestServer has no `IHttpMaxRequestBodySizeFeature` |
+
+### Migration `AddSubmissions`
+`portfolio.submissions` (`id` uuid PK, `tenant_id`, `cut_off_date` date, `file_name` varchar(255), `size_bytes` int,
+`sha256` char(64), `status` varchar(20), `received_at` timestamptz; index
+`ix_submissions_tenant_id_cut_off_date_received_at`) and `portfolio.submission_contents` (`submission_id` uuid PK and FK
+to `portfolio.submissions(id)` ON DELETE CASCADE, `tenant_id`, `content` bytea). No cross-schema FK.
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-94 | A module DbContext may be `public` (must be `sealed`); its entities stay `internal` and are used through `Set<T>()` | Wolverine refused an internal constructor: "does not have a suitable, public constructor for Wolverine". Other modules still cannot reach it: modules reference only BuildingBlocks and Contracts (architecture test). `Modules_AnyAssembly_HaveOneInternalDbContextWithModuleSchema` became `..._HaveOneSealedDbContextWithModuleSchema` |
+| D-95 | Wolverine resolves `ITenantContext` from the message scope: `opts.CodeGeneration.AlwaysUseServiceLocationFor<ITenantContext>()` | Bug found by this brief (see below) |
+| D-96 | `GlobalExceptionHandler` keeps the status of `BadHttpRequestException` (e.g. 413) with the generic reason phrase as title, logged at Warning with status and trace id; everything else stays a generic 500 | In Development, Minimal APIs throw on bad requests (`ThrowOnBadRequest`); the handler turned the 413 into a 500 |
+| D-97 | An unparsable or missing cut-off date and a missing file part are rejected by the endpoint (`CutOffDateInvalid`, `FileMissing`); the handler checks empty, size, extension and future date | The command carries a `DateOnly`, so an invalid date cannot reach the handler; parsing is binding |
+
+### Bug found and fixed (D-95)
+In the real Api, module DbContexts are registered through Aspire's `EnrichNpgsqlDbContext`, and Wolverine resolves them
+from the message scope (generated code: "marked as requiring service location"). `TenantPropagationMiddleware` got an
+inlined `new TenantContext()` instead, so it set the tenant on an object the DbContext never saw. The first save failed
+with `No tenant is set for the current scope.` It failed closed (no leak). The messaging probes never showed it because
+`MessagingHost` registers its DbContexts without `EnrichNpgsqlDbContext`, so their code is fully inlined. The upload
+integration tests are the regression tests; after the fix the generated code reads
+`var tenantContext = GetRequiredService<ITenantContext>(serviceScope.ServiceProvider)`.
+
+### Deviations
+- `PortfolioDbContext` is public (D-94); the slice template's "Wolverine discovers only public types" now also covers
+  handler dependencies.
+- `CutOffDateInvalid` comes from the endpoint, not the handler (D-97); the handler unit-test theory covers the other
+  four codes plus accepted cases, and the integration tests cover all six codes through HTTP.
+- `InternalsVisibleTo` from `FinGuard.Portfolio` to `FinGuard.UnitTests` and `FinGuard.Api.IntegrationTests` (entities,
+  helpers and the isolation test's DbContext reads).
+- 413 test: TestServer ignores `IRequestSizeLimitMetadata` (log: "This server does not support the
+  IHttpMaxRequestBodySizeFeature") and the form limit then gives 400. The test boots a second Api on Kestrel
+  (`ApiFixture.ApiFactory` is now internal) and sends `Expect: 100-continue`, as curl does for large bodies: Kestrel
+  answers 413 from `Content-Length` without reading the body. Without it Kestrel closes the connection while the
+  client is still writing.
+- `Upload_HandlerFailsAfterChanges_WritesNoRows` skipped: no seam without a production hook. The generated code wraps
+  `Handle` + `SaveChangesAsync` + commit in one transaction, and `OutboxAndTenantPropagationTests` already proves the
+  rollback with `FailAfterSave`.
+- Extra tests: `Upload_FileOverFiveMegabytes_Returns400WithCode` (between the 5 MB file limit and the 6 MB request limit).
+- `FileNameSanitizer` splits on both `/` and `\` instead of `Path.GetFileName`, which only splits on `\` on Windows.
+- Submission ids are `Guid.CreateVersion7(receivedAt)` (time-ordered, good for the index).
+- Form files above 64 KB are buffered by ASP.NET Core to a temporary file (default `MemoryBufferThreshold`); allowed by
+  the brief ("outside what ASP.NET Core buffers internally"). The slice itself never writes to disk.
+
+### Manual check (`aspire run`, 2026-11-19)
+- `curl.exe -F "file=@sample.csv;type=text/csv" -F "cutOffDate=2026-11-19"` with Alice's token: `201 Created`,
+  `Location: /api/portfolio/submissions/01a1f4b3-...`, body `{"status":"Received",...}`.
+- `portfolio.submissions` and `portfolio.submission_contents`: one row each, `tenant_id` = Acme
+  (`6f1d2c3b-...-5e01`), 98 bytes.
+- A 6 MB file: `413 Payload Too Large`, `application/problem+json`, title "Content Too Large", with `traceId`.
+- Api log for the upload: `Received submission 01a1f4b3-... (98 bytes)`. EF command logs show parameters as `'?'`.
+
+### Risks and flags
+- **R-24 Probe hosts differ from module registration.** `MessagingHost` does not use `EnrichNpgsqlDbContext`, which hid
+  the D-95 bug. Real module slices with integration tests now cover the real registration; consider aligning the probe
+  registration when the first integration event lands.
+
+## Delta 2026-11-19 (session 16: Brief #8 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-87 | Raw CSV stored as `bytea` in `portfolio.submission_contents` (1:1 with `portfolio.submissions`) | No blob storage; metadata queries never touch the bytes |
+| D-88 | Upload limits: endpoint request limit 6 MB, file ≤ 5 MB and > 0 checked in the handler; over-limit requests answer 413 ProblemDetails | Row and encoding limits are Phase 2 |
+| D-89 | Only the `.csv` extension is checked at upload; content type is not trusted; content checks in Phase 2 | |
+| D-90 | Cut-off date: required `yyyy-MM-dd`, not later than today in UTC | Assumption: no business case for future cut-off dates; reopen if one appears |
+| D-91 | Original file name stored sanitized for display only, never used as a path, never logged; SHA-256 computed and stored at upload, uniqueness deferred to Phase 2 (D-11) | |
+| D-92 | Upload endpoint opts out of antiforgery: authentication is JWT bearer, no cookies | Revisit if cookie auth ever appears |
+| D-93 | No `SubmissionReceived` integration event; the first integration event will be `SubmissionAccepted` (Portfolio → Compliance) | Phase 2 validation stays inside Portfolio |
+
+### Verified on 2026-11-19
+| Area | Finding | Source |
+| --- | --- | --- |
+| ASP.NET Core | `IFormFile` Minimal API endpoints require antiforgery since .NET 8; `.DisableAntiforgery()` opts out | https://learn.microsoft.com/dotnet/core/compatibility/aspnet-core/8.0/antiforgery-checks |
+| ASP.NET Core | Request body limit (`IRequestSizeLimitMetadata`) and `FormOptions.MultipartBodyLengthLimit` are separate limits | https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.http.metadata.irequestsizelimitmetadata |
+
+### Risks and flags
+- **R-23 Database growth.** Raw files live in PostgreSQL; with 5 MB per file the demo database grows quickly. Phase 5
+  sizes PostgreSQL Flexible Server storage and may add a retention rule.
+
+### Open questions
+1. Per-module local queues (session 13): still open, decide with `SubmissionAccepted`.
+
+### Next step
+Brief #9 (closes Phase 1): `GET /api/portfolio/submissions` and `GET /api/portfolio/submissions/{id}` with Dapper,
+Angular upload form and submission history, UI library decision, browser E2E tool decision and the first E2E flow.
+
 ## Delta 2026-11-19 (session 15: Brief #7 executed)
 
 ### Resolved versions
