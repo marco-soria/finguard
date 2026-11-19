@@ -1,15 +1,12 @@
-.app-header {
-  display: flex;
-  align-items: center;
+.app-header mat-toolbar {
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid #d0d7de;
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
 
 .app-header h1 {
   margin: 0;
-  font-size: 1.25rem;
+  font: var(--mat-sys-title-large);
 }
 
 .app-session {
@@ -20,8 +17,10 @@
 
 .app-tenant {
   margin: 0;
+  font: var(--mat-sys-body-large);
 }
 
 .app-main {
+  max-width: 72rem;
   padding: 1.5rem;
 }

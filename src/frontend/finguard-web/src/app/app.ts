@@ -1,5 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { MatButton } from '@angular/material/button';
+import { MatToolbar } from '@angular/material/toolbar';
 import { RouterOutlet } from '@angular/router';
 import { catchError, map, Observable, of, startWith, switchMap } from 'rxjs';
 import { TenancyApi } from './core/api/tenancy-api';
@@ -9,7 +11,7 @@ type TenantState = { status: 'idle' | 'loading' | 'error' } | { status: 'loaded'
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, MatButton, MatToolbar],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
