@@ -59,6 +59,8 @@ paths:
   cut-off date) return 400/413 and store nothing. Content problems store a `Rejected` submission with its errors and
   answer 201; a valid file stores an `Accepted` submission with its positions and answers 201.
 - Validation messages are fixed sentences per code and never echo a cell value or a column name from the file (D-115).
+- Free-text and identifier columns from uploaded files are rejected when they start with a formula trigger; any export
+  escapes them again (OWASP CSV Injection).
 - Npgsql hands `timestamptz` to Dapper as a UTC `DateTime`; a positional record with a `DateTimeOffset` parameter fails
   to materialize. Read into a private row record and map to the response DTO.
 

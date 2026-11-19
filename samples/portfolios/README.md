@@ -6,6 +6,10 @@ fictional. Upload them from the web app with any cut-off date up to today.
 Format (see `AGENTS.md`, domain rules): header `position_id,asset_class,book_value,currency,description`, UTF-8,
 at most 10,000 rows and 5 MB. Validation errors use the codes `Portfolio.Csv.*`.
 
+`book_value` is the amount the entity carries in its accounts, in USD (`currency` must be `USD`). Compliance limits
+are evaluated on book value, not market value (ADR-0010). A row may be 0 (a fully written-down position); the file
+total must be greater than 0.
+
 | File | Expected result | What it shows |
 | --- | --- | --- |
 | `valid-balanced.csv` | Accepted, 9 positions | All four asset classes, total book value 5,000,000.00 USD: cash 32 %, fixed income 25 %, shares 21 %, real estate 22 %. Every class is below 90 % of its limit. A quoted description contains a comma, and one fully written-down position has book value 0. |

@@ -3,6 +3,26 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-19 (session 19: Brief #10 amendments)
+
+The owner changed the CSV contract before Brief #10 was pushed (Brief #10a, Part A). Same branch and PR as Brief #10.
+
+### Decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-126 | Limits are evaluated on book value (ADR-0010). CSV column `book_value` (C# `BookValue`, DB `book_value numeric(18,2)`, JSON `bookValue`); codes `Portfolio.Csv.BookValue{Required,Invalid,Negative,TooPrecise,OutOfRange}` | **Supersedes D-06's column name** (`market_value_usd`). Other D-06 limits unchanged |
+| D-127 | `description` optional, ≤ 150 characters, still not stored | **Supersedes D-114's description limit** (500). D-114's "0 allowed per row" and "total > 0" still hold |
+| D-128 | Currency required, case-insensitive, normalised to `USD`; anything else → `Portfolio.Csv.CurrencyNotSupported`, "Only USD positions are supported in this version." | Replaces `CurrencyNotUsd`. Column kept for future multi-currency |
+| D-129 | `position_id` and `description` are rejected when the raw cell's leading whitespace contains tab, CR or LF, or its first character after leading whitespace (the same set `Trim()` removes) is `=`, `+`, `-`, `@` or a full-width form (`＝＋－＠`): `Portfolio.Csv.PositionIdUnsafe`, `Portfolio.Csv.DescriptionUnsafe`. One pure helper, `FormulaGuard.StartsWithFormulaTrigger` | OWASP CSV Injection. Defence in depth: any future export still escapes cells. One error per cell: `PositionIdRequired`/`TooLong` and `DescriptionTooLong` win over `Unsafe`. A security review caught a first version that skipped only spaces (`" \t=x"`, NBSP + `=` passed the guard but were stored as `=x`) |
+| D-130 | `AddCsvValidation` regenerated (new id `20261119211247`) instead of a rename migration; its hand-written D-117 SQL (Phase 1 rows → `Rejected` with `NotValidated`) was carried over unchanged | Branch was unpushed. The local dev volume had the old id applied, so it was reset with the owner's approval |
+| D-131 | Samples: `valid-balanced.csv` gains a written-down row with book value 0 (9 positions); `invalid-mixed.csv` gains a formula description on row 11 (9 errors). `invalid-mixed.csv` row 9 now reports `CurrencyNotSupported` | Updates the D-118 outcomes ("8 positions", "8 errors") |
+
+### Results
+- Unit tests: 192 passed. Integration tests: 86 passed. Architecture tests: 15 passed. Vitest: 64 passed.
+  `dotnet format --verify-no-changes` clean; `has-pending-model-changes` clean.
+- E2E (`pnpm e2e`, Chromium) against a fresh `aspire` instance: 2 passed, twice. The rejected flow asserts the
+  `DescriptionUnsafe` line on the detail page. `pnpm lint`, `pnpm build` clean.
+
 ## Delta 2026-11-19 (session 18: Brief #10 executed)
 
 ### Resolved versions
