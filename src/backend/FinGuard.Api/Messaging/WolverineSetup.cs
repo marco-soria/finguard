@@ -1,5 +1,6 @@
 using FinGuard.Advisory;
 using FinGuard.BuildingBlocks.Messaging;
+using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Compliance;
 using FinGuard.Portfolio;
 using FinGuard.Tenancy;
@@ -34,6 +35,10 @@ internal static class WolverineSetup
             // Cascaded events survive a crash between commit and handling (D-71).
             opts.Policies.UseDurableLocalQueues();
             opts.Policies.AddMiddleware(typeof(TenantPropagationMiddleware));
+            // Module DbContexts registered through Aspire's EnrichNpgsqlDbContext are resolved from the message scope
+            // (service location). ITenantContext must come from that same scope, or the middleware sets the tenant on
+            // an inlined `new TenantContext()` the DbContext never sees and every write fails closed (D-95).
+            opts.CodeGeneration.AlwaysUseServiceLocationFor<ITenantContext>();
 
             // R-21 (D-77): success is noise at Information; start/finish stays at its Debug default. Failures stay at
             // Error and print the message's ToString(), which every message type overrides with identifiers only.
