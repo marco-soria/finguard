@@ -52,19 +52,24 @@ test('Alice uploads an invalid CSV and sees it rejected with its errors', async 
   const fileName = uniqueName('rejected');
 
   await signInAs(page, 'Alice');
-  await upload(page, fileName, `${header}\nP-1,cash,-5,USD,E2E\nP-2,cash,1,EUR,E2E\n`);
+  await upload(
+    page,
+    fileName,
+    `${header}\nP-1,cash,-5,USD,E2E\nP-2,cash,1,EUR,E2E\nP-3,cash,1,USD,=HYPERLINK(1)\n`,
+  );
 
   const status = page.getByRole('status');
-  await expect(status).toContainText(`Rejected ${fileName}: 2 errors.`);
+  await expect(status).toContainText(`Rejected ${fileName}: 3 errors.`);
   const row = page.getByRole('row').filter({ hasText: fileName });
   await expect(row.getByRole('cell').nth(3)).toHaveText('Rejected');
-  await expect(row.getByRole('cell').nth(4)).toHaveText('2');
+  await expect(row.getByRole('cell').nth(4)).toHaveText('3');
 
   await status.getByRole('link', { name: 'View details' }).click();
   await expect(page.getByRole('heading', { name: 'Errors' })).toBeVisible();
   const errors = page.getByRole('list', { name: 'Errors' }).getByRole('listitem');
   await expect(errors).toHaveText([
     'Row 2, book_value: The book value must not be negative.',
-    'Row 3, currency: The currency must be USD.',
+    'Row 3, currency: Only USD positions are supported in this version.',
+    'Row 4, description: The description must not start with =, +, -, @, a tab or a line break.',
   ]);
 });

@@ -184,13 +184,18 @@ internal static partial class PortfolioCsvReader
         CsvReader reader, int[] indexes, int row, HashSet<string> seenIds, ErrorList errors)
     {
         var before = errors.Count;
-        string Field(int column) => reader.GetString(indexes[column]).Trim();
+        string Raw(int column) => reader.GetString(indexes[column]);
+        string Field(int column) => Raw(column).Trim();
         void Fail(string code, string column) => errors.Add(PortfolioCsvErrors.Create(code, row, column));
 
         var positionId = Field(0);
         if (positionId.Length == 0)
         {
             Fail(PortfolioCsvErrors.PositionIdRequired, PositionIdColumn);
+        }
+        else if (FormulaGuard.StartsWithFormulaTrigger(Raw(0)))
+        {
+            Fail(PortfolioCsvErrors.PositionIdUnsafe, PositionIdColumn);
         }
         else if (positionId.Length > MaxPositionIdLength)
         {
@@ -231,6 +236,10 @@ internal static partial class PortfolioCsvReader
         if (Field(4).Length > MaxDescriptionLength)
         {
             Fail(PortfolioCsvErrors.DescriptionTooLong, DescriptionColumn);
+        }
+        else if (FormulaGuard.StartsWithFormulaTrigger(Raw(4)))
+        {
+            Fail(PortfolioCsvErrors.DescriptionUnsafe, DescriptionColumn);
         }
 
         return errors.Count == before ? new ParsedPosition(row, positionId, assetClass, bookValue) : null;

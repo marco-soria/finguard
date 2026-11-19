@@ -23,6 +23,7 @@ public static class PortfolioCsvErrors
     public const string PositionIdRequired = "Portfolio.Csv.PositionIdRequired";
     public const string PositionIdTooLong = "Portfolio.Csv.PositionIdTooLong";
     public const string PositionIdDuplicated = "Portfolio.Csv.PositionIdDuplicated";
+    public const string PositionIdUnsafe = "Portfolio.Csv.PositionIdUnsafe";
     public const string AssetClassRequired = "Portfolio.Csv.AssetClassRequired";
     public const string AssetClassUnknown = "Portfolio.Csv.AssetClassUnknown";
     public const string BookValueRequired = "Portfolio.Csv.BookValueRequired";
@@ -33,6 +34,7 @@ public static class PortfolioCsvErrors
     public const string CurrencyRequired = "Portfolio.Csv.CurrencyRequired";
     public const string CurrencyNotSupported = "Portfolio.Csv.CurrencyNotSupported";
     public const string DescriptionTooLong = "Portfolio.Csv.DescriptionTooLong";
+    public const string DescriptionUnsafe = "Portfolio.Csv.DescriptionUnsafe";
 
     // File-level total, only when nothing else is wrong.
     public const string TotalNotPositive = "Portfolio.Csv.TotalNotPositive";
@@ -50,6 +52,7 @@ public static class PortfolioCsvErrors
         [PositionIdRequired] = "The position id is required.",
         [PositionIdTooLong] = $"The position id must be at most {PortfolioCsvReader.MaxPositionIdLength} characters.",
         [PositionIdDuplicated] = "The position id appears on an earlier row.",
+        [PositionIdUnsafe] = "The position id must not start with =, +, -, @, a tab or a line break.",
         [AssetClassRequired] = "The asset class is required.",
         [AssetClassUnknown] = "The asset class must be cash, fixed_income, shares or real_estate.",
         [BookValueRequired] = "The book value is required.",
@@ -60,6 +63,7 @@ public static class PortfolioCsvErrors
         [CurrencyRequired] = "The currency is required.",
         [CurrencyNotSupported] = "Only USD positions are supported in this version.",
         [DescriptionTooLong] = $"The description must be at most {PortfolioCsvReader.MaxDescriptionLength} characters.",
+        [DescriptionUnsafe] = "The description must not start with =, +, -, @, a tab or a line break.",
         [TotalNotPositive] = "The total book value of the portfolio must be greater than zero.",
     };
 

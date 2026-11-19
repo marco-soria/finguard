@@ -72,6 +72,35 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task Upload_FormulaInDescription_IsRejectedWithRowError()
+    {
+        var content = Csv("=HYPERLINK(1)");
+
+        var body = await UploadBodyAsync(content);
+
+        Assert.Equal(("Rejected", 1), (body.Status, body.ErrorCount));
+        var error = Assert.Single(body.Errors);
+        Assert.Equal((2, "description", "Portfolio.Csv.DescriptionUnsafe"), (error.Row, error.Column, error.Code));
+        Assert.DoesNotContain("HYPERLINK", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(await ReadPositionsAsync(body.SubmissionId));
+    }
+
+    [Fact]
+    public async Task Upload_NonUsdCurrency_IsRejectedWithClearMessage()
+    {
+        var content = Encoding.UTF8.GetBytes(
+            "position_id,asset_class,book_value,currency,description\nP-1,cash,1000.00,EUR,Bills\n");
+
+        var body = await UploadBodyAsync(content);
+
+        Assert.Equal("Rejected", body.Status);
+        var error = Assert.Single(body.Errors);
+        Assert.Equal(
+            (2, "currency", "Portfolio.Csv.CurrencyNotSupported", "Only USD positions are supported in this version."),
+            (error.Row, error.Column, error.Code, error.Message));
+    }
+
+    [Fact]
     public async Task Upload_TenThousandRows_IsAccepted()
     {
         var csv = new StringBuilder("position_id,asset_class,book_value,currency,description\n");
@@ -291,7 +320,7 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
         var valid = Encoding.UTF8.GetBytes(
             $"position_id,asset_class,book_value,currency,description\nID{marker},cash,{amount},USD,Desc{marker}\n");
         var invalid = Encoding.UTF8.GetBytes(
-            $"position_id,asset_class,book_value,currency,description\nID{marker},Class{marker},-{amount},Ccy{marker},Desc{marker}\n");
+            $"position_id,asset_class,book_value,currency,description\nID{marker},Class{marker},-{amount},Ccy{marker},=Desc{marker}\n");
         var hash = Convert.ToHexStringLower(SHA256.HashData(valid));
 
         var acceptedId = await UploadOkAsync(DevIdentities.Alice, valid, $"{marker}.csv");
@@ -304,7 +333,7 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
         Assert.Single(records, r => r.Message.Contains(acceptedId.ToString(), StringComparison.Ordinal)
                                     && r.Message.Contains(": Accepted, 1 rows, 0 errors", StringComparison.Ordinal));
         Assert.Single(records, r => r.Message.Contains(rejectedId.ToString(), StringComparison.Ordinal)
-                                    && r.Message.Contains(": Rejected, 1 rows, 3 errors", StringComparison.Ordinal));
+                                    && r.Message.Contains(": Rejected, 1 rows, 4 errors", StringComparison.Ordinal));
         var leaks = records
             .Where(r => new[] { marker, hash, amount }.Any(secret =>
                 r.Message.Contains(secret, StringComparison.OrdinalIgnoreCase)
@@ -313,6 +342,15 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
             .Select(r => $"[{r.Level}] {r.Category}: {r.Message}")
             .ToList();
         Assert.True(leaks.Count == 0, $"Log records leak upload data: {string.Join(" | ", leaks)}");
+    }
+
+    private async Task<SubmissionReceivedResponse> UploadBodyAsync(byte[] content)
+    {
+        using var response = await UploadAsync(DevIdentities.Alice, content, "portfolio.csv", Today);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<SubmissionReceivedResponse>(_ct);
+        Assert.NotNull(body);
+        return body;
     }
 
     private static byte[] Csv(string description = "Treasury bills") => Encoding.UTF8.GetBytes(

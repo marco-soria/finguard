@@ -116,7 +116,9 @@ public sealed class PortfolioCsvReaderTests
         { "P-1,cash,10000000000000000.00,USD,x", E.BookValueOutOfRange, "book_value" },
         { "P-1,cash,1,,x", E.CurrencyRequired, "currency" },
         { "P-1,cash,1,EUR,x", E.CurrencyNotSupported, "currency" },
+        { "=P-1,cash,1,USD,x", E.PositionIdUnsafe, "position_id" },
         { $"P-1,cash,1,USD,{new string('d', 151)}", E.DescriptionTooLong, "description" },
+        { "P-1,cash,1,USD,@x", E.DescriptionUnsafe, "description" },
     };
 
     [Theory]
@@ -271,6 +273,34 @@ public sealed class PortfolioCsvReaderTests
         AssertSingleError(result, E.BookValueNegative, 2, "book_value");
     }
 
+    // ---- Formula injection (OWASP CSV Injection)
+
+    [Theory]
+    [InlineData("=SUM(A1)")]
+    [InlineData("+1")]
+    [InlineData("-x")]
+    [InlineData("@cmd")]
+    [InlineData("  =x")]
+    [InlineData("\t=x")]
+    [InlineData("＝x")]
+    [InlineData(" \t=x")]
+    [InlineData(" =x")]
+    public void Read_FormulaDescription_ReturnsDescriptionUnsafe(string description) =>
+        AssertSingleError(Read($"{Header}\nP-1,cash,1,USD,\"{description}\""), E.DescriptionUnsafe, 2, "description");
+
+    [Theory]
+    [InlineData("Net - of fees")]
+    [InlineData("")]
+    public void Read_SafeDescription_IsAccepted(string description) =>
+        Assert.True(Read($"{Header}\nP-1,cash,1,USD,{description}").IsValid);
+
+    [Theory]
+    [InlineData("\"=HYPERLINK(\"\"http://example.test\"\",\"\"x\"\")\"")]
+    [InlineData("-123")]
+    [InlineData("@x")]
+    public void Read_FormulaPositionId_ReturnsPositionIdUnsafe(string positionId) =>
+        AssertSingleError(Read($"{Header}\n{positionId},cash,1,USD,"), E.PositionIdUnsafe, 2, "position_id");
+
     // ---- Currency
 
     [Theory]
@@ -372,6 +402,8 @@ public sealed class PortfolioCsvReaderTests
         { "P-1,cash,98765432109876543210,USD,x", "98765432109876543210" },
         { "P-1,cash,1,MARKERCCY,x", "MARKERCCY" },
         { $"P-1,cash,1,USD,MARKER{new string('d', 500)}", "MARKER" },
+        { "P-1,cash,1,USD,=MARKERFORMULA", "MARKERFORMULA" },
+        { "=MARKERID,cash,1,USD,x", "MARKERID" },
     };
 
     [Theory]
@@ -400,7 +432,7 @@ public sealed class PortfolioCsvReaderTests
             .Select(f => (string)f.GetRawConstantValue()!)
             .ToList();
 
-        Assert.Equal(22, codes.Count);
+        Assert.Equal(24, codes.Count);
         Assert.All(codes, code =>
         {
             Assert.StartsWith("Portfolio.Csv.", code, StringComparison.Ordinal);
