@@ -47,10 +47,9 @@ once that record had an override, and the record was then removed. **R-21 is clo
   interceptors of D-80.
 - Specs use a shared test double, `core/auth/fake-auth-provider.ts`. The app does not register it, so the build tree-shakes it
   out of the bundle.
-- `withFetch()` is marked deprecated in Angular 22 (the TypeScript language service flags it; lint and build pass). It
-  is kept as the brief asks. Removing it is a follow-up.
-- Prettier finds 3 files on `main` that were already unformatted (`app.routes.spec.ts`, `index.html`, `main.ts`).
-  Only files touched here were formatted (`app.routes.spec.ts` was rewritten in this brief).
+- `withFetch()` is removed from `provideHttpClient`: Angular 22 deprecates it ("`FetchBackend` is the default
+  `HttpBackend`", `@angular/common/types/http.d.ts`), so requests still use fetch.
+- Prettier: `index.html` and `main.ts`, unformatted on `main`, are now formatted; `prettier --check src` is clean.
 
 ### Manual check (`aspire run`, 2026-11-19)
 - Opening `/` without a session redirected to `/login` ("Sign in (development)", buttons for Alice and Bob).
