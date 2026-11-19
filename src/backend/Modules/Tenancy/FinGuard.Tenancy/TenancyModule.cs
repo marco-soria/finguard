@@ -1,6 +1,7 @@
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Tenancy.Authorization;
+using FinGuard.Tenancy.Features.GetCurrentTenant;
 using FinGuard.Tenancy.Persistence;
 using FinGuard.Tenancy.Resolution;
 using Microsoft.AspNetCore.Authorization;
@@ -49,7 +50,9 @@ public static class TenancyModule
 
     public static IEndpointRouteBuilder MapTenancyEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/tenancy");
+        endpoints.MapGroup("/api/tenancy")
+            .RequireAuthorization(AuthorizationPolicies.TenantMember)
+            .MapGetCurrentTenant();
         return endpoints;
     }
 }

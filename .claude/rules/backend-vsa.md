@@ -44,3 +44,13 @@ paths:
 - Every query on tenant-owned tables filters `tenant_id = @TenantId`, with the value from `ITenantContext`
   (EF global query filters do not apply to Dapper).
 - A query reads only its own module schema. No cross-schema SQL; cross-module data comes from Contracts.
+
+## Slice template (D-81)
+Copy `src/backend/Modules/Tenancy/FinGuard.Tenancy/Features/GetCurrentTenant/` for every new slice:
+- `<UseCase>.cs`: public sealed record command or query with a `ToString()` override (identifiers only).
+- `<Response>.cs`: public sealed record read DTO.
+- `<UseCase>Handler.cs`: public Wolverine handler returning `Result<T>`; queries use Dapper over `NpgsqlDataSource`
+  with a `const` SQL string and the tenant from `ITenantContext`; commands use the module DbContext.
+- `<UseCase>Endpoint.cs`: internal `Map<UseCase>(this RouteGroupBuilder)` extension, called from the module's
+  `Map<Module>Endpoints`; it sends with `InvokeForCurrentTenantAsync<Result<T>>` and maps with `ToHttpResult`.
+- Wolverine discovers only public handler and message types.
