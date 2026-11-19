@@ -2,11 +2,13 @@
 
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\backend\BuildingBlocks\FinGuard.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\src\backend\FinGuard.ServiceDefaults\FinGuard.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Portfolio\FinGuard.Portfolio\FinGuard.Portfolio.csproj" />
     <ProjectReference Include="..\..\src\backend\Modules\Tenancy\FinGuard.Tenancy\FinGuard.Tenancy.csproj" />
   </ItemGroup>
 

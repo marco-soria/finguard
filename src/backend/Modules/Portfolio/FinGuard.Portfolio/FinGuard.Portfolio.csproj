@@ -11,4 +11,9 @@
     <ProjectReference Include="..\FinGuard.Portfolio.Contracts\FinGuard.Portfolio.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="FinGuard.UnitTests" />
+    <InternalsVisibleTo Include="FinGuard.Api.IntegrationTests" />
+  </ItemGroup>
+
 </Project>
