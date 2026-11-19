@@ -84,6 +84,20 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 - E2E (Playwright, local only): start `aspire run`, take the `web` URL from the dashboard, then from
   `src/frontend/finguard-web`: `$env:E2E_BASE_URL = '<web url>'; pnpm e2e`. First time: `pnpm exec playwright install chromium`.
 - Never use `npm`, `yarn` or `npx`. Use `pnpm`, `pnpm exec`, `pnpm dlx`.
+- Machine setup, shells, closing a session, resetting the dev database: `docs/dev-environment.md`.
+
+## Closing a work session (Claude Code and Cursor)
+Tool: `pwsh scripts/dev-session.ps1` (`-Snapshot`, `-StartAspire`, `-Report`, `-Stop`; `-WhatIf` works).
+1. **Baseline first.** Run `-Snapshot` before any other command. Never stop a process or container from the baseline.
+   If it warns about an "unknown owner" AppHost of this repo, ask the owner once whether it is theirs; do not assume.
+2. **Start Aspire only with `-StartAspire`** (records PID, start time and branch). Never plain `aspire run`/`start`.
+3. **Close what you open.** Before the final message run `-Stop`: `aspire stop` for recorded AppHosts, then the
+   remaining new processes and containers, then `dotnet build-server shutdown`. Never remove Docker volumes.
+4. **Close-out block** at the end of the final message, per branch: what was stopped and "Still running: none" (or
+   what and why); `git log --oneline main..HEAD`; `git diff --stat main...HEAD`; the PR body path
+   (`.git/finguard-pr-body*.md`, from `.github/pull_request_template.md`); the owner's commands (`git push -u origin
+   <branch>`, `gh pr create --base main --head <branch> --title "<title>" --body-file <path>`, after merge
+   `git switch main; git pull --ff-only; git branch -d <branch>`).
 
 ## Conventions
 - Everything in the repo is written in English: code, comments, docs, commit messages, UI text, errors.

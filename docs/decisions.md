@@ -3,156 +3,79 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
-## Delta 2026-11-19 (session 19: Brief #10 amendments)
+## Delta 2026-11-19 (session 19: session hygiene)
 
-The owner changed the CSV contract before Brief #10 was pushed (Brief #10a, Part A). Same branch and PR as Brief #10.
+Brief #10a, Part B. Branch `chore/agent-session-hygiene` from `origin/main`.
+
+### Incident that motivated the rules
+At the start of session 19 an `aspire run` was still running from the Brief #10 session (CLI PID 46896, AppHost
+47896, DCP, Api, `ng serve`, container `postgres-dqcdbukq`). The agent had started it in session 18 and never stopped
+it. The first baseline listed it, so it looked like the owner's; the owner corrected this. It was stopped with
+`aspire stop --apphost src/backend/FinGuard.AppHost/FinGuard.AppHost.csproj` (graceful: DCP removed the container,
+no manual removal needed; the data volume was kept and later reset with approval for the regenerated migration, D-130).
 
 ### Decisions
 | ID | Decision | Notes |
 | --- | --- | --- |
-| D-126 | Limits are evaluated on book value (ADR-0010). CSV column `book_value` (C# `BookValue`, DB `book_value numeric(18,2)`, JSON `bookValue`); codes `Portfolio.Csv.BookValue{Required,Invalid,Negative,TooPrecise,OutOfRange}` | **Supersedes D-06's column name** (`market_value_usd`). Other D-06 limits unchanged |
-| D-127 | `description` optional, ≤ 150 characters, still not stored | **Supersedes D-114's description limit** (500). D-114's "0 allowed per row" and "total > 0" still hold |
-| D-128 | Currency required, case-insensitive, normalised to `USD`; anything else → `Portfolio.Csv.CurrencyNotSupported`, "Only USD positions are supported in this version." | Replaces `CurrencyNotUsd`. Column kept for future multi-currency |
-| D-129 | `position_id` and `description` are rejected when the raw cell's leading whitespace contains tab, CR or LF, or its first character after leading whitespace (the same set `Trim()` removes) is `=`, `+`, `-`, `@` or a full-width form (`＝＋－＠`): `Portfolio.Csv.PositionIdUnsafe`, `Portfolio.Csv.DescriptionUnsafe`. One pure helper, `FormulaGuard.StartsWithFormulaTrigger` | OWASP CSV Injection. Defence in depth: any future export still escapes cells. One error per cell: `PositionIdRequired`/`TooLong` and `DescriptionTooLong` win over `Unsafe`. A security review caught a first version that skipped only spaces (`" \t=x"`, NBSP + `=` passed the guard but were stored as `=x`) |
-| D-130 | `AddCsvValidation` regenerated (new id `20261119211247`) instead of a rename migration; its hand-written D-117 SQL (Phase 1 rows → `Rejected` with `NotValidated`) was carried over unchanged | Branch was unpushed. The local dev volume had the old id applied, so it was reset with the owner's approval |
-| D-131 | Samples: `valid-balanced.csv` gains a written-down row with book value 0 (9 positions); `invalid-mixed.csv` gains a formula description on row 11 (9 errors). `invalid-mixed.csv` row 9 now reports `CurrencyNotSupported` | Updates the D-118 outcomes ("8 positions", "8 errors") |
+| D-132 | `scripts/dev-session.ps1` (PowerShell 7, no dependencies): `-Snapshot`, `-StartAspire`, `-Report` (default), `-Stop`, `-WhatIf`. Baseline in `.git/finguard-session-baseline.txt`, agent-started AppHosts in `.git/finguard-agent-processes.txt` (never committed) | Items keyed by PID + process start time (PID reuse) or container id |
+| D-133 | Agents start Aspire only through `-StartAspire` (`aspire start` in the background). `-Stop` runs `aspire stop` for every recorded AppHost, including earlier sessions', waits up to 60 s, then stops the remaining new items: DCP (found by its `--monitor` chain from the AppHost), `dotnet`/`node` processes whose command line holds the repo path (editor helpers excluded), Playwright browsers, Testcontainers (`org.testcontainers=true`) and Aspire containers (`com.microsoft.developer.usvc-dev.*` labels); then `dotnet build-server shutdown`. Never volumes, never baseline items | In every proof run the Api `dotnet run` (and sometimes `ng serve`) outlived `aspire stop` by a few seconds; `-Stop` catches it |
+| D-134 | An AppHost of this repo that is neither recorded nor in the previous baseline is "unknown owner": `-Snapshot` and `-Report` warn, the agent asks the owner once, and `-Stop` leaves it and (shortcut) every DCP/repo process/Aspire container alone while it runs | Children are not traced to their AppHost; trace parent PIDs if this blocks a real cleanup |
+| D-135 | Aspire CLI: one install, the .NET global tool `aspire.cli` 13.6.5 (= `AspireVersion`). The session 6 note was right: `Aspire.Cli` is a RID-specific native tool (`Runner="executable"`, package `Aspire.Cli.win-x64`), so SDK 10.0.403 writes `%USERPROFILE%\.dotnet\tools\aspire.cmd`, not `aspire.exe`. Git Bash resolves `.exe` without the extension but not `.cmd`; `aspire.cmd --version` works there. Workaround: `aspire.cmd` or `alias aspire=aspire.cmd` | The brief assumed the tool installs `aspire.exe`; it does not. `docs/dev-environment.md` records it |
+| D-136 | `AGENTS.md` gains "Closing a work session" (four rules) and a Commands link to `docs/dev-environment.md`; `CLAUDE.md` gains one line | Applies to Claude Code and Cursor |
 
-### Results
-- Unit tests: 192 passed. Integration tests: 86 passed. Architecture tests: 15 passed. Vitest: 64 passed.
-  `dotnet format --verify-no-changes` clean; `has-pending-model-changes` clean.
-- E2E (`pnpm e2e`, Chromium) against a fresh `aspire` instance: 2 passed, twice. The rejected flow asserts the
-  `DescriptionUnsafe` line on the detail page. `pnpm lint`, `pnpm build` clean.
-
-## Delta 2026-11-19 (session 18: Brief #10 executed)
-
-### Resolved versions
-| Package | Version | Notes |
-| --- | --- | --- |
-| CsvHelper | 34.1.0 | Latest stable 34.x, published 2026-11-19 02:24 UTC (34.0.0 was 2026-10-28). Same license (MS-PL OR Apache-2.0). No fallback to 33.1.0 needed. Referenced by `FinGuard.Portfolio` only |
-
-### APIs checked against the installed XML docs (`CsvHelper.xml` 34.1.0)
-| Concern | Finding |
+### Aspire CLI diagnosis (report only; nothing changed outside the repo)
+| Check | Result |
 | --- | --- |
-| Reader | 34.x is a new span-based API: `CsvReader.Create(ReadOnlyMemory<byte>, CsvReaderOptions)`, `Headers`, `Read()`, `GetString(int)`, `RawRecord` (UTF-8 bytes). The 33.x `CsvConfiguration`/`GetField` samples do not apply |
-| Options used | `Separator = ','` (otherwise it is detected), `HasHeader`, `Mode = Rfc4180`, `AllowLineBreaksInQuotes`, `SkipEmptyLines`, `DetectSeparatorHint = false`, `TrimWhitespace = false` (FinGuard trims), `TrackLineNumbers`, `MalformedData = Throw`, `FieldCountMismatch = Throw`, `IncludeValuesInExceptions = false` |
-| Errors | `CsvFormatException.LineNumber` (with `TrackLineNumbers`) gives the input line where the bad record starts; `RecordNumber` skips empty lines, so it is not used |
-| Row numbers | `CsvReader.LineNumber` counts every line, including lines inside quoted fields. Spreadsheet row = `LineNumber` minus the extra lines that earlier multi-line records took |
-| Encoding | A UTF-16/32 BOM makes CsvHelper transcode; FinGuard checks strict UTF-8 first (`UTF8Encoding(false, true)`), so such files are `InvalidEncoding`. The UTF-8 BOM is stripped before reading |
+| PowerShell `Get-Command aspire -All` / `where.exe aspire` | `%USERPROFILE%\.dotnet\tools\aspire.cmd` only |
+| `dotnet tool list -g` | `aspire.cli 13.6.5` |
+| `aspire --version` (PowerShell) | `13.6.5+b33d222049f1ecc3bc7257ec07b622fe550b2580` |
+| Git Bash `which -a aspire` / `type -a aspire` | not found; `aspire.cmd --version` → 13.6.5 |
+| npm global shims (`%APPDATA%\npm\aspire*`) | none |
+| Install script (`%USERPROFILE%\.aspire\bin`) | none |
+| WinGet (`%LOCALAPPDATA%\Microsoft\WinGet\Links`, `Packages`) | none |
+| Leftovers of the old npm install (13.5.3), not on PATH | `%USERPROFILE%\.aspire\npm\13.5.3` (144 MB, contains `aspire.exe`) and `%USERPROFILE%\.aspire\versions\13.5.3_b5f1…` (291 MB) |
 
-### Decisions taken during execution
-| ID | Decision | Notes |
-| --- | --- | --- |
-| D-119 | CsvHelper 34.1.0 (see above) | Brief named 34.0.0; 34.1.0 is the latest stable 34.x on the day |
-| D-120 | `row` is the spreadsheet row: header = 1, blank lines keep their number but are skipped, a quoted multi-line field is one row | Approved in the plan |
-| D-121 | A file error after some rows (`MalformedRow`, `TooManyRows`) keeps the row errors found so far and adds the file error. `RowCount` is the data rows read (10,001 for `TooManyRows`). Positions are stored only when there is no error at all | Approved in the plan |
-| D-122 | Header errors are file errors (`row` null). `ColumnMissing` and `ColumnDuplicated` set `column` to the canonical name; `ColumnUnknown` leaves `column` null because the name comes from the file (D-115) | |
-| D-123 | Only completely empty lines are blank. A whitespace-only line is a one-field record, so it is `MalformedRow`. Position ids are unique per file with ordinal (case-sensitive) comparison after trimming | |
-| D-124 | Each slice owns its error DTO: `CsvError` (upload response), `SubmissionErrorItem` (details). Same JSON shape `{ row, column, code, message }` | |
-| D-125 | `SamplePortfoliosTests` (unit) reads the three sample files and checks the outcomes promised in `samples/portfolios/README.md` | Keeps the README true |
+Owner (optional, frees about 435 MB; keep the rest of `%USERPROFILE%\.aspire`, which the 13.6.5 CLI uses):
+`Remove-Item -Recurse -Force "$env:USERPROFILE\.aspire\npm\13.5.3", "$env:USERPROFILE\.aspire\versions\13.5.3_*"`
 
-### Bugs found and fixed
-- **`position_id` came out nullable in the first migration draft.** EF's `<Type>Id` key convention picked up
-  `Position.PositionId`. Fixed with `.IsRequired()` and the migration regenerated before any commit.
+### Proof (`-Snapshot`, `-StartAspire`, `-Report`, `-Stop`, `-Report`)
+```text
+PS> scripts/dev-session.ps1 -Snapshot
+Nothing of this repo is running.
+Baseline: 6 entries -> D:\dev\projects\finguard\.git\finguard-session-baseline.txt
+PS> scripts/dev-session.ps1 -StartAspire
+AppHost PID 680 recorded in D:\dev\projects\finguard\.git\finguard-agent-processes.txt
+Dashboard: https://localhost:17182/login?t=<token>
+PS> scripts/dev-session.ps1 -Report
 
-### Deviations
-- `AddCsvValidation.Down` also maps `NotValidated` rows back to `Received` before dropping the tables.
-- Extra integration test `Upload_AsBob_PositionsAndErrorsAreInvisibleToAlicesContext` (EF query filter on the new
-  tables). Extra unit tests: `SamplePortfoliosTests` (D-125) and ordering tests.
-- `Migration_PhaseOneReceivedRows_BecomeRejectedWithNotValidated` runs the real migrations on a fresh database in the
-  shared container (`IMigrator` up to `AddSubmissions`, SQL seed, then up to the latest). No SQL-only fallback needed.
-- `SubmissionReceivedResponse` overrides `ToString()` (ids and counts) although it is a reply, not a handled message (D-77).
-- The brief file itself is committed with the docs commit.
+Status Kind                       Id Started              Detail
+------ ----                       -- -------              ------
+agent  AppHost                   680 2026-11-19T21:26:00Z D:\dev\projects\finguard\src\backend\FinGuard.AppHost\FinGua
+new    Aspire CLI              23760 2026-11-19T21:25:58Z "%USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspir
+new    Aspire container c34a95b91845                      postgres-kxnxhyrc postgres:18.3
+new    DCP                     45608 2026-11-19T21:26:01Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     45996 2026-11-19T21:26:01Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     44392 2026-11-19T21:26:02Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     46456 2026-11-19T21:26:02Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     44776 2026-11-19T21:26:02Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     40808 2026-11-19T21:26:03Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     44464 2026-11-19T21:26:04Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    Repo process            47776 2026-11-19T21:26:04Z dotnet run --project D:\dev\projects\finguard\src\backend\Fi
 
-### Findings
-- `dotnet format --verify-no-changes` crashed once with `0xC0000005` (segfault) and passed on the next two runs. Tool
-  flake, not code; rerun if CI shows it.
-- An `aspire run` left by an earlier session kept `FinGuard.Api` alive and locked `bin/Debug`; builds and tests ran in
-  Release until it was stopped (with the user's approval) and restarted on this branch.
-- Running `pnpm --dir src/frontend/finguard-web ...` from the repo root fails with `ERR_PNPM_BAD_PM_VERSION` (global
-  pnpm 12.18.0 via Corepack vs the pinned 11.28.9). From inside the app folder pnpm switches versions and works.
-- The live dev database shows the Phase 1 rows as `Rejected` with 1 error after the migration (D-117 verified live).
-
-### Majors review (R-13, report only; checked 2026-11-19)
-Sources: NuGet registration API (`api.nuget.org/v3/registration5-gz-semver2/<id>/index.json`), .NET
-`releases-index.json` (dotnetcli.blob.core.windows.net), `nodejs.org/dist/index.json`, `pnpm view <pkg>`, GitHub
-releases API (`gh api repos/<action>/releases/latest`).
-
-| Component | Current pinned | Latest stable major | Release date | Support | Blocker / dependency | Recommendation |
-| --- | --- | --- | --- | --- | --- | --- |
-| .NET SDK / runtime | SDK 10.0.403 (`global.json`, `latestFeature`), runtime 10.0.x | 11.0.0 (SDK 11.0.100); 10.0.15 / SDK 10.0.404 latest 10.x | 2026-11-10 | 10 LTS (EOL 2028-11-14); 11 STS | Every `Microsoft.*` 11.x package follows; ADR-level change | Stay on 10 LTS; take 10.0.404 patch in a chore |
-| `Microsoft.*` 10.x (EF Core, JwtBearer, Mvc.Testing) | 10.0.15 | 11.0.0 | 2026-11-10 | follows .NET | Targets .NET 11 | Stay |
-| `Microsoft.Extensions.*` (Resilience, ServiceDiscovery, AI, Testing) | 10.11.0 | 11.0.0 | 2026-11-10 | follows .NET | 11.x pulls .NET 11 abstractions into net10.0 (already noted in CPM) | Stay |
-| Aspire | 13.6.5 | 17.0.0 (targets net10.0) | 2026-11-18 | — | One day old; check its AppHost SDK and CLI changes | Plan a brief (before Phase 5) |
-| WolverineFx | 6.64.0 | 6.64.2 (6.x) | 2026-11-16 | — | Patch only | Stay (patch in a chore) |
-| Npgsql EF provider | 10.0.3 | 10.0.3 | 2026-07-10 | follows EF | 11.x not out yet | Stay |
-| EFCore.NamingConventions | 10.0.1 | 10.0.1 | 2026-01-22 | community (R-10) | Must follow EF major | Stay |
-| Dapper | 2.1.89 | 2.1.89 | 2026-09-23 | — | — | Stay |
-| xUnit v3 | 4.0.3 | 4.0.3 | 2026-11-09 | — | — | Stay |
-| Testcontainers | 4.16.0 | 4.17.0 (4.x) | 2026-11-16 | — | Minor only | Stay (minor in a chore) |
-| ArchUnitNET | 0.13.5 | 0.13.5 | 2026-10-26 | 0.x | — | Stay |
-| Angular (+ CLI) | core 22.2.6, CLI 22.2.7 | 22.3.0 | 2026-11-18 / 2026-11-19 | 22 active | Minor; Material 22.3.0 already in | Stay (minor in a chore) |
-| Angular Material / CDK | 22.3.0 | 22.3.0 | 2026-11-18 | follows Angular | Follows Angular major | Stay |
-| TypeScript | 6.0.3 | 7.0.2 | 2026-07-08 | — | **Blocked:** `@angular/compiler-cli@22.3.0` peer `typescript >=6.0 <6.1` | Stay until Angular supports 7 |
-| Vitest | 5.1.0 | 5.1.1 | 2026-11-18 | — | — | Stay |
-| ESLint / angular-eslint / typescript-eslint | 10.14.0 / 22.6.0 / 8.71.0 | 10.15.0 / 22.8.0 / 8.73.0 | 2026-11-13 / 11-18 / 11-16 | — | angular-eslint follows Angular | Stay (minors in a chore) |
-| Playwright | 1.65.1 | 1.65.1 | 2026-11-13 | — | Browser build tied to version | Stay |
-| pnpm | 11.28.9 (`packageManager`) | 12.21.0 (`latest` tag) | 2026 | — | Global Corepack pnpm is already 12.18.0; lockfile format check | Plan a brief |
-| Node | 24.16.0 local, `^24.15.0` | 26.13.1 (LTS "Lithium"); 24.22.3 latest 24.x | 2026-11-10 | 24 maintenance LTS; 26 active LTS | Angular 22.3 engines accept `>=26.0.0` | Upgrade before Phase 5 (with Container Apps image) |
-| GitHub Actions | checkout@v7, setup-dotnet@v6, setup-node@v7, pnpm/action-setup@v6 | v7.0.1, v6.1.0, v7.1.0, v6.1.1 | 2026-07-20 / 11-03 / 10-08 / 11-03 | — | Major tags already current | Stay |
-
-### Test counts
-Backend: unit 137 (was 54; +83), integration 84 (was 71; +13), architecture 15. Frontend (Vitest): 64 in 13 files
-(was 60). E2E (Playwright): 2, passed twice in a row against the same database (2.8 s cold, 1.3 s warm).
-R-30: `Upload_TenThousandRows_IsAccepted` took 2,062 ms through HTTP on a cold host (run alone), well under "a few
-seconds"; no batching needed now.
-
-### Manual check (`aspire run`, 2026-11-19)
-Playwright script against the `web` resource (`http://localhost:52295`), light and dark (`colorScheme` emulation):
-- `valid-balanced.csv` → "Accepted valid-balanced.csv: 8 positions."; `valid-shares-heavy.csv` → "Accepted …: 5
-  positions."; `invalid-mixed.csv` → "Rejected invalid-mixed.csv: 8 errors." with the 8 rows listed in the README.
-- History shows the Errors column (empty for accepted); the detail page lists the errors.
-- Request hosts: `localhost:52295` only.
-
-### Risks and flags
-- **R-28 (narrowed).** Rejected content now explains itself (201 + errors). Transport 400s (future date, wrong
-  extension) still show only the API title; Brief #11 handles the rest.
-- **R-31 Aspire 17 is one day old.** Re-check its release notes before planning the upgrade brief.
-
-## Delta 2026-11-19 (session 18: Brief #10 planning)
-
-### Closed decisions
-| ID | Decision | Notes |
-| --- | --- | --- |
-| D-110 | Every brief ends with a "Pull request" section (exact title + body skeleton); Claude Code writes the filled body to `.git/finguard-pr-body.md`; `.github/pull_request_template.md` gains Changes, How it was tested, Deviations and risks, Screenshots and a longer checklist | PR #16 squash title differed from the brief's title |
-| D-111 | CSV validation runs synchronously in `ReceiveSubmission`; one transaction stores submission, bytes and positions or errors | |
-| D-112 | Transport failures → 400/413, not stored; content failures → stored `Rejected` submission, 201 with `status` and errors; valid → 201 `Accepted` | Supersedes the 422/202 sketch in `overview.md` |
-| D-113 | CSV reader: CsvHelper (latest stable 34.x, fallback 33.1.0) as a field reader only; strict UTF-8, BOM allowed; header of exactly the five columns, case-insensitive, any order | Rejected: Sep (0.x), hand-written parser |
-| D-114 | Value rules: trimmed fields; asset class and currency case-insensitive; amounts invariant, ≤ 2 decimals, no sign/thousands/exponent, 0 allowed per row, max `numeric(18,2)`; position id required, ≤ 64, unique per file; description optional ≤ 500 and not stored; total > 0 | Assumptions on top of AGENTS.md; reopen if a real file format disagrees |
-| D-115 | Errors carry row (header = 1), column, code `Portfolio.Csv.*`, fixed message without cell values; first 100 stored and returned, `error_count` holds the total | |
-| D-116 | Accepted rows stored in `portfolio.positions` (PK submission + row); errors in `portfolio.submission_errors`; both tenant-owned | Class totals designed with the Compliance input in Brief #12 |
-| D-117 | `Received` status removed; Phase 1 rows migrated to `Rejected` with `Portfolio.Csv.NotValidated` | Dev data only |
-| D-118 | Sample portfolios in `samples/portfolios/` (fictional data) for manual checks, demos and Phase 3 | |
-
-### Verified on 2026-11-19
-| Area | Finding | Source |
-| --- | --- | --- |
-| CsvHelper | 34.0.0 latest stable (2026-10-28), new major with a reworked reader; 33.1.0 previous stable | https://www.nuget.org/packages/CsvHelper |
-| Sep | Latest is 0.x | https://www.nuget.org/packages/Sep |
-
-### Risks and flags
-- **R-29 CsvHelper 34 is a fresh major.** Few samples match its API. Mitigation: read the package XML docs, keep the
-  reader behind `PortfolioCsvReader`, fall back to 33.1.0 if needed.
-- **R-30 Validation latency.** 10,000 rows plus 10,000 EF inserts run inside the request. Measure in
-  `Upload_TenThousandRows_IsAccepted` (report the time); if it exceeds a few seconds, consider batching or `COPY` in
-  Phase 5.
-
-### Open questions
-1. Per-module local queues: decide with the Compliance event (Brief #12).
-2. Event naming: `overview.md` says `PortfolioSubmitted`/`PortfolioRejected`, D-93 says `SubmissionAccepted`; settle in
-   Brief #12.
-
-### Next step
-Brief #11: SHA-256 idempotency (D-11), current version per cut-off date (latest accepted), errors UI and R-28.
+PS> scripts/dev-session.ps1 -Stop
+Stopped AppHost D:\dev\projects\finguard\src\backend\FinGuard.AppHost\FinGuard.AppHost.csproj (PID 680)
+Stopped Repo process (PID 47776)
+Stopped Repo process (PID 13492)
+dotnet build-server shutdown done
+Nothing of this repo is running.
+PS> scripts/dev-session.ps1 -Report
+Nothing of this repo is running.
+```
+Unknown owner (AppHost started with plain `aspire start`): `-Report` listed it as `unknown owner` with the warning;
+`-Stop` printed "Unknown-owner AppHost running: its processes and containers were not stopped." and left the AppHost,
+Api, `ng serve` and `postgres` container running. `-WhatIf` listed every planned stop and changed nothing. Two script
+bugs found in the first runs were fixed before commit (`ForEach-Object <member>` is a ShouldProcess operation under
+`-WhatIf`; strict mode rejects `.Key` on an empty array).
 
 ## Delta 2026-11-19 (session 17: Brief #9 executed)
 
@@ -862,7 +785,7 @@ Brief #4: test stack and architecture tests (`tests/FinGuard.ArchitectureTests`)
 - `wolverine` schema tables created at startup: `wolverine_agent_restrictions`, `wolverine_control_queue`, `wolverine_dead_letter_history`, `wolverine_dead_letters`, `wolverine_incoming_envelopes`, `wolverine_node_assignments`, `wolverine_node_records`, `wolverine_nodes`, `wolverine_outgoing_envelopes`.
 - Wolverine logs "found no handlers" as a warning; expected until the first slice.
 - Probe: unhandled exception returns 500 `application/problem+json` with `title`, `status`, `traceId` only; the exception message did not appear in the response or the logs. Unknown route returns 404 ProblemDetails with `traceId`.
-- Aspire CLI installed from npm cannot self-update and conflicts with the no-npm rule; replaced with the `Aspire.Cli` .NET global tool. In Git Bash the tool shim is `aspire.cmd`; use PowerShell.
+- Aspire CLI installed from npm cannot self-update and conflicts with the no-npm rule; replaced with the `Aspire.Cli` .NET global tool. In Git Bash the tool shim is `aspire.cmd`; use PowerShell. (Session 19: still true; cause and Git Bash workaround in D-135.)
 
 ### Next step
 Brief #3: Angular 22 app with pnpm, added to the AppHost with `AddJavaScriptApp(...).WithPnpm()`.

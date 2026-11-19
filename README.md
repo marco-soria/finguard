@@ -17,7 +17,7 @@ Microsoft Agent Framework. Azure only in Phase 5.
 - Node.js 24 LTS (see `.node-version`)
 - pnpm via Corepack: `corepack enable` (never npm or yarn)
 - Docker Desktop (running)
-- Aspire CLI 13.6: `dotnet tool install -g Aspire.Cli`
+- Aspire CLI 13.6.5 as a .NET global tool: see [Development environment](docs/dev-environment.md)
 - PowerShell 7 (`pwsh`)
 
 ## Quick start
@@ -44,3 +44,4 @@ Open the dashboard URL from the console. In Development the Api applies module m
 - [Decisions log](docs/decisions.md)
 - [CI/CD](docs/ci-cd.md)
 - [Git workflow](docs/git-workflow.md)
+- [Development environment](docs/dev-environment.md): prerequisites, shells, closing a session, resetting the dev database
