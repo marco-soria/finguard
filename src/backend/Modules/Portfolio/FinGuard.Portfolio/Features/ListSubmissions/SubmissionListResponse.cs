@@ -4,4 +4,5 @@ namespace FinGuard.Portfolio.Features.ListSubmissions;
 public sealed record SubmissionListResponse(IReadOnlyList<SubmissionListItem> Items);
 
 public sealed record SubmissionListItem(
-    Guid SubmissionId, DateOnly CutOffDate, string FileName, int SizeBytes, string Status, DateTimeOffset ReceivedAt);
+    Guid SubmissionId, DateOnly CutOffDate, string FileName, int SizeBytes, string Status, DateTimeOffset ReceivedAt,
+    int RowCount, int ErrorCount);

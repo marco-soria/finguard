@@ -25,3 +25,8 @@ form {
 button[type='submit'] {
   margin-top: 0.5rem;
 }
+
+[role='status'] a {
+  margin-inline-start: 0.5rem;
+  color: var(--mat-sys-primary);
+}

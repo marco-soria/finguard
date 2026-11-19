@@ -101,6 +101,11 @@ flowchart LR
 `PortfolioSubmitted` carries the class totals so Compliance never calls back into Portfolio. Delivery is at-least-once,
 so consumers are idempotent.
 
+The upload validates synchronously (D-111, D-112). Transport problems (no file, empty, over 5 MB, not `.csv`, bad or
+future cut-off date) return 400/413 and store nothing. Otherwise the submission is always stored and the Api answers
+`201 Created` with `status` `Accepted` (positions stored) or `Rejected` (first 100 errors stored, `errorCount` holds the
+total). There is no 422 or 202 for uploads. Event names are reconciled with D-93 in Brief #12.
+
 ```mermaid
 sequenceDiagram
   autonumber
@@ -114,13 +119,16 @@ sequenceDiagram
 
   U->>API: POST submission (CSV + cut-off date)
   API->>P: SubmitPortfolio command
-  P->>P: validate, hash, assign version
+  alt transport problem (empty, too large, not .csv, bad date)
+    API-->>U: 400/413 problem, nothing stored
+  end
+  P->>P: hash, read and validate the CSV
   alt CSV invalid
-    P->>OB: store rejected submission + PortfolioRejected (one transaction)
-    API-->>U: 422 with row errors
+    P->>OB: store Rejected submission + errors + PortfolioRejected (one transaction)
+    API-->>U: 201 Created, status Rejected, errors
   else CSV valid
-    P->>OB: store submission + PortfolioSubmitted (one transaction)
-    API-->>U: 202 Accepted with submission id
+    P->>OB: store Accepted submission + positions + PortfolioSubmitted (one transaction)
+    API-->>U: 201 Created, status Accepted
   end
   OB-->>C: PortfolioSubmitted
   C->>C: evaluate against policy version, build rebalance proposal

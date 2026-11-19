@@ -42,7 +42,12 @@
     </button>
   </form>
 
-  <p role="status">{{ status() }}</p>
+  <p role="status">
+    @if (status(); as s) {
+      <span class="upload-outcome">{{ s.text }}</span>
+      <a [routerLink]="['/submissions', s.submissionId]">View details</a>
+    }
+  </p>
   @if (error(); as message) {
     <p class="upload-error" role="alert">{{ message }}</p>
   }

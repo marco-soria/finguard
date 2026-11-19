@@ -23,6 +23,43 @@ namespace FinGuard.Portfolio.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("FinGuard.Portfolio.Persistence.Position", b =>
+                {
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<int>("RowNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("row_number");
+
+                    b.Property<string>("AssetClass")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("asset_class");
+
+                    b.Property<decimal>("BookValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("book_value");
+
+                    b.Property<string>("PositionId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("position_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("SubmissionId", "RowNumber")
+                        .HasName("pk_positions");
+
+                    b.ToTable("positions", "portfolio");
+                });
+
             modelBuilder.Entity("FinGuard.Portfolio.Persistence.Submission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -34,6 +71,10 @@ namespace FinGuard.Portfolio.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("cut_off_date");
 
+                    b.Property<int>("ErrorCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("error_count");
+
                     b.Property<string>("FileName")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -43,6 +84,10 @@ namespace FinGuard.Portfolio.Persistence.Migrations
                     b.Property<DateTimeOffset>("ReceivedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("received_at");
+
+                    b.Property<int>("RowCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("row_count");
 
                     b.Property<string>("Sha256")
                         .IsRequired()
@@ -95,6 +140,57 @@ namespace FinGuard.Portfolio.Persistence.Migrations
                     b.ToTable("submission_contents", "portfolio");
                 });
 
+            modelBuilder.Entity("FinGuard.Portfolio.Persistence.SubmissionError", b =>
+                {
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("integer")
+                        .HasColumnName("ordinal");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("code");
+
+                    b.Property<string>("Column")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("column");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("message");
+
+                    b.Property<int?>("RowNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("row_number");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("SubmissionId", "Ordinal")
+                        .HasName("pk_submission_errors");
+
+                    b.ToTable("submission_errors", "portfolio");
+                });
+
+            modelBuilder.Entity("FinGuard.Portfolio.Persistence.Position", b =>
+                {
+                    b.HasOne("FinGuard.Portfolio.Persistence.Submission", null)
+                        .WithMany()
+                        .HasForeignKey("SubmissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_positions_submissions_submission_id");
+                });
+
             modelBuilder.Entity("FinGuard.Portfolio.Persistence.SubmissionContent", b =>
                 {
                     b.HasOne("FinGuard.Portfolio.Persistence.Submission", null)
@@ -103,6 +199,16 @@ namespace FinGuard.Portfolio.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_submission_contents_submissions_submission_id");
+                });
+
+            modelBuilder.Entity("FinGuard.Portfolio.Persistence.SubmissionError", b =>
+                {
+                    b.HasOne("FinGuard.Portfolio.Persistence.Submission", null)
+                        .WithMany()
+                        .HasForeignKey("SubmissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_submission_errors_submissions_submission_id");
                 });
 #pragma warning restore 612, 618
         }

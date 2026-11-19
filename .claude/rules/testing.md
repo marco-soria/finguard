@@ -15,6 +15,9 @@ paths:
 - Never mock the DbContext. Use PostgreSQL in a container.
 - Every Dapper query has an integration test against real PostgreSQL (Testcontainers), including a
   tenant-isolation case.
+- CSV rules are proven by table-driven unit tests on `PortfolioCsvReader` (one case per error code and per boundary,
+  plus a check that no message contains the cell value) and by integration tests through HTTP for both outcomes
+  (`Accepted` and `Rejected`).
 - Tests never call a real model. Use the deterministic `TemplateNarrator` or a fake `IChatClient`.
   Include a prompt-safety test proving no free-text CSV field reaches a prompt.
 - Architecture tests in `tests/FinGuard.ArchitectureTests` encode the module boundaries and must stay green.

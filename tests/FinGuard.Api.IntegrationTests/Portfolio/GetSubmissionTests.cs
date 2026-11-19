@@ -23,8 +23,9 @@ public sealed class GetSubmissionTests(ApiFixture fixture)
         var body = await response.Content.ReadFromJsonAsync<SubmissionDetailsResponse>(_ct);
         Assert.NotNull(body);
         Assert.Equal(
-            (received.SubmissionId, new DateOnly(2026, 1, 1), "details.csv", SubmissionTestData.Csv().Length, "Received"),
-            (body.SubmissionId, body.CutOffDate, body.FileName, body.SizeBytes, body.Status));
+            (received.SubmissionId, new DateOnly(2026, 1, 1), "details.csv", SubmissionTestData.Csv().Length, "Accepted", 1, 0),
+            (body.SubmissionId, body.CutOffDate, body.FileName, body.SizeBytes, body.Status, body.RowCount, body.ErrorCount));
+        Assert.Empty(body.Errors);
         // PostgreSQL stores microseconds; the upload response still carries .NET ticks (100 ns).
         Assert.True((body.ReceivedAt - received.ReceivedAt).Duration() < TimeSpan.FromMicroseconds(1));
     }
@@ -34,6 +35,33 @@ public sealed class GetSubmissionTests(ApiFixture fixture)
     {
         using var bob = fixture.CreateClient(DevIdentities.Bob);
         var bobsId = (await bob.UploadOkAsync("bob.csv", _ct)).SubmissionId;
+        using var alice = fixture.CreateClient(DevIdentities.Alice);
+
+        using var response = await alice.GetAsync(DetailsUri(bobsId), _ct);
+
+        await AssertNotFoundAsync(response);
+    }
+
+    [Fact]
+    public async Task GetSubmission_Rejected_ReturnsErrors()
+    {
+        using var client = fixture.CreateClient(DevIdentities.Alice);
+        var received = await client.UploadOkAsync("rejected.csv", _ct, SubmissionTestData.InvalidCsv());
+
+        using var response = await client.GetAsync(DetailsUri(received.SubmissionId), _ct);
+
+        var body = await response.Content.ReadFromJsonAsync<SubmissionDetailsResponse>(_ct);
+        Assert.NotNull(body);
+        Assert.Equal(("Rejected", 2, 3), (body.Status, body.RowCount, body.ErrorCount));
+        Assert.Equal(SubmissionTestData.InvalidCsvErrors, body.Errors.Select(e => (e.Row, e.Column, e.Code)));
+        Assert.All(body.Errors, e => Assert.False(string.IsNullOrEmpty(e.Message)));
+    }
+
+    [Fact]
+    public async Task GetSubmission_OtherTenantsRejected_Returns404()
+    {
+        using var bob = fixture.CreateClient(DevIdentities.Bob);
+        var bobsId = (await bob.UploadOkAsync("bob-rejected.csv", _ct, SubmissionTestData.InvalidCsv())).SubmissionId;
         using var alice = fixture.CreateClient(DevIdentities.Alice);
 
         using var response = await alice.GetAsync(DetailsUri(bobsId), _ct);
