@@ -1,4 +1,8 @@
 .app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid #d0d7de;
 }
@@ -6,6 +10,16 @@
 .app-header h1 {
   margin: 0;
   font-size: 1.25rem;
+}
+
+.app-session {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.app-tenant {
+  margin: 0;
 }
 
 .app-main {

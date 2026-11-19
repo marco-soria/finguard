@@ -2,26 +2,54 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
+import { AuthProvider } from './core/auth/auth-provider';
+import { FakeAuthProvider } from './core/auth/fake-auth-provider';
 
 describe('app routes', () => {
+  let provider: FakeAuthProvider;
+
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideRouter(routes)] });
+    provider = new FakeAuthProvider();
+    TestBed.configureTestingModule({
+      providers: [provideRouter(routes), { provide: AuthProvider, useValue: provider }],
+    });
   });
 
-  it('renders the home page at the root URL', async () => {
+  const heading = (harness: RouterTestingHarness) =>
+    harness.routeNativeElement?.querySelector('h2')?.textContent;
+
+  it('redirects to /login when signed out', async () => {
     const harness = await RouterTestingHarness.create();
 
     await harness.navigateByUrl('/');
 
-    expect(harness.routeNativeElement?.querySelector('h2')?.textContent).toContain('Portfolio compliance');
+    expect(TestBed.inject(Router).url).toBe('/login');
+    expect(heading(harness)).toContain('Sign in (development)');
   });
 
-  it('redirects an unknown URL to the root URL', async () => {
+  it('renders the home page at the root URL when signed in', async () => {
+    provider.stored = { accessToken: 't', expiresAt: '2999-01-01T00:00:00Z' };
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/');
+
+    expect(heading(harness)).toContain('Portfolio compliance');
+  });
+
+  it('redirects an unknown URL to the root URL when signed in', async () => {
+    provider.stored = { accessToken: 't', expiresAt: '2999-01-01T00:00:00Z' };
     const harness = await RouterTestingHarness.create();
 
     await harness.navigateByUrl('/does-not-exist');
 
     expect(TestBed.inject(Router).url).toBe('/');
-    expect(harness.routeNativeElement?.querySelector('h2')?.textContent).toContain('Portfolio compliance');
+  });
+
+  it('sends an unknown URL to /login when signed out', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/does-not-exist');
+
+    expect(TestBed.inject(Router).url).toBe('/login');
   });
 });

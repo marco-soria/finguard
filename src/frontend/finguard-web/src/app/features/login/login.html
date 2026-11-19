@@ -1,0 +1,16 @@
+<section class="login" aria-labelledby="login-title">
+  <h2 id="login-title">Sign in (development)</h2>
+  <p>This screen exists only for local development. Choose a seeded user to sign in.</p>
+  <ul class="login-users">
+    @for (user of users; track user.id) {
+      <li>
+        <button type="button" [disabled]="busy()" (click)="signIn(user.id)">
+          Sign in as {{ user.label }}
+        </button>
+      </li>
+    }
+  </ul>
+  @if (error(); as message) {
+    <p class="login-error" role="alert">{{ message }}</p>
+  }
+</section>
