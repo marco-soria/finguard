@@ -76,6 +76,8 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 - New migration (per module, design-time factory as startup):
   `dotnet tool run dotnet-ef migrations add <Name> --project src/backend/Modules/<M>/FinGuard.<M> --startup-project src/backend/Modules/<M>/FinGuard.<M> --context <M>DbContext --output-dir Persistence/Migrations`
 - Frontend (from `src/frontend/finguard-web`): `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm lint`, `pnpm build`. `pnpm start` only works under Aspire (it needs `PORT` and the Api URL).
+- E2E (Playwright, local only): start `aspire run`, take the `web` URL from the dashboard, then from
+  `src/frontend/finguard-web`: `$env:E2E_BASE_URL = '<web url>'; pnpm e2e`. First time: `pnpm exec playwright install chromium`.
 - Never use `npm`, `yarn` or `npx`. Use `pnpm`, `pnpm exec`, `pnpm dlx`.
 
 ## Conventions

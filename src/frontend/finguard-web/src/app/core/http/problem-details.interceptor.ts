@@ -29,3 +29,8 @@ function toApiError(response: HttpErrorResponse): ApiError {
     'traceId' in body && typeof body.traceId === 'string' ? body.traceId : undefined,
   );
 }
+
+/** The text a component shows for a failed call: the API's title, or the generic one. */
+export function errorTitle(error: unknown): string {
+  return error instanceof ApiError ? error.title : GENERIC_ERROR_TITLE;
+}

@@ -21,3 +21,12 @@ alwaysApply: false
   Phase 5). Components never import MSAL directly.
 - Format money in one place (a pipe), always USD. Percentages come pre-computed from the API.
 - Semantic HTML, labelled inputs, keyboard-accessible controls.
+- UI library: Angular Material + CDK (D-98). Use its components before writing custom ones; buttons use the
+  `matButton` attribute API. No third-party font or icon CDNs (system font stack; CSP review in Phase 5).
+- Component CSS uses `--mat-sys-*` tokens only, never literal colors, so light and dark mode both work (the app follows
+  the OS through `color-scheme: light dark`, D-106).
+- Reads use `httpResource` created in the component's injection context (API services expose factories); writes use
+  `HttpClient` (D-102). `ApiError` extends `Error`, so a resource's `error()` is the `ApiError` itself.
+- Calendar dates (`cutOffDate`) stay `yyyy-MM-dd` strings: never `Date` or `DatePipe` (one-day shift west of UTC).
+  Timestamps (`receivedAt`) render in local time with `DatePipe` (D-103).
+- Client-side file checks (extension, empty, size) are UX only; the API is authoritative (D-104).

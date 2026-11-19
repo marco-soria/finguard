@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { MatButton } from '@angular/material/button';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { ApiError } from '../../core/http/api-error';
@@ -6,6 +7,7 @@ import { GENERIC_ERROR_TITLE } from '../../core/http/problem-details.interceptor
 
 @Component({
   selector: 'app-login',
+  imports: [MatButton],
   templateUrl: './login.html',
   styleUrl: './login.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -4,7 +4,7 @@
   <ul class="login-users">
     @for (user of users; track user.id) {
       <li>
-        <button type="button" [disabled]="busy()" (click)="signIn(user.id)">
+        <button matButton="filled" type="button" [disabled]="busy()" (click)="signIn(user.id)">
           Sign in as {{ user.label }}
         </button>
       </li>

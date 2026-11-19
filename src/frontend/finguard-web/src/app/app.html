@@ -1,16 +1,18 @@
 <header class="app-header">
-  <h1>FinGuard</h1>
-  @if (auth.isAuthenticated()) {
-    <div class="app-session">
-      @let state = tenant();
-      @if (state.status === 'loaded') {
-        <p class="app-tenant">{{ state.name }}</p>
-      } @else if (state.status === 'error') {
-        <p class="app-tenant" role="status">Could not load your organization.</p>
-      }
-      <button type="button" (click)="signOut()">Sign out</button>
-    </div>
-  }
+  <mat-toolbar>
+    <h1>FinGuard</h1>
+    @if (auth.isAuthenticated()) {
+      <div class="app-session">
+        @let state = tenant();
+        @if (state.status === 'loaded') {
+          <p class="app-tenant">{{ state.name }}</p>
+        } @else if (state.status === 'error') {
+          <p class="app-tenant" role="status">Could not load your organization.</p>
+        }
+        <button matButton="outlined" type="button" (click)="signOut()">Sign out</button>
+      </div>
+    }
+  </mat-toolbar>
 </header>
 <main class="app-main">
   <router-outlet />

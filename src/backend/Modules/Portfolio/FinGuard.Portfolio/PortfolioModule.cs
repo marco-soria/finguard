@@ -1,5 +1,7 @@
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
+using FinGuard.Portfolio.Features.GetSubmission;
+using FinGuard.Portfolio.Features.ListSubmissions;
 using FinGuard.Portfolio.Features.ReceiveSubmission;
 using FinGuard.Portfolio.Persistence;
 using Microsoft.AspNetCore.Builder;
@@ -35,7 +37,9 @@ public static class PortfolioModule
     {
         endpoints.MapGroup("/api/portfolio")
             .RequireAuthorization(AuthorizationPolicies.TenantMember)
-            .MapReceiveSubmission();
+            .MapReceiveSubmission()
+            .MapListSubmissions()
+            .MapGetSubmission();
         return endpoints;
     }
 }

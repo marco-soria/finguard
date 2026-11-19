@@ -2,6 +2,7 @@
 paths:
   - "tests/**"
   - "**/*.spec.ts"
+  - "**/*.e2e.ts"
 ---
 
 # Testing rules
@@ -23,4 +24,8 @@ paths:
   hard-code the module list.
 - Compliance boundary tables are mandatory (see `compliance-domain.md`).
 - Frontend: test component logic and services; do not snapshot-test.
+- E2E: Playwright Test in `src/frontend/finguard-web/e2e`, files `*.e2e.ts`, Chromium only (D-99). Role-based
+  locators (`getByRole`, `getByLabel`), no fixed waits, unique data per run (the database is shared), run locally
+  against `aspire run` with `E2E_BASE_URL`. Keep the flows few; run `pnpm e2e` before a PR that touches the frontend or
+  the Portfolio slices (R-25).
 - A bug fix starts with a failing test that reproduces it.

@@ -3,6 +3,108 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-19 (session 17: Brief #9 executed)
+
+### Resolved versions
+| Package | Version | Notes |
+| --- | --- | --- |
+| `@angular/material`, `@angular/cdk` | 22.3.0 | Latest; pnpm's `minimumReleaseAge` did not hold it back. Angular core stays 22.2.6 |
+| `@playwright/test` | 1.65.1 (pinned exact) | Browser builds are tied to the Playwright version; Chromium build 1255 installed with `pnpm exec playwright install chromium` |
+| Dapper | 2.1.89 (now also referenced by `FinGuard.Portfolio`) | `DateOnly` maps natively, as verified in planning |
+
+No new `allowBuilds` approvals. The `pnpm peers check` warning (`@emnapi/*` under `@napi-rs/wasm-runtime`) was there
+before this brief.
+
+### APIs checked against installed `.d.ts` / sources
+| Concern | Finding |
+| --- | --- |
+| `matButton` | Selector `matButton` with `MatButtonAppearance = 'text' \| 'filled' \| 'elevated' \| 'outlined' \| 'tonal'` (`@angular/material/types/button.d.ts`) |
+| `httpResource` | `@publicApi 22.0`; uses `HttpClient`, so interceptors apply. Needs an injection context |
+| Resource errors | `resource` keeps an error only if it is error-like (`instanceof Error` or `name` + `message`); anything else becomes `ResourceWrappedError` with `cause` (`@angular/core` `_resource-chunk.mjs`). `ApiError` was a plain class, so `ApiError` now extends `Error` (one place). Existing `toEqual(new ApiError(...))` tests stay green |
+| Dapper + `timestamptz` | Npgsql gives Dapper a UTC `DateTime`; a positional record with a `DateTimeOffset` parameter fails with "A parameterless default constructor or one matching signature ... is required". Handlers read into a private `Row` record and map to the response |
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-107 | `PortfolioApi.submissions()` / `submission(id)` are factories called in the component's injection context, not resources held by the root service | A root-held resource would keep the previous user's list after sign-out |
+| D-108 | Read-slice integration tests that need an exact list provision their own tenant + user (SQL into `tenancy.tenants` / `tenancy.users`, token from the dev issuer with a new `DevIdentity`) | The test database is shared per assembly, so Alice's list is never empty. Isolation tests still use Alice and Bob |
+| D-109 | Router uses `withComponentInputBinding()`; `submission-detail` reads `:id` as `input.required<string>()` | |
+
+### Bugs found and fixed
+- **`ng add` ran the schematic twice** (Angular CLI 22.2.7 + Material 22.3.0): `material-theme.scss` and the Google
+  Fonts `<link>` block were written twice. The theme file was rewritten and the font links removed (they had to go anyway).
+- **Field errors after a successful upload:** `form.reset()` left `FormGroupDirective.submitted` true, so Material showed
+  "Enter the cut-off date." on the fresh form. Found in the manual screenshot; fixed with `resetForm()`, regression
+  assertion in `UploadForm` spec (fails without the fix). Separate commit `fix: clear field errors after a successful upload`.
+
+### Deviations
+- `DevelopmentSeedTests.SeedDevelopmentTenants_RunTwice_KeepsTwoTenants` now counts only the seeded identities' tenants
+  and users; provisioned test tenants broke its global count (D-108).
+- `GetSubmission_OwnSubmission_Returns200WithFields` compares `receivedAt` within 1 µs: the upload response carries .NET
+  ticks (100 ns), PostgreSQL stores microseconds (see R-27).
+- `ReadSlices_Always_DoNotLogFileNames` has no positive log assertion: Wolverine does not log inline `InvokeAsync` of
+  queries, so there is no read-slice record to anchor on. It asserts the reads returned the marker and no log contains it.
+- Commit plan: six commits instead of five (the fix above).
+- `@playwright/test` pinned exact (`1.65.1`) instead of a caret range.
+- Lint covers `e2e/**/*.ts` and `playwright.config.ts` through `lintFilePatterns`. No tsconfig for `e2e/`: Playwright
+  transpiles without type-checking; editors show `process`/`Buffer` as unknown without `@types/node` (not added).
+- Time zone: `TZ=America/Lima pnpm test --watch=false` passes (60/60) and Node honors `TZ` on Windows; the spec itself
+  asserts the exact API string. Not wired into a script.
+
+### Test counts
+Backend: unit 54, architecture 15, integration 71 (was 59; +12). Frontend (Vitest): 60 in 13 files (was 36 in 9).
+E2E (Playwright): 1, passed twice in a row against the same database (4.9 s cold, 0.7 s warm).
+
+### Manual check (`aspire run`, 2026-11-19)
+Playwright script against the `web` resource (`http://localhost:53495`), light and dark (`colorScheme` emulation):
+- Alice uploads; the new file is the top history row; the detail page opens from the row and from the `Location` id.
+- Future cut-off date: alert "Validation failed" (API title). Unknown id: "Resource not found".
+- Request hosts: `localhost:53495` only (no third-party hosts).
+- Dark: body `rgb(18, 19, 22)` on `rgb(227, 226, 230)`; light: `rgb(250, 249, 253)` on `rgb(26, 27, 31)`.
+
+### Risks and flags
+- **R-27 `receivedAt` precision.** The upload response returns the in-memory `DateTimeOffset` (100 ns); reads return
+  PostgreSQL microseconds. Harmless for display; truncate to microseconds in the handler if a client ever compares them.
+- **R-28 Only the API title is shown.** An invalid upload shows "Validation failed" without the reason (D-80 shows only
+  `title`). Revisit with rejected submissions (Phase 2), e.g. show `detail` for 400s.
+
+## Delta 2026-11-19 (session 17: Brief #9 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-98 | UI library: Angular Material 22 + CDK, theme `azure-blue` via the `ng add` Sass theme file; system font stack; no third-party font or icon CDNs | Closes the open question of sessions 7 and 15. Rejected: PrimeNG, CDK only, Tailwind (accessible table, form fields and errors would be hand-built; the project's showcase is architecture and domain, not visual design); Material + Tailwind (two styling systems) |
+| D-99 | E2E: Playwright Test (TypeScript) in `src/frontend/finguard-web/e2e`, Chromium, run locally against `aspire run` via `E2E_BASE_URL`; CI E2E decided in Phase 5 | Closes the E2E tool question. Rejected: Cypress, Playwright .NET + `Aspire.Hosting.Testing` |
+| D-100 | `GET /api/portfolio/submissions`: newest 100 for the tenant, `received_at DESC, id DESC`, envelope `{ items }`, no paging yet | Read queries never select `submission_contents` |
+| D-101 | `GET /api/portfolio/submissions/{id}`: unknown or other tenant's id → 404 `Portfolio.Submission.NotFound` | Existence is not revealed |
+| D-102 | Angular reads use `httpResource` (stable since 22.0); writes use `HttpClient` | |
+| D-103 | Calendar dates (`cutOffDate`) travel and render as `yyyy-MM-dd` strings, never through `Date`/`DatePipe`; timestamps (`receivedAt`) render in local time | Prevents the one-day shift west of UTC |
+| D-104 | Client-side file checks (`.csv`, > 0, ≤ 5 MB) are UX only; the API is authoritative | |
+| D-106 | Dark mode follows the operating system (`color-scheme: light dark`); component CSS uses `--mat-sys-*` tokens only; a three-state toggle (system/light/dark) arrives in Phase 3 with the status colors | Tailwind evaluated and rejected for this project (see D-98) |
+| D-105 | Phase 1 ends with Brief #9; Brief #10 opens Phase 2 with the dependency-majors review (R-13) in its preflight | |
+
+### Verified on 2026-11-19
+| Area | Finding | Source |
+| --- | --- | --- |
+| Angular Material | 22.3.0 latest; `ng add` option `theme`; CSS projects get a generated `material-theme.scss` and Google Fonts links | npm registry; https://material.angular.dev/guide/getting-started |
+| Angular | `httpResource` is `@publicApi 22.0` | `@angular/common` 22.2.6 `types/http.d.ts` |
+| Playwright | `@playwright/test` 1.65.1, Node ≥ 20, browsers installed explicitly | npm registry; https://playwright.dev/docs/intro |
+| Dapper / Npgsql | Dapper 2.1.86 re-enabled `DateOnly`; Npgsql 10 reads `date` as `DateOnly` | https://www.npgsql.org/doc/types/datetime.html |
+
+### Risks and flags
+- **R-25 E2E only local.** The browser flow is not in CI until Phase 5; regressions show up only when someone runs
+  `pnpm e2e`. Mitigation: run it before every PR that touches the frontend or the Portfolio slices; Phase 5 adds a CI job.
+- **R-26 Material ties to Angular majors.** Angular 23 must wait for Material 23 (Material already accepts core ^23 in
+  peers). Covered by the R-13 majors review.
+
+### Open questions
+1. Per-module local queues: decide with `SubmissionAccepted` (Phase 2).
+2. E2E in CI (Aspire in the runner, or against the deployed environment) and Entra test users for E2E: Phase 5.
+
+### Next step
+Brief #10 (Phase 2 start): dependency-majors review, CSV parsing and validation (D-06 columns, rows, encoding,
+USD only, no negatives, total > 0), rejected submissions stored with their errors (D-10), and SHA-256 idempotency (D-11).
+
 ## Delta 2026-11-19 (session 16: Brief #8 executed)
 
 ### Resolved versions

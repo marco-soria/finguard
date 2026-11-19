@@ -16,8 +16,12 @@ public sealed class DevelopmentSeedTests(ApiFixture fixture)
         await fixture.Factory.Services.SeedDevelopmentTenantsAsync(cancellationToken);
 
         await using var connection = new NpgsqlConnection(fixture.ConnectionString);
-        var tenants = (await connection.QueryAsync<string>("SELECT name FROM tenancy.tenants ORDER BY name")).ToList();
-        var users = await connection.ExecuteScalarAsync<long>("SELECT count(*) FROM tenancy.users");
+        // Scoped to the seeded identities: other tests provision their own tenants in the shared database.
+        var tenantIds = DevIdentities.All.Select(i => i.TenantId).ToArray();
+        var tenants = (await connection.QueryAsync<string>(
+            "SELECT name FROM tenancy.tenants WHERE id = ANY(@tenantIds) ORDER BY name", new { tenantIds })).ToList();
+        var users = await connection.ExecuteScalarAsync<long>(
+            "SELECT count(*) FROM tenancy.users WHERE tenant_id = ANY(@tenantIds)", new { tenantIds });
 
         Assert.Equal(["Acme Pension Fund", "Globex Insurance"], tenants);
         Assert.Equal(2, users);

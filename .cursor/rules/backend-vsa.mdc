@@ -54,6 +54,10 @@ alwaysApply: false
 - Every query on tenant-owned tables filters `tenant_id = @TenantId`, with the value from `ITenantContext`
   (EF global query filters do not apply to Dapper).
 - A query reads only its own module schema. No cross-schema SQL; cross-module data comes from Contracts.
+- Read queries never select `portfolio.submission_contents` (file bytes); they return metadata only. List queries have
+  a named cap constant and a deterministic order (a unique tiebreaker such as `id`) (D-100).
+- Npgsql hands `timestamptz` to Dapper as a UTC `DateTime`; a positional record with a `DateTimeOffset` parameter fails
+  to materialize. Read into a private row record and map to the response DTO.
 
 ## Slice template (D-81)
 Copy `src/backend/Modules/Tenancy/FinGuard.Tenancy/Features/GetCurrentTenant/` for every new slice:

@@ -1,0 +1,21 @@
+a {
+  color: var(--mat-sys-primary);
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1.5rem;
+}
+
+dt {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+dd {
+  margin: 0;
+}
+
+.detail-error {
+  color: var(--mat-sys-error);
+}

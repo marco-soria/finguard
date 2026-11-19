@@ -1,0 +1,44 @@
+<section aria-labelledby="history-title">
+  <h2 id="history-title">Submission history</h2>
+  @if (submissions.isLoading()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Loading submissions" />
+  }
+  @if (error(); as message) {
+    <p class="history-error" role="alert">{{ message }}</p>
+  } @else if (items(); as rows) {
+    @if (rows.length === 0) {
+      <p>No submissions yet.</p>
+    } @else {
+      <table mat-table [dataSource]="rows">
+        <caption class="visually-hidden">
+          Your submissions, newest first
+        </caption>
+        <ng-container matColumnDef="cutOffDate">
+          <th mat-header-cell *matHeaderCellDef scope="col">Cut-off date</th>
+          <!-- A calendar date: shown exactly as returned, never through Date or DatePipe (D-103). -->
+          <td mat-cell *matCellDef="let row">{{ row.cutOffDate }}</td>
+        </ng-container>
+        <ng-container matColumnDef="fileName">
+          <th mat-header-cell *matHeaderCellDef scope="col">File</th>
+          <td mat-cell *matCellDef="let row">
+            <a [routerLink]="['/submissions', row.submissionId]">{{ row.fileName }}</a>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="sizeBytes">
+          <th mat-header-cell *matHeaderCellDef scope="col">Size</th>
+          <td mat-cell *matCellDef="let row">{{ row.sizeBytes | fileSize }}</td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef scope="col">Status</th>
+          <td mat-cell *matCellDef="let row">{{ row.status }}</td>
+        </ng-container>
+        <ng-container matColumnDef="receivedAt">
+          <th mat-header-cell *matHeaderCellDef scope="col">Received</th>
+          <td mat-cell *matCellDef="let row">{{ row.receivedAt | date: 'medium' }}</td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns"></tr>
+      </table>
+    }
+  }
+</section>
