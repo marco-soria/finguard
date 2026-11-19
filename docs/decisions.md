@@ -3,6 +3,80 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-19 (session 19: session hygiene)
+
+Brief #10a, Part B. Branch `chore/agent-session-hygiene` from `origin/main`.
+
+### Incident that motivated the rules
+At the start of session 19 an `aspire run` was still running from the Brief #10 session (CLI PID 46896, AppHost
+47896, DCP, Api, `ng serve`, container `postgres-dqcdbukq`). The agent had started it in session 18 and never stopped
+it. The first baseline listed it, so it looked like the owner's; the owner corrected this. It was stopped with
+`aspire stop --apphost src/backend/FinGuard.AppHost/FinGuard.AppHost.csproj` (graceful: DCP removed the container,
+no manual removal needed; the data volume was kept and later reset with approval for the regenerated migration, D-130).
+
+### Decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-132 | `scripts/dev-session.ps1` (PowerShell 7, no dependencies): `-Snapshot`, `-StartAspire`, `-Report` (default), `-Stop`, `-WhatIf`. Baseline in `.git/finguard-session-baseline.txt`, agent-started AppHosts in `.git/finguard-agent-processes.txt` (never committed) | Items keyed by PID + process start time (PID reuse) or container id |
+| D-133 | Agents start Aspire only through `-StartAspire` (`aspire start` in the background). `-Stop` runs `aspire stop` for every recorded AppHost, including earlier sessions', waits up to 60 s, then stops the remaining new items: DCP (found by its `--monitor` chain from the AppHost), `dotnet`/`node` processes whose command line holds the repo path (editor helpers excluded), Playwright browsers, Testcontainers (`org.testcontainers=true`) and Aspire containers (`com.microsoft.developer.usvc-dev.*` labels); then `dotnet build-server shutdown`. Never volumes, never baseline items | In every proof run the Api `dotnet run` (and sometimes `ng serve`) outlived `aspire stop` by a few seconds; `-Stop` catches it |
+| D-134 | An AppHost of this repo that is neither recorded nor in the previous baseline is "unknown owner": `-Snapshot` and `-Report` warn, the agent asks the owner once, and `-Stop` leaves it and (shortcut) every DCP/repo process/Aspire container alone while it runs | Children are not traced to their AppHost; trace parent PIDs if this blocks a real cleanup |
+| D-135 | Aspire CLI: one install, the .NET global tool `aspire.cli` 13.6.5 (= `AspireVersion`). The session 6 note was right: `Aspire.Cli` is a RID-specific native tool (`Runner="executable"`, package `Aspire.Cli.win-x64`), so SDK 10.0.403 writes `%USERPROFILE%\.dotnet\tools\aspire.cmd`, not `aspire.exe`. Git Bash resolves `.exe` without the extension but not `.cmd`; `aspire.cmd --version` works there. Workaround: `aspire.cmd` or `alias aspire=aspire.cmd` | The brief assumed the tool installs `aspire.exe`; it does not. `docs/dev-environment.md` records it |
+| D-136 | `AGENTS.md` gains "Closing a work session" (four rules) and a Commands link to `docs/dev-environment.md`; `CLAUDE.md` gains one line | Applies to Claude Code and Cursor |
+
+### Aspire CLI diagnosis (report only; nothing changed outside the repo)
+| Check | Result |
+| --- | --- |
+| PowerShell `Get-Command aspire -All` / `where.exe aspire` | `%USERPROFILE%\.dotnet\tools\aspire.cmd` only |
+| `dotnet tool list -g` | `aspire.cli 13.6.5` |
+| `aspire --version` (PowerShell) | `13.6.5+b33d222049f1ecc3bc7257ec07b622fe550b2580` |
+| Git Bash `which -a aspire` / `type -a aspire` | not found; `aspire.cmd --version` → 13.6.5 |
+| npm global shims (`%APPDATA%\npm\aspire*`) | none |
+| Install script (`%USERPROFILE%\.aspire\bin`) | none |
+| WinGet (`%LOCALAPPDATA%\Microsoft\WinGet\Links`, `Packages`) | none |
+| Leftovers of the old npm install (13.5.3), not on PATH | `%USERPROFILE%\.aspire\npm\13.5.3` (144 MB, contains `aspire.exe`) and `%USERPROFILE%\.aspire\versions\13.5.3_b5f1…` (291 MB) |
+
+Owner (optional, frees about 435 MB; keep the rest of `%USERPROFILE%\.aspire`, which the 13.6.5 CLI uses):
+`Remove-Item -Recurse -Force "$env:USERPROFILE\.aspire\npm\13.5.3", "$env:USERPROFILE\.aspire\versions\13.5.3_*"`
+
+### Proof (`-Snapshot`, `-StartAspire`, `-Report`, `-Stop`, `-Report`)
+```text
+PS> scripts/dev-session.ps1 -Snapshot
+Nothing of this repo is running.
+Baseline: 6 entries -> D:\dev\projects\finguard\.git\finguard-session-baseline.txt
+PS> scripts/dev-session.ps1 -StartAspire
+AppHost PID 680 recorded in D:\dev\projects\finguard\.git\finguard-agent-processes.txt
+Dashboard: https://localhost:17182/login?t=<token>
+PS> scripts/dev-session.ps1 -Report
+
+Status Kind                       Id Started              Detail
+------ ----                       -- -------              ------
+agent  AppHost                   680 2026-11-19T21:26:00Z D:\dev\projects\finguard\src\backend\FinGuard.AppHost\FinGua
+new    Aspire CLI              23760 2026-11-19T21:25:58Z "%USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspir
+new    Aspire container c34a95b91845                      postgres-kxnxhyrc postgres:18.3
+new    DCP                     45608 2026-11-19T21:26:01Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     45996 2026-11-19T21:26:01Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     44392 2026-11-19T21:26:02Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     46456 2026-11-19T21:26:02Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     44776 2026-11-19T21:26:02Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     40808 2026-11-19T21:26:03Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    DCP                     44464 2026-11-19T21:26:04Z %USERPROFILE%\.dotnet\tools\.store\aspire.cli\13.6.5\aspire
+new    Repo process            47776 2026-11-19T21:26:04Z dotnet run --project D:\dev\projects\finguard\src\backend\Fi
+
+PS> scripts/dev-session.ps1 -Stop
+Stopped AppHost D:\dev\projects\finguard\src\backend\FinGuard.AppHost\FinGuard.AppHost.csproj (PID 680)
+Stopped Repo process (PID 47776)
+Stopped Repo process (PID 13492)
+dotnet build-server shutdown done
+Nothing of this repo is running.
+PS> scripts/dev-session.ps1 -Report
+Nothing of this repo is running.
+```
+Unknown owner (AppHost started with plain `aspire start`): `-Report` listed it as `unknown owner` with the warning;
+`-Stop` printed "Unknown-owner AppHost running: its processes and containers were not stopped." and left the AppHost,
+Api, `ng serve` and `postgres` container running. `-WhatIf` listed every planned stop and changed nothing. Two script
+bugs found in the first runs were fixed before commit (`ForEach-Object <member>` is a ShouldProcess operation under
+`-WhatIf`; strict mode rejects `.Key` on an empty array).
+
 ## Delta 2026-11-19 (session 17: Brief #9 executed)
 
 ### Resolved versions
@@ -711,7 +785,7 @@ Brief #4: test stack and architecture tests (`tests/FinGuard.ArchitectureTests`)
 - `wolverine` schema tables created at startup: `wolverine_agent_restrictions`, `wolverine_control_queue`, `wolverine_dead_letter_history`, `wolverine_dead_letters`, `wolverine_incoming_envelopes`, `wolverine_node_assignments`, `wolverine_node_records`, `wolverine_nodes`, `wolverine_outgoing_envelopes`.
 - Wolverine logs "found no handlers" as a warning; expected until the first slice.
 - Probe: unhandled exception returns 500 `application/problem+json` with `title`, `status`, `traceId` only; the exception message did not appear in the response or the logs. Unknown route returns 404 ProblemDetails with `traceId`.
-- Aspire CLI installed from npm cannot self-update and conflicts with the no-npm rule; replaced with the `Aspire.Cli` .NET global tool. In Git Bash the tool shim is `aspire.cmd`; use PowerShell.
+- Aspire CLI installed from npm cannot self-update and conflicts with the no-npm rule; replaced with the `Aspire.Cli` .NET global tool. In Git Bash the tool shim is `aspire.cmd`; use PowerShell. (Session 19: still true; cause and Git Bash workaround in D-135.)
 
 ### Next step
 Brief #3: Angular 22 app with pnpm, added to the AppHost with `AddJavaScriptApp(...).WithPnpm()`.
