@@ -3,6 +3,100 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-19 (session 15: Brief #7 executed)
+
+### Resolved versions
+No upgrades and no new frontend dependency. WolverineFx stays 6.64.0, Angular 22.2.x.
+
+### Wolverine 6.64 API names checked (XML docs in the NuGet package)
+`IPolicies.MessageSuccessLogLevel(LogLevel)` (default Information) and `IPolicies.MessageExecutionLogLevel(LogLevel)`
+(default Debug) match the brief. The package also has `IPolicies.MessageFailureLogLevel(LogLevel)` (GH-5043, default
+Error), so failure logging is configurable, not fixed. It stays at Error: hiding failures is not the fix (D-77).
+
+### R-21 evidence
+Before the overrides, `FailedMessage_WithFreeText_DoesNotLogPayload` failed with this Error record from Wolverine:
+`Invocation of PlaceProbeOrder { OrderId = ..., Reference = secret-reference-..., FailAfterSave = True } failed!`.
+After the overrides it passes, and it also asserts that a record names `PlaceProbeOrder`, so it cannot pass by logging
+nothing. `MessageTypes_Always_OverrideToString` failed with a temporary `TempProbeMessage` record in Tenancy, passed
+once that record had an override, and the record was then removed. **R-21 is closed.**
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-83 | The architecture test treats a record's synthesized `ToString()` as missing: it requires `DeclaringType == type` and no `[CompilerGenerated]` | The compiler declares a synthesized `ToString()` on every record, so `DeclaringType == type` alone passes for all records |
+| D-84 | The dev proxy (`proxy.conf.js`) forwards `/dev` as well as `/api` | `POST /dev/token` stays same-origin; no CORS |
+| D-85 | `AuthProvider` exposes `users` (the sign-in choices) and `AuthService.users` forwards it | The login page must not import a provider (D-78) |
+| D-86 | Test classes that use `MessagingHost` share the xUnit collection `MessagingHost.Collection` | `TrackActivity` sees all host activity; parallel classes saw each other's messages and timed out |
+
+### Deviations
+- The architecture test only checks message types declared in FinGuard assemblies. Without that filter it flagged
+  `RequestDelegate`, the first parameter of ASP.NET's `IAuthorizationMiddlewareResultHandler.HandleAsync` on
+  `TenantAuthorizationResultHandler`.
+- Probe messages live in the test assembly, which the architecture test does not scan. Their overrides were added by
+  hand, as the brief asked.
+- The `/api/tenancy` group had no `RequireAuthorization(TenantMember)` call (the other modules had one); it has now.
+- The slice's query, response and handler are `public`, because Wolverine discovers only public handler and message
+  types (same rule as the probe modules). The endpoint class is `internal`.
+- `MessagingHost` now registers fake logging and exposes `Logs`, so the R-21 test can read the probe host's logs.
+- `ApiError` is a class, so `authInterceptor` can match it with `instanceof`. Interceptor order: `authInterceptor` runs
+  outermost, so on the way back it sees the `ApiError` mapped by `problemDetailsInterceptor` and signs out on status
+  401.
+- Non-ProblemDetails errors get the title `Something went wrong. Please try again.`; the brief asked for "status only",
+  but the login page needs some title to show.
+- `frontend.md` / `.mdc` said "One interceptor handles auth headers and maps ProblemDetails". They now describe the two
+  interceptors of D-80.
+- Specs use a shared test double, `core/auth/fake-auth-provider.ts`. The app does not register it, so the build tree-shakes it
+  out of the bundle.
+- `withFetch()` is marked deprecated in Angular 22 (the TypeScript language service flags it; lint and build pass). It
+  is kept as the brief asks. Removing it is a follow-up.
+- Prettier finds 3 files on `main` that were already unformatted (`app.routes.spec.ts`, `index.html`, `main.ts`).
+  Only files touched here were formatted (`app.routes.spec.ts` was rewritten in this brief).
+
+### Manual check (`aspire run`, 2026-11-19)
+- Opening `/` without a session redirected to `/login` ("Sign in (development)", buttons for Alice and Bob).
+- Alice: header shows "Acme Pension Fund"; a reload keeps the session (sessionStorage).
+- Sign out: back on `/login`. Bob: header shows "Globex Insurance".
+- `aspire resource api restart`, then reload: `GET /api/tenancy/me` returned 401 and the app went to `/login` (R-18).
+- Network list: `POST /dev/token` and `GET /api/tenancy/me` through the web origin; no URL contains a token. The
+  browser tool redacts headers, so the bearer header was proven by behaviour: through the proxy, the same call returns
+  200 with the token and 401 without it.
+
+### Risks and flags
+- **R-21** closed (see above).
+- **R-22** unchanged (token in `sessionStorage`; Phase 5 review).
+
+## Delta 2026-11-19 (session 15: Brief #7 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-77 | R-21 mitigation: every Wolverine message type in `src/backend` overrides `ToString()` with type name and identifiers only; enforced by an architecture test; success logging at Debug | Wolverine always logs failures at Error with the message; a category filter would hide real failures |
+| D-78 | SPA authentication: `AuthService` over an abstract `AuthProvider`; `DevAuthProvider` now, MSAL provider for Entra External ID in Phase 5; components never import a provider | Closes open question 1 of session 11 |
+| D-79 | Development session stored in `sessionStorage`, cleared on sign-out and on any 401 from `/api/` | R-18: dev tokens die on Api restart |
+| D-80 | Interceptors: `authInterceptor` (bearer on same-origin `/api/` only, 401 → sign out) then `problemDetailsInterceptor` (typed `ApiError` from RFC 9457) | Only `title` reaches the user |
+| D-81 | `GET /api/tenancy/me` is the reference slice layout: `Features/<UseCase>/` with query record, response record, Wolverine handler (Dapper, tenant from `ITenantContext`) and Minimal API endpoint using `InvokeForCurrentTenantAsync<Result<T>>` | Documented in `backend-vsa` rules |
+| D-82 | UI library decision moves to Brief #9 (first table and form) | Login and header use plain semantic HTML |
+
+### Verified on 2026-11-19
+| Area | Finding | Source |
+| --- | --- | --- |
+| Wolverine logging | Execution/success log levels configurable; failures logged at Error with the exception | https://wolverine.netlify.app/guide/logging |
+| Message logging pattern | Message loggers write `ToString()`; override it to control content | https://docs.particular.net/nservicebus/logging/message-contents |
+| Angular HTTP | Functional interceptors via `provideHttpClient(withInterceptors([...]))` | https://angular.dev/api/common/http/withInterceptors |
+
+### Risks and flags
+- **R-21** expected to close with this brief.
+- **R-22 Token in `sessionStorage`.** Readable by any script on the page (XSS). Acceptable for the development provider;
+  Phase 5 reviews MSAL's cache location and the Content Security Policy.
+
+### Open questions
+1. Browser end-to-end test tool (Playwright or other): Brief #9.
+2. UI library: Brief #9.
+
+### Next step
+Brief #8: minimal upload slice (`POST /api/portfolio/submissions` storing the raw CSV and cut-off date, size limit,
+`SubmissionReceived` event), without validation rules yet.
+
 ## Delta 2026-11-15 (session 14: Brief #6 executed)
 
 ### Resolved versions
