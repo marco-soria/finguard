@@ -21,6 +21,17 @@ internal static class SubmissionTestData
     public static byte[] Csv() => Encoding.UTF8.GetBytes(
         "position_id,asset_class,market_value_usd,currency,description\nP-1,cash,1000.00,USD,Treasury bills\n");
 
+    /// <summary>Two data rows, three errors: a negative amount on row 2; an unknown class and a non-USD currency on row 3.</summary>
+    public static byte[] InvalidCsv() => Encoding.UTF8.GetBytes(
+        "position_id,asset_class,market_value_usd,currency,description\nP-1,cash,-1,USD,a\nP-2,crypto,5,EUR,b\n");
+
+    public static readonly (int? Row, string? Column, string Code)[] InvalidCsvErrors =
+    [
+        (2, "market_value_usd", "Portfolio.Csv.MarketValueNegative"),
+        (3, "asset_class", "Portfolio.Csv.AssetClassUnknown"),
+        (3, "currency", "Portfolio.Csv.CurrencyNotUsd"),
+    ];
+
     public static async Task<HttpResponseMessage> UploadAsync(
         this HttpClient client, string fileName, CancellationToken ct, byte[]? content = null)
     {
@@ -30,9 +41,10 @@ internal static class SubmissionTestData
         return await client.PostAsync(new Uri(Path, UriKind.Relative), form, ct);
     }
 
-    public static async Task<SubmissionReceivedResponse> UploadOkAsync(this HttpClient client, string fileName, CancellationToken ct)
+    public static async Task<SubmissionReceivedResponse> UploadOkAsync(
+        this HttpClient client, string fileName, CancellationToken ct, byte[]? content = null)
     {
-        using var response = await client.UploadAsync(fileName, ct);
+        using var response = await client.UploadAsync(fileName, ct, content);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<SubmissionReceivedResponse>(ct))!;
     }
@@ -60,6 +72,21 @@ internal static class SubmissionTestData
         command.Parameters.AddWithValue("subject", identity.Subject);
         await command.ExecuteNonQueryAsync(ct);
         return identity;
+    }
+
+    /// <summary>One scalar as the database owner (no query filter), so a test sees exactly what was written.</summary>
+    public static async Task<T> ScalarAsync<T>(
+        this ApiFixture fixture, string sql, CancellationToken ct, params (string Name, object Value)[] parameters)
+    {
+        await using var connection = new NpgsqlConnection(fixture.ConnectionString);
+        await connection.OpenAsync(ct);
+        await using var command = new NpgsqlCommand(sql, connection);
+        foreach (var (name, value) in parameters)
+        {
+            command.Parameters.AddWithValue(name, value);
+        }
+
+        return (T)(await command.ExecuteScalarAsync(ct))!;
     }
 
     /// <summary>A Portfolio context for the tenant, with the real stamping interceptor and query filter.</summary>

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -25,21 +27,147 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task Upload_ValidCsv_Returns201AndStoresSubmissionAndContent()
+    public async Task Upload_ValidCsv_Returns201AcceptedAndStoresPositions()
     {
-        var content = Csv();
+        var content = Encoding.UTF8.GetBytes(
+            "position_id,asset_class,market_value_usd,currency,description\nP-1,cash,1000.00,USD,Bills\nP-2,Fixed_Income,250.5,usd,Bonds\n");
 
         using var response = await UploadAsync(DevIdentities.Alice, content, "portfolio.csv", Today);
 
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<SubmissionReceivedResponse>(_ct);
         Assert.NotNull(body);
-        Assert.Equal("Received", body.Status);
+        Assert.Equal(("Accepted", 2, 0), (body.Status, body.RowCount, body.ErrorCount));
+        Assert.Empty(body.Errors);
         Assert.Equal($"{Path}/{body.SubmissionId}", response.Headers.Location?.OriginalString);
         var row = await ReadRowAsync(body.SubmissionId);
-        Assert.Equal(("Received", content.Length, Convert.ToHexStringLower(SHA256.HashData(content)), "portfolio.csv", new DateOnly(2026, 1, 1)),
+        Assert.Equal(("Accepted", content.Length, Convert.ToHexStringLower(SHA256.HashData(content)), "portfolio.csv", new DateOnly(2026, 1, 1)),
             (row.Status, row.SizeBytes, row.Sha256, row.FileName, row.CutOffDate));
         Assert.Equal(content, row.Content);
+        Assert.Equal(
+            [(2, "P-1", "cash", 1000.00m), (3, "P-2", "fixed_income", 250.50m)],
+            await ReadPositionsAsync(body.SubmissionId));
+    }
+
+    [Fact]
+    public async Task Upload_InvalidCsv_Returns201RejectedAndStoresErrors()
+    {
+        var content = SubmissionTestData.InvalidCsv();
+
+        using var response = await UploadAsync(DevIdentities.Alice, content, "invalid.csv", Today);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<SubmissionReceivedResponse>(_ct);
+        Assert.NotNull(body);
+        Assert.Equal(("Rejected", 2, 3), (body.Status, body.RowCount, body.ErrorCount));
+        Assert.Equal(SubmissionTestData.InvalidCsvErrors, body.Errors.Select(e => (e.Row, e.Column, e.Code)));
+        Assert.Equal($"{Path}/{body.SubmissionId}", response.Headers.Location?.OriginalString);
+        var row = await ReadRowAsync(body.SubmissionId);
+        Assert.Equal("Rejected", row.Status);
+        Assert.Equal(content, row.Content);
+        Assert.Empty(await ReadPositionsAsync(body.SubmissionId));
+        Assert.Equal(
+            SubmissionTestData.InvalidCsvErrors.Select((e, i) => (i, e.Row, e.Column, e.Code)),
+            await ReadErrorsAsync(body.SubmissionId));
+    }
+
+    [Fact]
+    public async Task Upload_TenThousandRows_IsAccepted()
+    {
+        var csv = new StringBuilder("position_id,asset_class,market_value_usd,currency,description\n");
+        for (var i = 1; i <= 10_000; i++)
+        {
+            csv.Append(CultureInfo.InvariantCulture, $"P-{i},shares,{i}.25,USD,Position {i}\n");
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        using var response = await UploadAsync(DevIdentities.Alice, Encoding.UTF8.GetBytes(csv.ToString()), "big.csv", Today);
+        stopwatch.Stop();
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<SubmissionReceivedResponse>(_ct);
+        Assert.Equal(("Accepted", 10_000), (body!.Status, body.RowCount));
+        Assert.Equal(10_000L, await fixture.ScalarAsync<long>(
+            "SELECT count(*) FROM portfolio.positions WHERE submission_id = @id", _ct, ("id", body.SubmissionId)));
+        // R-30: reported, not asserted; a slow machine must not fail the build.
+        TestContext.Current.TestOutputHelper?.WriteLine($"10,000-row upload took {stopwatch.ElapsedMilliseconds} ms");
+    }
+
+    [Fact]
+    public async Task Upload_ManyBadRows_StoresFirst100ErrorsAndTotalCount()
+    {
+        var csv = new StringBuilder("position_id,asset_class,market_value_usd,currency,description\n");
+        for (var i = 1; i <= 150; i++)
+        {
+            csv.Append(CultureInfo.InvariantCulture, $"P-{i},cash,1,EUR,\n");
+        }
+
+        using var response = await UploadAsync(DevIdentities.Alice, Encoding.UTF8.GetBytes(csv.ToString()), "bad.csv", Today);
+
+        var body = await response.Content.ReadFromJsonAsync<SubmissionReceivedResponse>(_ct);
+        Assert.Equal(("Rejected", 150, 150, 100), (body!.Status, body.RowCount, body.ErrorCount, body.Errors.Count));
+        Assert.Equal(150, (await ReadRowAsync(body.SubmissionId)).ErrorCount);
+        var stored = await ReadErrorsAsync(body.SubmissionId);
+        Assert.Equal(100, stored.Count);
+        Assert.Equal((99, 101), (stored[^1].Ordinal, stored[^1].Row));
+    }
+
+    [Theory]
+    [InlineData("empty", "portfolio.csv", Today)]
+    [InlineData("csv", "portfolio.txt", Today)]
+    [InlineData("csv", "portfolio.csv", "2999-01-01")]
+    public async Task Upload_TransportFailure_StoresNothing(string body, string fileName, string cutOffDate)
+    {
+        var identity = await fixture.ProvisionTenantAsync(_ct);
+
+        using var response = await UploadAsync(identity, body == "empty" ? [] : Csv(), fileName, cutOffDate);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        foreach (var table in new[] { "submissions", "submission_contents", "positions", "submission_errors" })
+        {
+            Assert.Equal(0L, await fixture.ScalarAsync<long>(
+                $"SELECT count(*) FROM portfolio.{table} WHERE tenant_id = @tenantId", _ct, ("tenantId", identity.TenantId)));
+        }
+    }
+
+    [Fact]
+    public async Task Upload_TwoFilesSameCutOffDate_BothStored()
+    {
+        var identity = await fixture.ProvisionTenantAsync(_ct);
+
+        var first = await UploadOkAsync(identity, Csv("First version"));
+        var second = await UploadOkAsync(identity, Csv("Second version"));
+
+        Assert.NotEqual(first, second);
+        Assert.Equal(2L, await fixture.ScalarAsync<long>(
+            "SELECT count(*) FROM portfolio.submissions WHERE tenant_id = @tenantId AND cut_off_date = @date AND status = 'Accepted'",
+            _ct, ("tenantId", identity.TenantId), ("date", new DateOnly(2026, 1, 1))));
+    }
+
+    [Fact]
+    public async Task Upload_ValidCsv_StampsTenantOnPositionsAndErrors()
+    {
+        var accepted = await UploadOkAsync(DevIdentities.Alice);
+        var rejected = await UploadOkAsync(DevIdentities.Alice, SubmissionTestData.InvalidCsv());
+
+        var positionTenants = await fixture.ScalarAsync<Guid[]>(
+            "SELECT array_agg(DISTINCT tenant_id) FROM portfolio.positions WHERE submission_id = @id", _ct, ("id", accepted));
+        var errorTenants = await fixture.ScalarAsync<Guid[]>(
+            "SELECT array_agg(DISTINCT tenant_id) FROM portfolio.submission_errors WHERE submission_id = @id", _ct, ("id", rejected));
+
+        Assert.Equal([DevIdentities.Alice.TenantId], positionTenants);
+        Assert.Equal([DevIdentities.Alice.TenantId], errorTenants);
+    }
+
+    [Fact]
+    public async Task Upload_AsBob_PositionsAndErrorsAreInvisibleToAlicesContext()
+    {
+        var accepted = await UploadOkAsync(DevIdentities.Bob);
+        var rejected = await UploadOkAsync(DevIdentities.Bob, SubmissionTestData.InvalidCsv());
+        await using var alice = CreateContext(DevIdentities.Alice.TenantId);
+
+        Assert.False(await alice.Set<Position>().AnyAsync(p => p.SubmissionId == accepted, _ct));
+        Assert.False(await alice.Set<SubmissionError>().AnyAsync(e => e.SubmissionId == rejected, _ct));
     }
 
     [Fact]
@@ -156,20 +284,29 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
     }
 
     [Fact]
-    public async Task Upload_Any_DoesNotLogContentFileNameOrHash()
+    public async Task Upload_Any_DoesNotLogContentNamesAmountsOrDescriptions()
     {
         var marker = $"marker{Guid.NewGuid():N}";
-        var content = Csv(marker);
-        var hash = Convert.ToHexStringLower(SHA256.HashData(content));
+        var amount = "73519.47";
+        var valid = Encoding.UTF8.GetBytes(
+            $"position_id,asset_class,market_value_usd,currency,description\nID{marker},cash,{amount},USD,Desc{marker}\n");
+        var invalid = Encoding.UTF8.GetBytes(
+            $"position_id,asset_class,market_value_usd,currency,description\nID{marker},Class{marker},-{amount},Ccy{marker},Desc{marker}\n");
+        var hash = Convert.ToHexStringLower(SHA256.HashData(valid));
 
-        var id = await UploadOkAsync(DevIdentities.Alice, content, $"{marker}.csv");
-        using var rejected = await UploadAsync(DevIdentities.Alice, content, $"{marker}.txt", Today);
+        var acceptedId = await UploadOkAsync(DevIdentities.Alice, valid, $"{marker}.csv");
+        var rejectedId = await UploadOkAsync(DevIdentities.Alice, invalid, $"{marker}.csv");
+        using var transport = await UploadAsync(DevIdentities.Alice, valid, $"{marker}.txt", Today);
 
-        Assert.Equal(HttpStatusCode.BadRequest, rejected.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, transport.StatusCode);
         var records = fixture.Logs.GetSnapshot();
-        Assert.Contains(records, r => r.Message.Contains(id.ToString(), StringComparison.Ordinal));
+        // One line per stored upload: id, size, status and counts.
+        Assert.Single(records, r => r.Message.Contains(acceptedId.ToString(), StringComparison.Ordinal)
+                                    && r.Message.Contains(": Accepted, 1 rows, 0 errors", StringComparison.Ordinal));
+        Assert.Single(records, r => r.Message.Contains(rejectedId.ToString(), StringComparison.Ordinal)
+                                    && r.Message.Contains(": Rejected, 1 rows, 3 errors", StringComparison.Ordinal));
         var leaks = records
-            .Where(r => new[] { marker, hash }.Any(secret =>
+            .Where(r => new[] { marker, hash, amount }.Any(secret =>
                 r.Message.Contains(secret, StringComparison.OrdinalIgnoreCase)
                 || r.StructuredState?.Any(kv => kv.Value?.Contains(secret, StringComparison.OrdinalIgnoreCase) == true) == true
                 || r.Exception?.ToString().Contains(secret, StringComparison.OrdinalIgnoreCase) == true))
@@ -216,7 +353,7 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
         await connection.OpenAsync(_ct);
         await using var command = new NpgsqlCommand(
             """
-            SELECT s.tenant_id, s.cut_off_date, s.file_name, s.size_bytes, s.sha256, s.status, c.tenant_id, c.content
+            SELECT s.tenant_id, s.cut_off_date, s.file_name, s.size_bytes, s.sha256, s.status, c.tenant_id, c.content, s.error_count
             FROM portfolio.submissions s JOIN portfolio.submission_contents c ON c.submission_id = s.id
             WHERE s.id = @id
             """, connection);
@@ -224,7 +361,44 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
         await using var reader = await command.ExecuteReaderAsync(_ct);
         Assert.True(await reader.ReadAsync(_ct), $"No stored submission {id}");
         return new StoredRow(reader.GetGuid(0), reader.GetFieldValue<DateOnly>(1), reader.GetString(2), reader.GetInt32(3),
-            reader.GetString(4), reader.GetString(5), reader.GetGuid(6), reader.GetFieldValue<byte[]>(7));
+            reader.GetString(4), reader.GetString(5), reader.GetGuid(6), reader.GetFieldValue<byte[]>(7), reader.GetInt32(8));
+    }
+
+    private async Task<List<(int Row, string PositionId, string AssetClass, decimal MarketValueUsd)>> ReadPositionsAsync(Guid id)
+    {
+        await using var connection = new NpgsqlConnection(fixture.ConnectionString);
+        await connection.OpenAsync(_ct);
+        await using var command = new NpgsqlCommand(
+            "SELECT row_number, position_id, asset_class, market_value_usd FROM portfolio.positions WHERE submission_id = @id ORDER BY row_number",
+            connection);
+        command.Parameters.AddWithValue("id", id);
+        await using var reader = await command.ExecuteReaderAsync(_ct);
+        var rows = new List<(int, string, string, decimal)>();
+        while (await reader.ReadAsync(_ct))
+        {
+            rows.Add((reader.GetInt32(0), reader.GetString(1), reader.GetString(2), reader.GetDecimal(3)));
+        }
+
+        return rows;
+    }
+
+    private async Task<List<(int Ordinal, int? Row, string? Column, string Code)>> ReadErrorsAsync(Guid id)
+    {
+        await using var connection = new NpgsqlConnection(fixture.ConnectionString);
+        await connection.OpenAsync(_ct);
+        await using var command = new NpgsqlCommand(
+            """SELECT ordinal, row_number, "column", code FROM portfolio.submission_errors WHERE submission_id = @id ORDER BY ordinal""",
+            connection);
+        command.Parameters.AddWithValue("id", id);
+        await using var reader = await command.ExecuteReaderAsync(_ct);
+        var rows = new List<(int, int?, string?, string)>();
+        while (await reader.ReadAsync(_ct))
+        {
+            rows.Add((reader.GetInt32(0), reader.IsDBNull(1) ? null : reader.GetInt32(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2), reader.GetString(3)));
+        }
+
+        return rows;
     }
 
     private PortfolioDbContext CreateContext(Guid tenantId)
@@ -238,5 +412,5 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
 
     private sealed record StoredRow(
         Guid TenantId, DateOnly CutOffDate, string FileName, int SizeBytes, string Sha256, string Status,
-        Guid ContentTenantId, byte[] Content);
+        Guid ContentTenantId, byte[] Content, int ErrorCount);
 }

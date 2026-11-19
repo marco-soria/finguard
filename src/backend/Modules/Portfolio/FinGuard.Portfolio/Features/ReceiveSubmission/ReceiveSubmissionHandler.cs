@@ -1,4 +1,5 @@
 using FinGuard.BuildingBlocks.Results;
+using FinGuard.Portfolio.Features.ReceiveSubmission.Csv;
 using FinGuard.Portfolio.Persistence;
 using Microsoft.Extensions.Logging;
 
@@ -6,7 +7,8 @@ namespace FinGuard.Portfolio.Features.ReceiveSubmission;
 
 /// <summary>
 /// Command handler (ADR-0007): writes through the module DbContext. No SaveChanges call: Wolverine's
-/// AutoApplyTransactions middleware saves and commits after Handle returns, so both rows commit or neither does.
+/// AutoApplyTransactions middleware saves and commits after Handle returns, so the submission, its bytes and its
+/// positions or errors commit together or not at all (D-111).
 /// </summary>
 public sealed partial class ReceiveSubmissionHandler(
     PortfolioDbContext db, TimeProvider time, ILogger<ReceiveSubmissionHandler> logger)
@@ -21,21 +23,26 @@ public sealed partial class ReceiveSubmissionHandler(
             return error;
         }
 
-        var submission = Submission.Receive(
-            Guid.CreateVersion7(receivedAt),
-            command.CutOffDate,
-            FileNameSanitizer.Sanitize(command.FileName),
-            command.Content.Length,
-            Sha256Hex.Compute(command.Content),
-            receivedAt);
-        db.Add(submission);
-        db.Add(SubmissionContent.For(submission.Id, command.Content));
+        var id = Guid.CreateVersion7(receivedAt);
+        var fileName = FileNameSanitizer.Sanitize(command.FileName);
+        var sha256 = Sha256Hex.Compute(command.Content);
+        var csv = PortfolioCsvReader.Read(command.Content);
 
-        LogReceived(logger, submission.Id, submission.SizeBytes);
-        return new SubmissionReceivedResponse(submission.Id, submission.Status.ToString(), submission.ReceivedAt);
+        var submission = csv.IsValid
+            ? Submission.Accept(id, command.CutOffDate, fileName, command.Content.Length, sha256, receivedAt, csv.RowCount)
+            : Submission.Reject(
+                id, command.CutOffDate, fileName, command.Content.Length, sha256, receivedAt, csv.RowCount, csv.ErrorCount);
+        db.Add(submission);
+        db.Add(SubmissionContent.For(id, command.Content));
+        db.AddRange(csv.Positions.Select(p => Position.Create(id, p.RowNumber, p.PositionId, p.AssetClass, p.MarketValueUsd)));
+        db.AddRange(csv.Errors.Select((e, i) => SubmissionError.Create(id, i, e.Row, e.Column, e.Code, e.Message)));
+
+        LogStored(logger, id, submission.SizeBytes, submission.Status, submission.RowCount, submission.ErrorCount);
+        return new SubmissionReceivedResponse(
+            id, submission.Status.ToString(), receivedAt, submission.RowCount, submission.ErrorCount, csv.Errors);
     }
 
-    // First failure wins (brief #8). Content checks (UTF-8, rows, columns) are Phase 2.
+    // Transport checks (D-112): first failure wins and nothing is stored. Content checks live in PortfolioCsvReader.
     private static Error? Validate(ReceiveSubmission command, DateOnly todayUtc) => command switch
     {
         { Content.Length: 0 } => ReceiveSubmissionErrors.FileEmpty,
@@ -46,7 +53,10 @@ public sealed partial class ReceiveSubmissionHandler(
         _ => null,
     };
 
-    // Id and size only: never the file name, content, hash or cut-off date (D-91).
-    [LoggerMessage(Level = LogLevel.Information, Message = "Received submission {SubmissionId} ({SizeBytes} bytes)")]
-    private static partial void LogReceived(ILogger logger, Guid submissionId, int sizeBytes);
+    // Id, size, status and counts only: never the file name, content, hash, amounts or cut-off date (D-91).
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Stored submission {SubmissionId} ({SizeBytes} bytes): {Status}, {RowCount} rows, {ErrorCount} errors")]
+    private static partial void LogStored(
+        ILogger logger, Guid submissionId, int sizeBytes, SubmissionStatus status, int rowCount, int errorCount);
 }
