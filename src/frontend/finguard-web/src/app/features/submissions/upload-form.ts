@@ -21,11 +21,19 @@ import {
 import { MatButton } from '@angular/material/button';
 import { MatError, MatFormField, MatLabel } from '@angular/material/form-field';
 import { MatInput } from '@angular/material/input';
+import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { PortfolioApi, SubmissionReceived } from '../../core/api/portfolio-api';
 import { errorTitle } from '../../core/http/problem-details.interceptor';
 
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+/** Both outcomes are created submissions (201); the API's status decides the wording. */
+function outcome(received: SubmissionReceived, fileName: string): string {
+  return received.status === 'Accepted'
+    ? `Accepted ${fileName}: ${received.rowCount} positions.`
+    : `Rejected ${fileName}: ${received.errorCount} errors.`;
+}
 
 /** Input constraints for fast feedback only; the API stays the authority (D-104). */
 function portfolioFile(control: AbstractControl<File | null>): ValidationErrors | null {
@@ -44,7 +52,7 @@ function portfolioFile(control: AbstractControl<File | null>): ValidationErrors 
 
 @Component({
   selector: 'app-upload-form',
-  imports: [ReactiveFormsModule, MatButton, MatError, MatFormField, MatInput, MatLabel],
+  imports: [ReactiveFormsModule, MatButton, MatError, MatFormField, MatInput, MatLabel, RouterLink],
   templateUrl: './upload-form.html',
   styleUrl: './upload-form.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -62,7 +70,7 @@ export class UploadForm {
     file: new FormControl<File | null>(null, [Validators.required, portfolioFile]),
   });
   protected readonly sending = signal(false);
-  protected readonly status = signal<string | null>(null);
+  protected readonly status = signal<{ text: string; submissionId: string } | null>(null);
   protected readonly error = signal<string | null>(null);
 
   // A native file input has no ControlValueAccessor, so the control is fed from the change event.
@@ -95,7 +103,10 @@ export class UploadForm {
       )
       .subscribe({
         next: (received) => {
-          this.status.set(`Uploaded ${file.name}.`);
+          this.status.set({
+            text: outcome(received, file.name),
+            submissionId: received.submissionId,
+          });
           // resetForm, not form.reset: it also clears `submitted`, which Material uses to show field errors.
           this.formDirective().resetForm();
           this.fileInput().nativeElement.value = '';

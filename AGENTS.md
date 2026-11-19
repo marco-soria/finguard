@@ -58,9 +58,14 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 - Rebalance target = 0.85 x limit (configurable); relax to 0.90 if infeasible and mark the proposal `Partial`.
   Order: breached classes first, then alert classes. Surplus goes to other classes proportionally to headroom.
   Rounding to cents must preserve the total.
-- Portfolio validation: complete data, no negatives, total > 0, currency `USD`, known asset class.
-- CSV columns: `position_id, asset_class, market_value_usd, currency, description`. Limits: 5 MB, 10,000 rows,
+- Limits are evaluated on book value (ADR-0010).
+- Portfolio validation: complete data, `book_value >= 0` per row and total > 0, currency `USD` only
+  (case-insensitive), known asset class, description optional ≤ 150 characters and not stored. `position_id` and
+  `description` are rejected when they start with a formula trigger (`=`, `+`, `-`, `@`, full-width forms, tab, CR, LF).
+- CSV columns: `position_id, asset_class, book_value, currency, description`. Limits: 5 MB, 10,000 rows,
   UTF-8. Cut-off date comes from the upload form, not the CSV.
+- CSV error codes are `Portfolio.Csv.*` (fixed messages, never cell values). Sample files with their expected
+  outcomes: `samples/portfolios/README.md`.
 - Several submissions per cut-off date are allowed. Submissions are immutable; latest accepted = current.
   Rejected submissions are stored with their errors. Same SHA-256 + same cut-off date returns the existing submission.
 

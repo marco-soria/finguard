@@ -33,6 +33,10 @@
     <!-- Community package (R-10); snake_case naming (D-32). -->
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
   </ItemGroup>
+  <ItemGroup Label="Parsing">
+    <!-- RFC 4180 field reader only; FinGuard validates every field itself (D-113). -->
+    <PackageVersion Include="CsvHelper" Version="34.1.0" />
+  </ItemGroup>
   <ItemGroup Label="Service defaults">
     <!-- 10.x line (template uses 10.10.0); 11.x pulls .NET 11 abstractions into net10.0. -->
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />

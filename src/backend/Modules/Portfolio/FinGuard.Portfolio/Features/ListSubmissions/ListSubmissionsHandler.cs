@@ -11,10 +11,11 @@ public static class ListSubmissionsHandler
     /// <summary>Named cap (D-100); paging arrives with the envelope when needed.</summary>
     public const int Max = 100;
 
-    // Never selects portfolio.submission_contents: reads carry metadata only.
+    // Never selects portfolio.submission_contents, positions or errors: reads carry metadata and counts only.
     private const string Sql = """
         SELECT id AS "SubmissionId", cut_off_date AS "CutOffDate", file_name AS "FileName",
-               size_bytes AS "SizeBytes", status AS "Status", received_at AS "ReceivedAt"
+               size_bytes AS "SizeBytes", status AS "Status", received_at AS "ReceivedAt",
+               row_count AS "RowCount", error_count AS "ErrorCount"
         FROM portfolio.submissions
         WHERE tenant_id = @TenantId
         ORDER BY received_at DESC, id DESC
@@ -29,11 +30,13 @@ public static class ListSubmissionsHandler
             new CommandDefinition(Sql, new { TenantId = tenant.RequiredTenantId, Max }, cancellationToken: ct));
         return new SubmissionListResponse(rows
             .Select(r => new SubmissionListItem(
-                r.SubmissionId, r.CutOffDate, r.FileName, r.SizeBytes, r.Status, new DateTimeOffset(r.ReceivedAt)))
+                r.SubmissionId, r.CutOffDate, r.FileName, r.SizeBytes, r.Status, new DateTimeOffset(r.ReceivedAt),
+                r.RowCount, r.ErrorCount))
             .ToList());
     }
 
     // Npgsql hands timestamptz to Dapper as a UTC DateTime, which a DateTimeOffset constructor parameter cannot bind.
     private sealed record Row(
-        Guid SubmissionId, DateOnly CutOffDate, string FileName, int SizeBytes, string Status, DateTime ReceivedAt);
+        Guid SubmissionId, DateOnly CutOffDate, string FileName, int SizeBytes, string Status, DateTime ReceivedAt,
+        int RowCount, int ErrorCount);
 }

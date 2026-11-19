@@ -14,3 +14,4 @@ ADR to change its meaning: add a new one that supersedes it.
 | [0007](0007-persistence-ef-commands-dapper-queries.md) | EF Core for commands, Dapper for queries | Accepted |
 | [0008](0008-development-identity.md) | Development identity with an in-process token issuer | Accepted |
 | [0009](0009-module-messaging-conventions.md) | Module messaging conventions (outbox, retries, tenant propagation, events) | Accepted |
+| [0010](0010-valuation-basis-book-value.md) | Limits are evaluated on book value | Accepted |

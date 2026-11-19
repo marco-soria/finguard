@@ -29,15 +29,25 @@ describe('SubmissionDetail', () => {
 
   afterEach(() => backend.verify());
 
-  it('renders the fields of the submission', async () => {
-    backend.expectOne('/api/portfolio/submissions/s-1').flush({
-      submissionId: 's-1',
-      cutOffDate: '2026-11-01',
-      fileName: 'portfolio.csv',
-      sizeBytes: 512,
-      status: 'Received',
-      receivedAt: '2026-11-19T10:00:00Z',
-    });
+  const details = {
+    submissionId: 's-1',
+    cutOffDate: '2026-11-01',
+    fileName: 'portfolio.csv',
+    sizeBytes: 512,
+    status: 'Accepted',
+    receivedAt: '2026-11-19T10:00:00Z',
+    rowCount: 4,
+    errorCount: 0,
+    errors: [],
+  };
+
+  const errorLines = () =>
+    Array.from(element.querySelectorAll('.detail-errors li')).map((li) =>
+      li.textContent?.replace(/\s+/g, ' ').trim(),
+    );
+
+  it('renders the fields of an accepted submission without an error list', async () => {
+    backend.expectOne('/api/portfolio/submissions/s-1').flush(details);
     await fixture.whenStable();
 
     const values = Array.from(element.querySelectorAll('dd')).map((d) => d.textContent?.trim());
@@ -45,11 +55,52 @@ describe('SubmissionDetail', () => {
       'portfolio.csv',
       '2026-11-01',
       '512 B',
-      'Received',
+      'Accepted',
+      '4',
+      '0',
       expect.any(String),
       's-1',
     ]);
     expect(element.querySelector('a')?.textContent?.trim()).toBe('Back to submissions');
+    expect(element.querySelector('.detail-errors')).toBeNull();
+  });
+
+  it('lists the errors of a rejected submission', async () => {
+    backend.expectOne('/api/portfolio/submissions/s-1').flush({
+      ...details,
+      status: 'Rejected',
+      rowCount: 2,
+      errorCount: 3,
+      errors: [
+        { row: null, column: null, code: 'Portfolio.Csv.NoRows', message: 'The file has no rows.' },
+        { row: null, column: 'currency', code: 'Portfolio.Csv.ColumnMissing', message: 'Missing.' },
+        {
+          row: 3,
+          column: 'book_value',
+          code: 'Portfolio.Csv.BookValueNegative',
+          message: 'The book value must not be negative.',
+        },
+      ],
+    });
+    await fixture.whenStable();
+
+    expect(errorLines()).toEqual([
+      'The file has no rows.',
+      'currency: Missing.',
+      'Row 3, book_value: The book value must not be negative.',
+    ]);
+  });
+
+  it('says when only the first errors are shown', async () => {
+    backend.expectOne('/api/portfolio/submissions/s-1').flush({
+      ...details,
+      status: 'Rejected',
+      errorCount: 150,
+      errors: [{ row: 2, column: 'currency', code: 'X', message: 'Bad.' }],
+    });
+    await fixture.whenStable();
+
+    expect(element.textContent).toContain('Showing the first 1 of 150 errors.');
   });
 
   it('shows the error title on 404', async () => {

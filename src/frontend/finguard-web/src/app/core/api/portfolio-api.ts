@@ -2,6 +2,14 @@ import { HttpClient, httpResource, HttpResourceRef } from '@angular/common/http'
 import { inject, Injectable, Signal } from '@angular/core';
 import { Observable } from 'rxjs';
 
+/** A validation error of a rejected submission. `row` and `column` are null for file errors. */
+export interface SubmissionError {
+  row: number | null;
+  column: string | null;
+  code: string;
+  message: string;
+}
+
 /** One row of `GET /api/portfolio/submissions`. `cutOffDate` is a `yyyy-MM-dd` calendar date (D-103). */
 export interface SubmissionListItem {
   submissionId: string;
@@ -10,6 +18,8 @@ export interface SubmissionListItem {
   sizeBytes: number;
   status: string;
   receivedAt: string;
+  rowCount: number;
+  errorCount: number;
 }
 
 export interface SubmissionList {
@@ -24,12 +34,20 @@ export interface SubmissionDetails {
   sizeBytes: number;
   status: string;
   receivedAt: string;
+  rowCount: number;
+  errorCount: number;
+  /** The first 100 errors, in row then column order. */
+  errors: SubmissionError[];
 }
 
+/** `POST /api/portfolio/submissions`: 201 for both `Accepted` and `Rejected` (D-112). */
 export interface SubmissionReceived {
   submissionId: string;
   status: string;
   receivedAt: string;
+  rowCount: number;
+  errorCount: number;
+  errors: SubmissionError[];
 }
 
 /**

@@ -57,8 +57,8 @@ public sealed class ListSubmissionsTests(ApiFixture fixture)
         var identity = await fixture.ProvisionTenantAsync(_ct);
         var start = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var seeded = Enumerable.Range(0, ListSubmissionsHandler.Max + 1)
-            .Select(i => Submission.Receive(Guid.NewGuid(), new DateOnly(2026, 1, 1), $"seed-{i}.csv", 10,
-                new string('a', Submission.Sha256Length), start.AddMinutes(i)))
+            .Select(i => Submission.Accept(Guid.NewGuid(), new DateOnly(2026, 1, 1), $"seed-{i}.csv", 10,
+                new string('a', Submission.Sha256Length), start.AddMinutes(i), rowCount: 1))
             .ToList();
         // Seeded through the tenant's own context: the stamping interceptor and query filter stay in force.
         await using (var context = fixture.CreatePortfolioContext(identity.TenantId))
@@ -86,10 +86,23 @@ public sealed class ListSubmissionsTests(ApiFixture fixture)
         Assert.Equal(["items"], json.RootElement.EnumerateObject().Select(p => p.Name));
         var item = Assert.Single(json.RootElement.GetProperty("items").EnumerateArray().ToList());
         Assert.Equal(
-            ["cutOffDate", "fileName", "receivedAt", "sizeBytes", "status", "submissionId"],
+            ["cutOffDate", "errorCount", "fileName", "receivedAt", "rowCount", "sizeBytes", "status", "submissionId"],
             item.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal));
         // A calendar date on the wire, never a timestamp (D-103).
         Assert.Equal(SubmissionTestData.CutOffDate, item.GetProperty("cutOffDate").GetString());
+    }
+
+    [Fact]
+    public async Task ListSubmissions_IncludesRowAndErrorCounts()
+    {
+        using var client = fixture.CreateClient(await fixture.ProvisionTenantAsync(_ct));
+        var accepted = await client.UploadOkAsync("accepted.csv", _ct);
+        var rejected = await client.UploadOkAsync("rejected.csv", _ct, SubmissionTestData.InvalidCsv());
+
+        var items = (await ListAsync(client)).Items.ToDictionary(i => i.SubmissionId);
+
+        Assert.Equal(("Accepted", 1, 0), (items[accepted.SubmissionId].Status, items[accepted.SubmissionId].RowCount, items[accepted.SubmissionId].ErrorCount));
+        Assert.Equal(("Rejected", 2, 3), (items[rejected.SubmissionId].Status, items[rejected.SubmissionId].RowCount, items[rejected.SubmissionId].ErrorCount));
     }
 
     [Fact]

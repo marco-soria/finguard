@@ -16,7 +16,14 @@ import { FileSizePipe } from '../../shared/file-size.pipe';
 })
 export class SubmissionHistory {
   protected readonly submissions = inject(PortfolioApi).submissions();
-  protected readonly columns = ['cutOffDate', 'fileName', 'sizeBytes', 'status', 'receivedAt'];
+  protected readonly columns = [
+    'cutOffDate',
+    'fileName',
+    'sizeBytes',
+    'status',
+    'errorCount',
+    'receivedAt',
+  ];
   protected readonly items = computed<SubmissionListItem[] | undefined>(() =>
     this.submissions.hasValue() ? this.submissions.value()?.items : undefined,
   );

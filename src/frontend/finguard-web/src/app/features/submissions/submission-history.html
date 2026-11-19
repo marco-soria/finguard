@@ -32,6 +32,12 @@
           <th mat-header-cell *matHeaderCellDef scope="col">Status</th>
           <td mat-cell *matCellDef="let row">{{ row.status }}</td>
         </ng-container>
+        <ng-container matColumnDef="errorCount">
+          <th mat-header-cell *matHeaderCellDef scope="col">Errors</th>
+          <td mat-cell *matCellDef="let row">
+            {{ row.status === 'Rejected' ? row.errorCount : '' }}
+          </td>
+        </ng-container>
         <ng-container matColumnDef="receivedAt">
           <th mat-header-cell *matHeaderCellDef scope="col">Received</th>
           <td mat-cell *matCellDef="let row">{{ row.receivedAt | date: 'medium' }}</td>
