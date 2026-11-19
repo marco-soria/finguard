@@ -17,10 +17,34 @@
       <dd>{{ d.sizeBytes | fileSize }}</dd>
       <dt>Status</dt>
       <dd>{{ d.status }}</dd>
+      <dt>Rows</dt>
+      <dd>{{ d.rowCount }}</dd>
+      <dt>Errors</dt>
+      <dd>{{ d.errorCount }}</dd>
       <dt>Received</dt>
       <dd>{{ d.receivedAt | date: 'medium' }}</dd>
       <dt>Submission ID</dt>
       <dd>{{ d.submissionId }}</dd>
     </dl>
+    @if (d.status === 'Rejected' && d.errors.length > 0) {
+      <!-- Plain list for now; Brief #11 designs the errors view. -->
+      <h3 id="errors-title">Errors</h3>
+      @if (d.errorCount > d.errors.length) {
+        <p>Showing the first {{ d.errors.length }} of {{ d.errorCount }} errors.</p>
+      }
+      <ul class="detail-errors" aria-labelledby="errors-title">
+        @for (e of d.errors; track $index) {
+          <li>
+            @if (e.row !== null) {
+              Row {{ e.row }}{{ e.column ? ', ' + e.column : '' }}: {{ e.message }}
+            } @else if (e.column) {
+              {{ e.column }}: {{ e.message }}
+            } @else {
+              {{ e.message }}
+            }
+          </li>
+        }
+      </ul>
+    }
   }
 </section>

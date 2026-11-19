@@ -76,8 +76,11 @@ describe('PortfolioApi', () => {
     const file = new File(['a,b\n'], 'portfolio.csv', { type: 'text/csv' });
     const response = {
       submissionId: 's-1',
-      status: 'Received',
+      status: 'Accepted',
       receivedAt: '2026-11-19T10:00:00Z',
+      rowCount: 1,
+      errorCount: 0,
+      errors: [],
     };
 
     const call = firstValueFrom(api.upload(file, '2026-11-19'));

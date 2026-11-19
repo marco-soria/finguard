@@ -1,6 +1,7 @@
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { problemDetailsInterceptor } from '../../core/http/problem-details.interceptor';
 import { MAX_FILE_BYTES, UploadForm } from './upload-form';
 
@@ -13,6 +14,7 @@ describe('UploadForm', () => {
     TestBed.configureTestingModule({
       imports: [UploadForm],
       providers: [
+        provideRouter([]),
         provideHttpClient(withInterceptors([problemDetailsInterceptor])),
         provideHttpClientTesting(),
       ],
@@ -84,20 +86,49 @@ describe('UploadForm', () => {
     expect(submitButton().disabled).toBe(true);
     const response = {
       submissionId: 's-1',
-      status: 'Received',
+      status: 'Accepted',
       receivedAt: '2026-11-19T10:00:00Z',
+      rowCount: 12,
+      errorCount: 0,
+      errors: [],
     };
     backend.expectOne('/api/portfolio/submissions').flush(response);
     await fixture.whenStable();
 
     expect(submitButton().disabled).toBe(false);
     expect(uploaded).toHaveBeenCalledWith(response);
-    expect(text('[role="status"]')).toBe('Uploaded portfolio.csv.');
+    expect(text('.upload-outcome')).toBe('Accepted portfolio.csv: 12 positions.');
+    const link = element.querySelector<HTMLAnchorElement>('[role="status"] a')!;
+    expect(link.textContent?.trim()).toBe('View details');
+    expect(link.getAttribute('href')).toBe('/submissions/s-1');
     expect(element.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('');
     expect(element.querySelector<HTMLInputElement>('input[type="file"]')!.value).toBe('');
     // The reset form is a fresh form: no field errors until the next submit.
     expect(element.textContent).not.toContain('Enter the cut-off date.');
     expect(element.querySelector('#portfolio-file-error')).toBeNull();
+  });
+
+  it('reports a rejected upload with its error count and the details link', async () => {
+    setDate('2026-11-19');
+    setFile(csv('bad.csv'));
+
+    submit();
+    backend.expectOne('/api/portfolio/submissions').flush({
+      submissionId: 's-2',
+      status: 'Rejected',
+      receivedAt: '2026-11-19T10:00:00Z',
+      rowCount: 3,
+      errorCount: 4,
+      errors: [],
+    });
+    await fixture.whenStable();
+
+    expect(text('.upload-outcome')).toBe('Rejected bad.csv: 4 errors.');
+    expect(element.querySelector('[role="status"] a')?.getAttribute('href')).toBe(
+      '/submissions/s-2',
+    );
+    // A rejected file is a created submission, not a failed request.
+    expect(element.querySelector('[role="alert"]')).toBeNull();
   });
 
   it('ignores a second submit while sending', async () => {

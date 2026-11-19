@@ -16,8 +16,10 @@ describe('SubmissionHistory', () => {
     cutOffDate: '2026-11-01',
     fileName: 'portfolio.csv',
     sizeBytes: 2048,
-    status: 'Received',
+    status: 'Accepted',
     receivedAt: '2026-11-19T10:00:00Z',
+    rowCount: 3,
+    errorCount: 0,
   };
 
   beforeEach(() => {
@@ -65,10 +67,24 @@ describe('SubmissionHistory', () => {
       '2026-11-01',
       'portfolio.csv',
       '2.0 KB',
-      'Received',
+      'Accepted',
+      '',
       expect.any(String),
     ]);
     expect(element.querySelector('a')?.getAttribute('href')).toBe('/submissions/s-1');
+  });
+
+  it('shows the error count for a rejected submission only', async () => {
+    await respond({
+      items: [
+        { ...item, submissionId: 's-2', status: 'Rejected', errorCount: 7 },
+        { ...item, errorCount: 0 },
+      ],
+    });
+
+    const headers = Array.from(element.querySelectorAll('th')).map((h) => h.textContent?.trim());
+    expect(headers).toContain('Errors');
+    expect([cells()[4], cells()[10]]).toEqual(['7', '']);
   });
 
   it('renders the cut-off date exactly as the API returns it', async () => {
