@@ -95,6 +95,9 @@ describe('UploadForm', () => {
     expect(text('[role="status"]')).toBe('Uploaded portfolio.csv.');
     expect(element.querySelector<HTMLInputElement>('input[type="date"]')!.value).toBe('');
     expect(element.querySelector<HTMLInputElement>('input[type="file"]')!.value).toBe('');
+    // The reset form is a fresh form: no field errors until the next submit.
+    expect(element.textContent).not.toContain('Enter the cut-off date.');
+    expect(element.querySelector('#portfolio-file-error')).toBeNull();
   });
 
   it('ignores a second submit while sending', async () => {

@@ -13,6 +13,7 @@ import {
   AbstractControl,
   FormControl,
   FormGroup,
+  FormGroupDirective,
   ReactiveFormsModule,
   ValidationErrors,
   Validators,
@@ -52,6 +53,7 @@ export class UploadForm {
   private readonly api = inject(PortfolioApi);
   private readonly destroyRef = inject(DestroyRef);
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
+  private readonly formDirective = viewChild.required(FormGroupDirective);
 
   readonly uploaded = output<SubmissionReceived>();
 
@@ -94,7 +96,8 @@ export class UploadForm {
       .subscribe({
         next: (received) => {
           this.status.set(`Uploaded ${file.name}.`);
-          this.form.reset();
+          // resetForm, not form.reset: it also clears `submitted`, which Material uses to show field errors.
+          this.formDirective().resetForm();
           this.fileInput().nativeElement.value = '';
           this.uploaded.emit(received);
         },
