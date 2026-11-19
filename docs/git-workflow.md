@@ -23,7 +23,11 @@ checks it and a human reviews the AI-written diff before it reaches `main`.
 2. Claude Code (or Cursor) implements the brief and commits on the branch. It never pushes.
 3. Review the work locally (`git log`, `git diff main`), then push the branch: `git push -u origin feat/<name>`
    (or "Publish branch" in the IDE).
-4. Open the PR against `main` (GitHub or the IDE). Fill the template; link the brief and any ADR.
+4. Open the PR against `main`. The brief's "Pull request" section gives the exact title (it becomes the squash
+   commit). Claude Code leaves the filled body, following `.github/pull_request_template.md`, in
+   `.git/finguard-pr-body.md` (never committed). Create the PR with
+   `gh pr create --base main --title "<exact title>" --body-file .git/finguard-pr-body.md`, or paste the body in the
+   GitHub UI.
 5. CI runs. If it fails, fix on the same branch and push again; the PR updates itself.
 6. Read the PR diff on GitHub as a reviewer. This is the human review of AI-generated code.
 7. Squash and merge when `ci-gate` is green. Delete the branch on GitHub.
