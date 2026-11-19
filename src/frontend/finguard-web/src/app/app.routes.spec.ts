@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
@@ -11,7 +13,12 @@ describe('app routes', () => {
   beforeEach(() => {
     provider = new FakeAuthProvider();
     TestBed.configureTestingModule({
-      providers: [provideRouter(routes), { provide: AuthProvider, useValue: provider }],
+      providers: [
+        provideRouter(routes),
+        { provide: AuthProvider, useValue: provider },
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
     });
   });
 
@@ -27,13 +34,30 @@ describe('app routes', () => {
     expect(heading(harness)).toContain('Sign in (development)');
   });
 
-  it('renders the home page at the root URL when signed in', async () => {
+  it('renders the submissions page at the root URL when signed in', async () => {
     provider.stored = { accessToken: 't', expiresAt: '2999-01-01T00:00:00Z' };
     const harness = await RouterTestingHarness.create();
 
     await harness.navigateByUrl('/');
 
-    expect(heading(harness)).toContain('Portfolio compliance');
+    expect(heading(harness)).toContain('Upload a portfolio');
+  });
+
+  it('renders the submission detail page when signed in', async () => {
+    provider.stored = { accessToken: 't', expiresAt: '2999-01-01T00:00:00Z' };
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/submissions/s-1');
+
+    expect(heading(harness)).toContain('Submission');
+  });
+
+  it('redirects /submissions/:id to /login when signed out', async () => {
+    const harness = await RouterTestingHarness.create();
+
+    await harness.navigateByUrl('/submissions/s-1');
+
+    expect(TestBed.inject(Router).url).toBe('/login');
   });
 
   it('redirects an unknown URL to the root URL when signed in', async () => {

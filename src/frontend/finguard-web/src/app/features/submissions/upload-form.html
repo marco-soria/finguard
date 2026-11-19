@@ -1,0 +1,49 @@
+<section class="upload" aria-labelledby="upload-title">
+  <h2 id="upload-title">Upload a portfolio</h2>
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    <mat-form-field>
+      <mat-label>Cut-off date</mat-label>
+      <input matInput type="date" formControlName="cutOffDate" required />
+      @if (form.controls.cutOffDate.hasError('required')) {
+        <mat-error>Enter the cut-off date.</mat-error>
+      }
+    </mat-form-field>
+
+    @let file = form.controls.file;
+    <div class="upload-file">
+      <label for="portfolio-file">Portfolio file</label>
+      <input
+        #fileInput
+        id="portfolio-file"
+        type="file"
+        accept=".csv"
+        required
+        [attr.aria-invalid]="file.touched && file.invalid"
+        [attr.aria-describedby]="file.touched && file.invalid ? 'portfolio-file-error' : null"
+        (change)="fileChosen($event)"
+      />
+      @if (file.touched && file.invalid) {
+        <p id="portfolio-file-error" class="upload-error">
+          @if (file.hasError('required')) {
+            Choose a CSV file.
+          } @else if (file.hasError('notCsv')) {
+            The file must have the .csv extension.
+          } @else if (file.hasError('empty')) {
+            The file is empty.
+          } @else if (file.hasError('tooLarge')) {
+            The file is larger than 5 MB.
+          }
+        </p>
+      }
+    </div>
+
+    <button matButton="filled" type="submit" [disabled]="sending()">
+      {{ sending() ? 'Uploading…' : 'Upload' }}
+    </button>
+  </form>
+
+  <p role="status">{{ status() }}</p>
+  @if (error(); as message) {
+    <p class="upload-error" role="alert">{{ message }}</p>
+  }
+</section>

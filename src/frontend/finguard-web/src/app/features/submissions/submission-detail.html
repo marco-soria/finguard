@@ -1,0 +1,26 @@
+<section aria-labelledby="detail-title">
+  <a routerLink="/">Back to submissions</a>
+  <h2 id="detail-title">Submission</h2>
+  @if (submission.isLoading()) {
+    <mat-progress-bar mode="indeterminate" aria-label="Loading the submission" />
+  }
+  @if (error(); as message) {
+    <p class="detail-error" role="alert">{{ message }}</p>
+  } @else if (details(); as d) {
+    <dl>
+      <dt>File</dt>
+      <dd>{{ d.fileName }}</dd>
+      <dt>Cut-off date</dt>
+      <!-- A calendar date: shown exactly as returned, never through Date or DatePipe (D-103). -->
+      <dd>{{ d.cutOffDate }}</dd>
+      <dt>Size</dt>
+      <dd>{{ d.sizeBytes | fileSize }}</dd>
+      <dt>Status</dt>
+      <dd>{{ d.status }}</dd>
+      <dt>Received</dt>
+      <dd>{{ d.receivedAt | date: 'medium' }}</dd>
+      <dt>Submission ID</dt>
+      <dd>{{ d.submissionId }}</dd>
+    </dl>
+  }
+</section>
