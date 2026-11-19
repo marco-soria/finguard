@@ -35,6 +35,11 @@ internal static class WolverineSetup
             opts.Policies.UseDurableLocalQueues();
             opts.Policies.AddMiddleware(typeof(TenantPropagationMiddleware));
 
+            // R-21 (D-77): success is noise at Information; start/finish stays at its Debug default. Failures stay at
+            // Error and print the message's ToString(), which every message type overrides with identifiers only.
+            opts.Policies.MessageSuccessLogLevel(LogLevel.Debug);
+            opts.Policies.MessageExecutionLogLevel(LogLevel.Debug);
+
             // Retries the whole handler, transaction included (R-20: Dapper queries get no automatic retry).
             opts.Policies.OnException<NpgsqlException>(e => e.IsTransient)
                 .RetryWithCooldown(TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(250), TimeSpan.FromSeconds(1))

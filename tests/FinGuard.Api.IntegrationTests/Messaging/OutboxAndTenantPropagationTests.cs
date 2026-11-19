@@ -12,6 +12,7 @@ namespace FinGuard.Api.IntegrationTests.Messaging;
 
 // Brief #6 spike tests, kept as regression tests (ADR-0009). Every test uses fresh ids, so rows from other tests in the
 // shared probe tables do not interfere. DB assertions use raw SQL so they see rows regardless of query filters.
+[Collection(MessagingHost.Collection)]
 public sealed class OutboxAndTenantPropagationTests(ApiFixture fixture)
 {
     private static readonly Guid Acme = DevIdentities.Alice.TenantId;

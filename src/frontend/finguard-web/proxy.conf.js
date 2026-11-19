@@ -7,4 +7,6 @@ if (!target) {
 
 module.exports = {
   '/api': { target, secure: false, changeOrigin: true },
+  // Development sign-in (POST /dev/token) stays same-origin like /api.
+  '/dev': { target, secure: false, changeOrigin: true },
 };

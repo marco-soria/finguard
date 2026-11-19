@@ -66,6 +66,8 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 
 ## Commands
 - Run everything locally: `aspire run` (Docker must be running). Starts `postgres`, `api` and `web`; the dashboard URL is printed on start.
+- Sign in locally: open the `web` URL from the dashboard; `/login` offers Alice (Acme Pension Fund) and Bob (Globex
+  Insurance). Restarting the `api` resource invalidates every token, so the app returns to `/login` (R-18).
 - Development token (Development only; users `alice`, `bob`; send as `Authorization: Bearer <accessToken>`):
   `Invoke-RestMethod -Method Post -Uri <api>/dev/token -Body '{"user":"alice"}' -ContentType 'application/json'`
 - Backend: `dotnet build`, `dotnet test`, `dotnet format` (CI runs `dotnet format --verify-no-changes`).

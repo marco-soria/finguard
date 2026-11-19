@@ -12,7 +12,9 @@ paths:
   built-in control flow, lazy-loaded routes.
 - UI text and error messages are in English.
 - No business rules in the frontend. Status, utilization and rebalance numbers come from the API as-is.
-- All HTTP goes through typed API services. One interceptor handles auth headers and maps ProblemDetails to UI errors.
+- All HTTP goes through typed API services in `core/api/`. Two interceptors, in this order (D-80): `authInterceptor`
+  (bearer token on same-origin `/api/` only, 401 signs out), then `problemDetailsInterceptor` (typed `ApiError`; only
+  `title` is shown to the user).
 - Authentication sits behind an `AuthService` abstraction (dev token provider now, MSAL for Entra External ID in
   Phase 5). Components never import MSAL directly.
 - Format money in one place (a pipe), always USD. Percentages come pre-computed from the API.
