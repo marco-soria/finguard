@@ -54,8 +54,13 @@ alwaysApply: false
 - Every query on tenant-owned tables filters `tenant_id = @TenantId`, with the value from `ITenantContext`
   (EF global query filters do not apply to Dapper).
 - A query reads only its own module schema. No cross-schema SQL; cross-module data comes from Contracts.
-- Read queries never select `portfolio.submission_contents` (file bytes); they return metadata only. List queries have
-  a named cap constant and a deterministic order (a unique tiebreaker such as `id`) (D-100).
+- Read queries never select `portfolio.submission_contents` (file bytes) or `portfolio.positions` unless the slice is
+  about positions; they return metadata, counts and stored errors. List queries have a named cap constant and a
+  deterministic order (a unique tiebreaker such as `id`) (D-100).
+- Upload validation has two layers (D-112). Transport problems (no file, empty, over 5 MB, not `.csv`, bad or future
+  cut-off date) return 400/413 and store nothing. Content problems store a `Rejected` submission with its errors and
+  answer 201; a valid file stores an `Accepted` submission with its positions and answers 201.
+- Validation messages are fixed sentences per code and never echo a cell value or a column name from the file (D-115).
 - Npgsql hands `timestamptz` to Dapper as a UTC `DateTime`; a positional record with a `DateTimeOffset` parameter fails
   to materialize. Read into a private row record and map to the response DTO.
 
