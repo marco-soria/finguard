@@ -1,0 +1,9 @@
+position_id,asset_class,market_value_usd,currency,description
+CSH-001,cash,1250000.00,USD,Operating account at Example Bank
+CSH-002,cash,349999.50,USD,Money market fund (fictional)
+FI-001,fixed_income,900000.00,USD,"Government bond ladder, 2027-2031"
+FI-002,fixed_income,350000.50,USD,Corporate bond fund (fictional)
+SH-001,shares,800000.00,USD,Global equity index fund
+SH-002,shares,250000.00,USD,Domestic dividend fund
+RE-001,real_estate,850000.00,USD,Office building share (fictional)
+RE-002,real_estate,250000.00,USD,Logistics REIT units

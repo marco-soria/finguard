@@ -6,6 +6,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- samples/portfolios/README.md promises these outcomes; SamplePortfoliosTests keeps it true. -->
+    <None Include="..\..\samples\portfolios\*.csv" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\backend\BuildingBlocks\FinGuard.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\src\backend\FinGuard.ServiceDefaults\FinGuard.ServiceDefaults.csproj" />
     <ProjectReference Include="..\..\src\backend\Modules\Portfolio\FinGuard.Portfolio\FinGuard.Portfolio.csproj" />

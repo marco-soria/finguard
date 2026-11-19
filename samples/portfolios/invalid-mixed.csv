@@ -1,0 +1,10 @@
+position_id,asset_class,market_value_usd,currency,description
+BAD-001,cash,1000.00,USD,Valid row
+,cash,500.00,USD,Missing position id
+BAD-003,crypto,500.00,USD,Unknown asset class
+BAD-004,shares,-250.00,USD,Negative value
+BAD-005,shares,1.505,USD,Three decimals
+BAD-006,fixed_income,"1,000.00",USD,Thousands separator
+BAD-007,real_estate,,USD,Missing value
+BAD-008,cash,100.00,EUR,Not USD
+BAD-001,cash,100.00,USD,Duplicated position id
