@@ -1,8 +1,11 @@
 using FinGuard.BuildingBlocks.Results;
+using FinGuard.BuildingBlocks.Tenancy;
+using FinGuard.Portfolio.Contracts.Events;
 using FinGuard.Portfolio.Features.ReceiveSubmission.Csv;
 using FinGuard.Portfolio.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Wolverine;
 
 namespace FinGuard.Portfolio.Features.ReceiveSubmission;
 
@@ -10,18 +13,22 @@ namespace FinGuard.Portfolio.Features.ReceiveSubmission;
 /// Command handler (ADR-0007): writes through the module DbContext. No SaveChanges call: Wolverine's
 /// AutoApplyTransactions middleware saves and commits after Handle returns, so the submission, its bytes and its
 /// positions or errors commit together or not at all (D-111).
+/// The tuple's <see cref="Result{T}"/> is the response to <c>InvokeAsync&lt;T&gt;</c>; the <see cref="OutgoingMessages"/>
+/// cascade through the outbox in the same transaction (D-155).
 /// </summary>
 public sealed partial class ReceiveSubmissionHandler(
-    PortfolioDbContext db, TimeProvider time, ILogger<ReceiveSubmissionHandler> logger)
+    PortfolioDbContext db, ITenantContext tenant, TimeProvider time, ILogger<ReceiveSubmissionHandler> logger)
 {
-    public async Task<Result<SubmissionReceivedResponse>> Handle(ReceiveSubmission command, CancellationToken ct)
+    public async Task<(Result<SubmissionReceivedResponse>, OutgoingMessages)> Handle(
+        ReceiveSubmission command, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(command);
 
+        var outgoing = new OutgoingMessages();
         var receivedAt = time.GetUtcNow();
         if (Validate(command, DateOnly.FromDateTime(receivedAt.UtcDateTime)) is { } error)
         {
-            return error;
+            return (error, outgoing);
         }
 
         var id = Guid.CreateVersion7(receivedAt);
@@ -32,7 +39,7 @@ public sealed partial class ReceiveSubmissionHandler(
         // The tenant filter applies. Nothing is written for a duplicate; a simultaneous twin may still be stored (D-140).
         if (await FindDuplicateAsync(command.CutOffDate, sha256, ct) is { } duplicate)
         {
-            return duplicate;
+            return (duplicate, outgoing);
         }
 
         var csv = PortfolioCsvReader.Read(command.Content);
@@ -46,10 +53,19 @@ public sealed partial class ReceiveSubmissionHandler(
         db.AddRange(csv.Positions.Select(p => Position.Create(id, p.RowNumber, p.PositionId, p.AssetClass, p.BookValue)));
         db.AddRange(csv.Errors.Select((e, i) => SubmissionError.Create(id, i, e.Row, e.Column, e.Code, e.Message)));
 
+        // Only a new accepted submission is news for other modules; rejected and duplicate uploads publish nothing (D-152).
+        if (csv.IsValid)
+        {
+            outgoing.Add(new SubmissionAccepted(
+                Guid.CreateVersion7(receivedAt), tenant.RequiredTenantId, receivedAt, id, command.CutOffDate, receivedAt,
+                SubmissionTotals.From(csv.Positions)));
+        }
+
         LogStored(logger, id, submission.SizeBytes, submission.Status, submission.RowCount, submission.ErrorCount);
-        return new SubmissionReceivedResponse(
+        var response = new SubmissionReceivedResponse(
             id, submission.Status.ToString(), receivedAt, submission.RowCount, submission.ErrorCount, csv.Errors,
             Duplicate: false);
+        return (response, outgoing);
     }
 
     private async Task<SubmissionReceivedResponse?> FindDuplicateAsync(DateOnly cutOffDate, string sha256, CancellationToken ct)

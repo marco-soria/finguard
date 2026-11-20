@@ -30,12 +30,16 @@ public sealed class ReceiveSubmissionHandlerTests
         Assert.Empty(db.ChangeTracker.Entries());
     }
 
-    private static Task<BuildingBlocks.Results.Result<SubmissionReceivedResponse>> Handle(
+    private static async Task<BuildingBlocks.Results.Result<SubmissionReceivedResponse>> Handle(
         PortfolioDbContext db, int size, string fileName, string cutOffDate)
     {
-        var handler = new ReceiveSubmissionHandler(db, new FakeTimeProvider(Now), NullLogger<ReceiveSubmissionHandler>.Instance);
+        var handler = new ReceiveSubmissionHandler(
+            db, NoTenantContext.Instance, new FakeTimeProvider(Now), NullLogger<ReceiveSubmissionHandler>.Instance);
         var date = DateOnly.Parse(cutOffDate, System.Globalization.CultureInfo.InvariantCulture);
-        return handler.Handle(new ReceiveSubmission(date, fileName, new byte[size]), TestContext.Current.CancellationToken);
+        var (result, outgoing) = await handler.Handle(
+            new ReceiveSubmission(date, fileName, new byte[size]), TestContext.Current.CancellationToken);
+        Assert.Empty(outgoing);
+        return result;
     }
 
     // Never connects: transport failures return before the duplicate pre-check. Cases that reach the database live in

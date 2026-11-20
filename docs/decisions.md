@@ -3,6 +3,88 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-20 (session 21: Brief #12 executed)
+
+Branch `feat/submission-accepted-event`. Four commits, as planned in the brief.
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-161 | `ComplianceDbContext` is `public sealed`; `PortfolioSnapshot` stays `internal` | Approved deviation, same pattern as D-94: Wolverine generates code only for public handlers, and a public `Handle` cannot take an internal parameter type |
+| D-162 | Logs and message `ToString()` carry identifiers, never dates, amounts, file names or hashes. `SubmissionAccepted.ToString()` prints the type name, `EventId` and `SubmissionId`; `AssetClassTotal.ToString()` prints the class; the snapshot log line carries the submission id only | Owner's rule, added to `backend-vsa` (`.md` and `.mdc`). Supersedes the brief's wording that put `CutOffDate` in `ToString()` |
+| D-163 | `AssetClassTotal` lives in `FinGuard.Portfolio.Contracts` (next to `AssetClassCode`), not in `.Contracts.Events` | `MessagingRulesTests` treats every type in an Events namespace as an integration event; moving the record keeps the rule unchanged. The brief had it in `Events/SubmissionAccepted.cs` |
+| D-164 | `ReceiveSubmissionHandler.Handle` returns `(Result<SubmissionReceivedResponse>, OutgoingMessages)`; `InvokeForCurrentTenantAsync<Result<T>>` receives the first item and Wolverine cascades the second. No fallback needed | Closes R-34. Proven by every existing upload test (response unchanged) and `Upload_ValidCsv_CascadesOneSubmissionAcceptedWithClassTotals`. The handler takes `ITenantContext` for the payload tenant |
+| D-165 | Event tests run on the shared Api host in one xUnit collection (`SubmissionEvents`) and match their own `SubmissionId`/`EventId`, never a global count. The duplicate test asserts exactly one `SubmissionAccepted` for the original id across both uploads; the rejected test asserts zero for the rejected id | Approved with the owner's condition that negative assertions still prove something |
+| D-166 | The consumer's defensive check also rejects repeated or unknown asset classes (exactly the four `AssetClassCode` values, each once) | Needed to map the totals to four columns without a silent overwrite |
+| D-167 | No new architecture rule for "Compliance does not reference `FinGuard.Portfolio`" | `Modules_AnyAssembly_ReferenceOnlyBuildingBlocksAndContracts` already fails on any module-to-module reference |
+| D-168 | Tests compare stored timestamps truncated to microseconds | PostgreSQL keeps microseconds, .NET ticks are 100 ns; the first full run failed once on this |
+
+### Verification
+- `dotnet build -c Release` (0 warnings), `dotnet format --verify-no-changes`, `dotnet test -c Release` green twice in a
+  row. Tests: backend 332 (unit 201, integration 116, architecture 15), was 309.
+- `-StartAspire`, Alice, cut-off date 2025-07-15: `valid-balanced.csv` gave `201` and exactly one
+  `compliance.portfolio_snapshots` row with Acme's `tenant_id`; its totals equal the sums of its stored positions and
+  match the sample README (total and rounded percentages), all compared in SQL; `invalid-mixed.csv` gave `201`
+  (Rejected) and no row; the duplicate gave `200` with the original id and no new row; `wolverine_dead_letters` is empty
+  (0 after the E2E run too).
+- `pnpm e2e`: 4 flows green against the same instance. Aspire stopped with `-Stop`.
+
+### Risks and flags
+- **R-24 closed:** the end-to-end test runs through the real module registration and the durable local queue.
+- **R-34 closed:** see D-164.
+- **R-36 closed** (owner's request, same PR, commit `fix: keep dates out of message ToString overrides`):
+  `ReceiveSubmission.ToString()` no longer prints `CutOffDate`; a unit test asserts a marker date and the file name are
+  absent. Audit of every `ToString()` override in `src/backend` (type -> fields printed):
+  - `ReceiveSubmission` -> type name, `SizeBytes` (was also `CutOffDate`: fixed)
+  - `SubmissionReceivedResponse` -> type name, `SubmissionId`, `Status`, `RowCount`, `ErrorCount`, `Duplicate`
+  - `GetSubmission` -> type name, `SubmissionId`
+  - `ListSubmissions` -> type name only
+  - `GetCurrentTenant` -> type name only
+  - `SubmissionAccepted` -> type name, `EventId`, `SubmissionId`
+  - `AssetClassTotal` -> type name, `AssetClass`
+  Records without an override (synthesized `ToString()` prints every property; none is a Wolverine message, so
+  `MessageTypes_Always_OverrideToString` does not cover them and nothing logs them today): query responses
+  `SubmissionDetailsResponse`, `SubmissionErrorItem`, `SubmissionListResponse`, `SubmissionListItem`,
+  `CurrentTenantResponse`; internal `CsvError`, `ParsedPosition`, `PortfolioCsvResult`, the Dapper `Row` records and
+  `DevIdentity`. Never log them whole.
+
+### Next step
+Brief #13 (Phase 3 start), unchanged from the planning delta below.
+
+## Delta 2026-11-20 (session 21: Brief #12 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-152 | Integration event `SubmissionAccepted` (Portfolio → Compliance), published once per new accepted submission; no event for rejected or duplicate uploads | Closes open question 2 of session 18 (naming). Supersedes `PortfolioSubmitted`/`PortfolioRejected` in `overview.md` |
+| D-153 | Event-carried state: four `AssetClassTotal(AssetClassCode, decimal BookValue)` entries, zeros included, plus submission id, cut-off date and `ReceivedAt`; Compliance never calls back into Portfolio | Closes open question 2 of session 20 |
+| D-154 | `AssetClassCode` enum lives in `FinGuard.Portfolio.Contracts`; Compliance maps it to its own domain type | |
+| D-155 | Published by cascading from `ReceiveSubmissionHandler` inside the EF transaction (tuple with `OutgoingMessages`; fallback `IMessageContext.PublishAsync`) | Atomic with the submission rows |
+| D-156 | Local queues: Wolverine default (one durable local queue per message type); no named per-module queues | Closes open question 1 of session 13 |
+| D-157 | Compliance stores `portfolio_snapshots` (one row per accepted submission, four class columns, unique `source_event_id`), a persistence entity, not a domain aggregate | Phase 3 builds `Evaluation` from it |
+| D-158 | No backfill for submissions accepted before this brief | Development data only |
+| D-159 | ADR-0011: Portfolio → Compliance integration contract; additive changes only, breaking changes need a new event type | |
+| D-160 | Phase 2 closes with Brief #12; Brief #13 opens Phase 3 with the dependency-majors review (R-13, R-31 Aspire 17) in its preflight | |
+
+### Verified on 2026-11-20
+| Area | Finding | Source |
+| --- | --- | --- |
+| Wolverine local queues | Default: an individual local queue per message type, named after the type | https://wolverine.netlify.app/guide/messaging/transports/local |
+| Wolverine return values | Tuple returns: each item handled independently; `OutgoingMessages` cascades its items | https://wolverine.netlify.app/guide/handlers/return-values |
+
+### Risks and flags
+- **R-24** expected to close: the end-to-end test runs through the real module registration.
+- **R-34 Tuple return with `InvokeAsync<T>`.** Likely supported, not yet proven in this codebase; the first commit with
+  the change proves it or switches to the fallback.
+- **R-35 Amounts in envelope storage.** Wolverine persists event bodies (with totals) in `wolverine` tables. That is
+  storage, not logging, and stays inside the database; Phase 5 must keep database access and backups as protected as
+  the module tables.
+
+### Next step
+Brief #13 (Phase 3 start): majors review, Compliance domain (`LimitPolicy` versioned with seed, `Evaluation`,
+`Money`/`Ratio`/`AssetClass`, specifications), boundary tests, and the decision on `Result` in the Compliance domain
+(open question 1 of session 5).
+
 ## Delta 2026-11-20 (session 20: Brief #11 executed)
 
 Branch `feat/submission-idempotency-and-current-version`. Six commits, as planned in the brief.
