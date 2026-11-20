@@ -67,7 +67,10 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 - CSV error codes are `Portfolio.Csv.*` (fixed messages, never cell values). Sample files with their expected
   outcomes: `samples/portfolios/README.md`.
 - Several submissions per cut-off date are allowed. Submissions are immutable; latest accepted = current.
-  Rejected submissions are stored with their errors. Same SHA-256 + same cut-off date returns the existing submission.
+  Rejected submissions are stored with their errors. Same tenant + same cut-off date + same SHA-256 of the raw bytes
+  returns the earliest existing submission, whatever its status (`200 OK`, `duplicate: true`, nothing stored); the
+  file name does not matter. Current = latest accepted by `received_at` (tie: `id`) per cut-off date; rejected
+  submissions are never current. Both are computed by the API, never by the SPA.
 
 ## Commands
 - Run everything locally: `aspire run` (Docker must be running). Starts `postgres`, `api` and `web`; the dashboard URL is printed on start.
@@ -112,7 +115,8 @@ Tool: `pwsh scripts/dev-session.ps1` (`-Snapshot`, `-StartAspire`, `-Report`, `-
 
 ## Definition of done
 Slice implemented, tests written (unit + integration through HTTP incl. a tenant-isolation case), architecture
-tests green, no new analyzer warnings, ADR added or updated if a decision changed, `docs/decisions.md` delta noted.
+tests green, no new analyzer warnings, ADR added or updated if a decision changed, `docs/decisions.md` delta noted,
+README status updated when a phase or a visible feature changes.
 
 ## When unsure
 Read `docs/adr/` first. If a task contradicts an ADR or a rule here, stop and ask instead of working around it.

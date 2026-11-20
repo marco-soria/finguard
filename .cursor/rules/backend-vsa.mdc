@@ -60,6 +60,11 @@ alwaysApply: false
 - Upload validation has two layers (D-112). Transport problems (no file, empty, over 5 MB, not `.csv`, bad or future
   cut-off date) return 400/413 and store nothing. Content problems store a `Rejected` submission with its errors and
   answer 201; a valid file stores an `Accepted` submission with its positions and answers 201.
+- Idempotent uploads (D-139, D-140): after the transport checks and the hash, the handler looks up the earliest
+  submission with the same `cut_off_date` and SHA-256 through the module DbContext (tenant filter applies). A match
+  answers `200 OK` with `duplicate: true` and the existing submission's `Location`, and writes nothing.
+- Derived values such as `isCurrent` (latest accepted per cut-off date, D-141) are computed in the read queries,
+  never stored.
 - Validation messages are fixed sentences per code and never echo a cell value or a column name from the file (D-115).
 - Free-text and identifier columns from uploaded files are rejected when they start with a formula trigger; any export
   escapes them again (OWASP CSV Injection).

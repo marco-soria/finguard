@@ -3,6 +3,77 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-20 (session 20: Brief #11 executed)
+
+Branch `feat/submission-idempotency-and-current-version`. Six commits, as planned in the brief.
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-145 | Handler tests that reach the duplicate pre-check run against real PostgreSQL in `FinGuard.Api.IntegrationTests` (`ReceiveSubmissionHandlerTests`, `FakeTimeProvider`, fresh tenant ids). The unit project keeps only the transport-check cases, which return before the query | Approved deviation: the unit tests used a placeholder Npgsql connection that cannot run a query. Rejected: EF InMemory/SQLite (new dependency, different filter and `char(64)` behaviour), an injectable lookup seam (abstraction only for tests) |
+| D-146 | `ReceiveSubmissionHandler.Handle` is async (`Task<Result<T>>`, `CancellationToken`) for the pre-check; the duplicate path uses `AsNoTracking` reads only | No entity is added for a duplicate, so Wolverine's transaction has nothing to save |
+| D-147 | `200 OK` for a duplicate sets `Location` through `HttpResponse.Headers` and returns `TypedResults.Ok` | ASP.NET Core has no typed "OK with Location" result |
+| D-148 | List `isCurrent` uses a `DISTINCT ON (cut_off_date)` CTE over the tenant's accepted rows, LEFT JOINed to the page; details use `NOT EXISTS` on a newer accepted row with a row comparison `(received_at, id) >` | Same rule as the brief's `ROW_NUMBER` example, shorter SQL. Both sub-selects filter `tenant_id` |
+| D-149 | `errorMessage` returns one line, `"{title}: {detail}"`, for 4xx with a detail; title alone without one; the generic text for 5xx, non-ProblemDetails and non-`ApiError` values. `ApiError` order is `(status, title, detail?, code?, traceId?)`. `Login` uses the helper too | Replaces `errorTitle`; no component reads `ApiError.title` directly any more |
+| D-150 | E2E helpers live in `e2e/support.ts`; every upload has unique content. The duplicate flow uses a random past cut-off date, so the "current" rows of the parallel flows (today) never interfere; the future-date check sits in `submissions.e2e.ts` | Playwright runs files in parallel workers against one shared database |
+| D-151 | The session 6 line edited in place by PR #18 ("(Session 19: still true; …)") stays as it is on `main` | Reverting it would itself change a line and fail the new guard; `git diff 57d5ad5 -- docs/decisions.md` therefore shows that one changed line besides the additions |
+
+### Verification
+- Restored deltas: lines 6-156 of `57d5ad5:docs/decisions.md` inserted below the session-hygiene delta.
+  `git diff 57d5ad5 --numstat -- docs/decisions.md` before this delta: `75 1` (the session-hygiene delta plus the
+  D-151 line).
+- CI guard, proven locally with the job's script against `main`: the branch passes (0 deleted lines); a throwaway
+  commit that edited an old line (line 600) failed with `docs/decisions.md is append-only: …` (exit 1, numstat
+  `152 1`); the commit was dropped with `git reset --hard HEAD~1`. A first attempt edited line 200, which lies inside the
+  restored block and so counts as an addition against `main`; correct behaviour, but no proof.
+- `EXPLAIN (ANALYZE)` on the dev database (22 submissions, 1 tenant): both queries seq-scan, as expected at this size
+  (list 0.09 ms, details 0.02 ms). With `enable_seqscan = off` the list query uses the `tenant_id` prefix of
+  `ix_submissions_tenant_id_cut_off_date_sha256` and an incremental sort presorted on `cut_off_date`. No new index for
+  `isCurrent`; revisit if a tenant reaches thousands of submissions.
+- Tests: backend 309 (unit 187, integration 107, architecture 15), was 293; Vitest 73, was 64; E2E 4 flows, two
+  runs in a row green against one `-StartAspire` instance. `dotnet format --verify-no-changes`, `pnpm lint`,
+  `pnpm exec prettier --check src e2e`, `pnpm build` green.
+
+### Next step
+Brief #12 (closes Phase 2), unchanged from the planning delta below.
+
+## Delta 2026-11-20 (session 20: Brief #11 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-137 | `docs/decisions.md` is append-only; corrections supersede through a new delta; CI `hygiene` fails PRs that delete or change existing lines | PR #18 silently dropped the Brief #10 deltas while resolving a conflict |
+| D-138 | Two branches in parallel only if at most one adds a decisions delta | Root cause of the loss |
+| D-139 | Duplicate = same tenant + cut-off date + SHA-256 of raw bytes; returns the earliest match whatever its status; `200 OK` + `duplicate: true` + `Location`; nothing stored | Implements D-11 |
+| D-140 | Enforced by a pre-check and a non-unique index `(tenant_id, cut_off_date, sha256)`; a simultaneous identical upload may be stored twice (accepted race) | Unique constraint rejected: existing duplicate rows in dev/test data; one user per tenant |
+| D-141 | `isCurrent` is derived at read time: latest accepted by `received_at` (tie: `id`) per tenant and cut-off date; rejected never current | Not stored |
+| D-142 | SPA shows `title` + `detail` for 4xx through one helper; 5xx stays generic; codes only as `data-code` | Closes R-28; supersedes D-80's "only title" |
+| D-143 | README is the reviewer's landing page and is updated when a phase or a visible feature changes (Definition of done) | |
+| D-144 | Phase 5 hosting (planned, ADR in Phase 5): Angular SPA on **Azure Static Web Apps Free**, Api on **Azure Container Apps** (Consumption); SPA calls the Api cross-origin with bearer tokens; the Api gets a CORS policy for the SWA origin only; `staticwebapp.config.json` carries the SPA fallback and security headers (CSP, R-22) | Closes open question 1 of session 7. Rejected: second container app with nginx (cold start for static files, an image to maintain); SPA served by the Api container (couples deploys, blank page while the Api scales from zero); SWA Standard linked backend (~monthly fee; not zero-cost) |
+
+### Verified on 2026-11-20
+| Area | Finding | Source |
+| --- | --- | --- |
+| Static Web Apps | Free plan has no SLA; Standard is for production with SLA | https://azure.microsoft.com/pricing/details/app-service/static/ |
+| Static Web Apps | Quotas: 100 GB bandwidth per month, 10 apps per subscription (Free), 250 MB per app | https://learn.microsoft.com/azure/static-web-apps/quotas |
+| Static Web Apps | "Bring your own API" (linked Container Apps backend) needs the Standard plan; not supported on pull-request environments | https://learn.microsoft.com/azure/static-web-apps/apis-overview , https://learn.microsoft.com/azure/static-web-apps/apis-container-apps |
+| Container Apps | Consumption: first 180,000 vCPU-s, 360,000 GiB-s and 2 million requests per subscription per month are free | https://learn.microsoft.com/azure/container-apps/billing |
+
+### Risks and flags
+- **R-32 Cross-origin in Phase 5.** SWA Free + ACA means CORS and two origins; Entra redirect URIs must list the SWA
+  production URL (and each preview URL used for testing). Mitigation: one CORS origin from configuration, a CORS
+  integration test, preview environments without real login unless registered.
+- **R-33 Cold start.** The Api scales to zero; the first request after idle is slow. The SPA (static, always on) must
+  show a "waking up" state instead of an error. Design in Phase 5.
+
+### Open questions
+1. Per-module local queues and event naming (`SubmissionAccepted` vs `PortfolioSubmitted`): Brief #12.
+2. What Compliance receives (class totals in the event, or a Contracts query): Brief #12.
+
+### Next step
+Brief #12 (closes Phase 2): integration event from Portfolio to Compliance for the current accepted submission,
+idempotent consumer stub in Compliance, local-queue and naming decisions.
+
 ## Delta 2026-11-19 (session 19: session hygiene)
 
 Brief #10a, Part B. Branch `chore/agent-session-hygiene` from `origin/main`.

@@ -106,6 +106,10 @@ future cut-off date) return 400/413 and store nothing. Otherwise the submission 
 `201 Created` with `status` `Accepted` (positions stored) or `Rejected` (first 100 errors stored, `errorCount` holds the
 total). There is no 422 or 202 for uploads. Event names are reconciled with D-93 in Brief #12.
 
+Uploads are idempotent (D-139): the same file (SHA-256 of the raw bytes) for the same cut-off date returns the earliest
+existing submission with `200 OK` and `duplicate: true`, and nothing is stored or published. Among a tenant's accepted
+submissions for a date, the latest by `received_at` is the current one (D-141), computed when reading.
+
 ```mermaid
 sequenceDiagram
   autonumber
@@ -122,7 +126,11 @@ sequenceDiagram
   alt transport problem (empty, too large, not .csv, bad date)
     API-->>U: 400/413 problem, nothing stored
   end
-  P->>P: hash, read and validate the CSV
+  P->>P: hash the file
+  alt same hash and cut-off date already stored
+    API-->>U: 200 OK, duplicate, existing submission (nothing stored)
+  end
+  P->>P: read and validate the CSV
   alt CSV invalid
     P->>OB: store Rejected submission + errors + PortfolioRejected (one transaction)
     API-->>U: 201 Created, status Rejected, errors
