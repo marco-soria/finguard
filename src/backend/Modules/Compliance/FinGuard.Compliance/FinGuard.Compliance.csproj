@@ -9,6 +9,12 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\FinGuard.BuildingBlocks.csproj" />
     <ProjectReference Include="..\FinGuard.Compliance.Contracts\FinGuard.Compliance.Contracts.csproj" />
+    <ProjectReference Include="..\..\Portfolio\FinGuard.Portfolio.Contracts\FinGuard.Portfolio.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FinGuard.UnitTests" />
+    <InternalsVisibleTo Include="FinGuard.Api.IntegrationTests" />
   </ItemGroup>
 
 </Project>

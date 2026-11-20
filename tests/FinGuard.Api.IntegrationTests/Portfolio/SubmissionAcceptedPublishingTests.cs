@@ -99,11 +99,11 @@ internal static class SubmissionEvents
         return (session, body!);
     }
 
-    /// <summary>The events this session published for one submission (no route until a module consumes them).</summary>
+    /// <summary>The events this session sent for one submission.</summary>
     public static IEnumerable<SubmissionAccepted> Published(ITrackedSession session, Guid submissionId) =>
-        session.AllRecordsInOrder()
-            .Where(r => r.MessageEventType is MessageEventType.Sent or MessageEventType.NoRoutes)
-            .Select(r => r.Message)
-            .OfType<SubmissionAccepted>()
-            .Where(e => e.SubmissionId == submissionId);
+        session.Sent.MessagesOf<SubmissionAccepted>().Where(e => e.SubmissionId == submissionId);
+
+    /// <summary>The events for one submission that a consumer handled successfully in this session.</summary>
+    public static IEnumerable<SubmissionAccepted> Consumed(ITrackedSession session, Guid submissionId) =>
+        session.MessageSucceeded.MessagesOf<SubmissionAccepted>().Where(e => e.SubmissionId == submissionId);
 }
