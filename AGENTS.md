@@ -104,6 +104,7 @@ Tool: `pwsh scripts/dev-session.ps1` (`-Snapshot`, `-StartAspire`, `-Report`, `-
 - Conventional Commits. Small PRs. One slice or one concern per PR.
 - Git workflow: see docs/git-workflow.md (branch per brief, PR to main, squash merge, never commit to main).
 - AI rules: see docs/ai-rules.md (path-scoped, Claude and Cursor files kept in sync).
+- `docs/decisions.md` is append-only (CI-enforced).
 - Nullable reference types on, warnings as errors, `TimeProvider` instead of `DateTime.UtcNow`.
 - Structured logging with message templates. Never log monetary values, CSV rows or descriptions.
 - No secrets in the repo. Locally use user-secrets or environment variables; the app must also read

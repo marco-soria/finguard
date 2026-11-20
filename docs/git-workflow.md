@@ -12,6 +12,10 @@ checks it and a human reviews the AI-written diff before it reaches `main`.
 - PRs are merged with **squash merge**: each PR becomes one commit on `main`. The PR title is that commit message,
   so it must follow Conventional Commits.
 - `main` is protected: the `ci-gate` check must pass. No approval is required (a solo author cannot approve their own PR).
+- `docs/decisions.md` is append-only (D-137): CI fails a PR that deletes or changes an existing line. Correct an old
+  entry with a new delta that supersedes it. When resolving a conflict in it, keep both sides: each delta is a block.
+- Run two branches in parallel only if at most one of them adds a decisions delta; otherwise merge the first before
+  starting the second (D-138).
 
 ## Cycle for each brief
 1. Start from an up-to-date `main`:
