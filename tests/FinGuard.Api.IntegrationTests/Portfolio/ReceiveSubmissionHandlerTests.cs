@@ -25,6 +25,9 @@ public sealed class ReceiveSubmissionHandlerTests(ApiFixture fixture)
 
     private readonly FakeTimeProvider _time = new(Now);
 
+    // The handler reads the tenant for the event payload; it must be the one its context stamps.
+    private readonly Dictionary<PortfolioDbContext, TenantContext> _tenants = [];
+
     [Theory]
     [InlineData(10, "portfolio.CSV", "2026-03-15")]
     [InlineData(5 * 1024 * 1024, "portfolio.csv", "2026-03-15")]
@@ -151,12 +154,15 @@ public sealed class ReceiveSubmissionHandlerTests(ApiFixture fixture)
         return result.Value;
     }
 
-    private Task<Result<SubmissionReceivedResponse>> Handle(
+    private async Task<Result<SubmissionReceivedResponse>> Handle(
         PortfolioDbContext db, byte[] content, string fileName = "portfolio.csv", string cutOffDate = "2026-03-15")
     {
-        var handler = new ReceiveSubmissionHandler(db, _time, NullLogger<ReceiveSubmissionHandler>.Instance);
+        var handler = new ReceiveSubmissionHandler(
+            db, _tenants[db], _time, NullLogger<ReceiveSubmissionHandler>.Instance);
         var date = DateOnly.Parse(cutOffDate, CultureInfo.InvariantCulture);
-        return handler.Handle(new ReceiveSubmission(date, fileName, content), TestContext.Current.CancellationToken);
+        var (result, _) = await handler.Handle(
+            new ReceiveSubmission(date, fileName, content), TestContext.Current.CancellationToken);
+        return result;
     }
 
     private PortfolioDbContext CreateContext(Guid tenantId)
@@ -166,6 +172,8 @@ public sealed class ReceiveSubmissionHandlerTests(ApiFixture fixture)
         var options = new DbContextOptionsBuilder<PortfolioDbContext>();
         options.UseModuleNpgsql(fixture.ConnectionString, PortfolioDbContext.Schema)
             .AddInterceptors(TenantStampingInterceptor.Instance);
-        return new PortfolioDbContext(options.Options, tenantContext);
+        var db = new PortfolioDbContext(options.Options, tenantContext);
+        _tenants[db] = tenantContext;
+        return db;
     }
 }
