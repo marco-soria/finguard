@@ -30,6 +30,10 @@ paths:
 - Never call `TenantContext.SetTenant` outside the Tenancy module and the BuildingBlocks `TenantPropagationMiddleware`;
   everything else reads `ITenantContext`. Handlers get the tenant from the envelope (ADR-0009).
 - One DbContext per handler. Cross-module effects go only through integration events.
+- Integration events cascade from the command handler inside its transaction; never publish after the response.
+  A publishing command handler returns `(Result<T>, OutgoingMessages)`: Wolverine answers
+  `InvokeAsync<Result<T>>` with the first item and cascades the second through the outbox (D-155).
+- Event payloads carry the data consumers need (event-carried state); consumers never call back into the publisher.
 - Integration events (ADR-0009) are `sealed record`s in `FinGuard.<Module>.Contracts.Events` carrying `EventId`,
   `TenantId`, `OccurredAt`. Change one by adding a new versioned type (`...V2`), never by editing the old one.
 - Consumers are idempotent by `EventId`: store it with a unique index and ignore duplicates.
@@ -43,6 +47,7 @@ paths:
   module DbContexts are service-located, and an inlined tenant context would leave them without a tenant.
 - Every message type (handled message, integration event) overrides `ToString()` to return its type name and
   identifiers only, because Wolverine logs failed messages with `ToString()` (D-77, architecture test).
+- Logs and message `ToString()` carry identifiers, never dates, amounts, file names or hashes.
 - Use `TimeProvider`, `CancellationToken` everywhere, nullable enabled, warnings as errors.
 - Logging: message templates, never string interpolation; log ids and counts, never monetary values or CSV rows.
 - Do not add generic repositories or MediatR. Aggregates with repositories exist only in Compliance.

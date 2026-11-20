@@ -89,8 +89,7 @@ flowchart LR
   audit["Audit (Phase 5, optional)<br/>schema: audit"]
 
   tenancy -.->|ITenantContext| portfolio
-  portfolio -->|PortfolioSubmitted| compliance
-  portfolio -->|PortfolioRejected| audit
+  portfolio -->|SubmissionAccepted| compliance
   compliance -->|EvaluationCompleted| advisory
   advisory -->|AdvisoryGenerated / AdvisoryFailed| audit
   compliance -->|EvaluationCompleted| audit
@@ -98,13 +97,15 @@ flowchart LR
 
 ## 4. Event flow for one submission
 
-`PortfolioSubmitted` carries the class totals so Compliance never calls back into Portfolio. Delivery is at-least-once,
-so consumers are idempotent.
+`SubmissionAccepted` (ADR-0011) carries the book-value total per asset class, so Compliance never calls back into
+Portfolio. It is published once per new accepted submission, in the same transaction; rejected and duplicate uploads
+publish nothing. Delivery is at-least-once, so Compliance stores its `portfolio_snapshots` row idempotently by
+`EventId`. Evaluation from the snapshot is Phase 3.
 
 The upload validates synchronously (D-111, D-112). Transport problems (no file, empty, over 5 MB, not `.csv`, bad or
 future cut-off date) return 400/413 and store nothing. Otherwise the submission is always stored and the Api answers
 `201 Created` with `status` `Accepted` (positions stored) or `Rejected` (first 100 errors stored, `errorCount` holds the
-total). There is no 422 or 202 for uploads. Event names are reconciled with D-93 in Brief #12.
+total). There is no 422 or 202 for uploads.
 
 Uploads are idempotent (D-139): the same file (SHA-256 of the raw bytes) for the same cut-off date returns the earliest
 existing submission with `200 OK` and `duplicate: true`, and nothing is stored or published. Among a tenant's accepted
@@ -122,7 +123,7 @@ sequenceDiagram
   participant N as Narrator
 
   U->>API: POST submission (CSV + cut-off date)
-  API->>P: SubmitPortfolio command
+  API->>P: ReceiveSubmission command
   alt transport problem (empty, too large, not .csv, bad date)
     API-->>U: 400/413 problem, nothing stored
   end
@@ -132,13 +133,15 @@ sequenceDiagram
   end
   P->>P: read and validate the CSV
   alt CSV invalid
-    P->>OB: store Rejected submission + errors + PortfolioRejected (one transaction)
+    P->>P: store Rejected submission + errors (no event)
     API-->>U: 201 Created, status Rejected, errors
   else CSV valid
-    P->>OB: store Accepted submission + positions + PortfolioSubmitted (one transaction)
+    P->>OB: store Accepted submission + positions + SubmissionAccepted (one transaction)
     API-->>U: 201 Created, status Accepted
   end
-  OB-->>C: PortfolioSubmitted
+  OB-->>C: SubmissionAccepted (durable local queue)
+  C->>C: store portfolio snapshot (idempotent by EventId)
+  Note over C: Phase 3 from here
   C->>C: evaluate against policy version, build rebalance proposal
   C->>OB: store evaluation + EvaluationCompleted (one transaction)
   OB-->>A: EvaluationCompleted
