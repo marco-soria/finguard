@@ -22,9 +22,7 @@ public sealed class ComplianceDomainTests
     public void ComplianceDomain_AnyType_DependsOnlyOnSystemItselfAndResults()
     {
         var rule = Types().That().ResideInNamespaceMatching(@"^FinGuard\.Compliance\.Domain(\..+)?$")
-            .Should().OnlyDependOnTypesThat().ResideInNamespaceMatching(AllowedNamespaces)
-            // Domain/ is still empty; the rule starts guarding with the first domain type (Phase 3).
-            .WithoutRequiringPositiveResults();
+            .Should().OnlyDependOnTypesThat().ResideInNamespaceMatching(AllowedNamespaces);
 
         var violations = rule.Evaluate(ComplianceWithReferences).Where(r => !r.Passed).Select(r => r.Description).ToList();
 
