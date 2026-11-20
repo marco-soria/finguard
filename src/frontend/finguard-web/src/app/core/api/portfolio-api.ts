@@ -20,6 +20,8 @@ export interface SubmissionListItem {
   receivedAt: string;
   rowCount: number;
   errorCount: number;
+  /** Latest accepted submission for its cut-off date; computed by the API (D-141). */
+  isCurrent: boolean;
 }
 
 export interface SubmissionList {
@@ -36,11 +38,16 @@ export interface SubmissionDetails {
   receivedAt: string;
   rowCount: number;
   errorCount: number;
+  /** Latest accepted submission for its cut-off date; computed by the API (D-141). */
+  isCurrent: boolean;
   /** The first 100 errors, in row then column order. */
   errors: SubmissionError[];
 }
 
-/** `POST /api/portfolio/submissions`: 201 for both `Accepted` and `Rejected` (D-112). */
+/**
+ * `POST /api/portfolio/submissions`: 201 for a new `Accepted` or `Rejected` submission (D-112); 200 with
+ * `duplicate: true` and the existing submission when the same file was already uploaded for the date (D-139).
+ */
 export interface SubmissionReceived {
   submissionId: string;
   status: string;
@@ -48,6 +55,7 @@ export interface SubmissionReceived {
   rowCount: number;
   errorCount: number;
   errors: SubmissionError[];
+  duplicate: boolean;
 }
 
 /**

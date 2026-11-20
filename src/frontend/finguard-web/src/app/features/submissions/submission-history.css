@@ -14,3 +14,14 @@ a {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* Text, not colour only: the word "Current" carries the meaning. */
+.current-badge {
+  display: inline-block;
+  margin-inline-start: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  font: var(--mat-sys-label-small);
+}

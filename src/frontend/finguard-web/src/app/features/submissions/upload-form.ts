@@ -1,9 +1,11 @@
+import { formatDate } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
   ElementRef,
   inject,
+  LOCALE_ID,
   output,
   signal,
   viewChild,
@@ -24,12 +26,15 @@ import { MatInput } from '@angular/material/input';
 import { RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { PortfolioApi, SubmissionReceived } from '../../core/api/portfolio-api';
-import { errorTitle } from '../../core/http/problem-details.interceptor';
+import { errorMessage } from '../../core/http/problem-details.interceptor';
 
 export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
-/** Both outcomes are created submissions (201); the API's status decides the wording. */
-function outcome(received: SubmissionReceived, fileName: string): string {
+/** The API's `duplicate` and `status` decide the wording; `receivedAt` is shown in local time (D-103). */
+function outcome(received: SubmissionReceived, fileName: string, locale: string): string {
+  if (received.duplicate) {
+    return `Already uploaded on ${formatDate(received.receivedAt, 'medium', locale)}: ${received.status}.`;
+  }
   return received.status === 'Accepted'
     ? `Accepted ${fileName}: ${received.rowCount} positions.`
     : `Rejected ${fileName}: ${received.errorCount} errors.`;
@@ -60,6 +65,7 @@ function portfolioFile(control: AbstractControl<File | null>): ValidationErrors 
 export class UploadForm {
   private readonly api = inject(PortfolioApi);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly locale = inject(LOCALE_ID);
   private readonly fileInput = viewChild.required<ElementRef<HTMLInputElement>>('fileInput');
   private readonly formDirective = viewChild.required(FormGroupDirective);
 
@@ -104,7 +110,7 @@ export class UploadForm {
       .subscribe({
         next: (received) => {
           this.status.set({
-            text: outcome(received, file.name),
+            text: outcome(received, file.name, this.locale),
             submissionId: received.submissionId,
           });
           // resetForm, not form.reset: it also clears `submitted`, which Material uses to show field errors.
@@ -112,7 +118,7 @@ export class UploadForm {
           this.fileInput().nativeElement.value = '';
           this.uploaded.emit(received);
         },
-        error: (error: unknown) => this.error.set(errorTitle(error)),
+        error: (error: unknown) => this.error.set(errorMessage(error)),
       });
   }
 }

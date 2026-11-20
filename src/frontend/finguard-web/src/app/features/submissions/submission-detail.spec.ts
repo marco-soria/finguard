@@ -38,13 +38,15 @@ describe('SubmissionDetail', () => {
     receivedAt: '2026-11-19T10:00:00Z',
     rowCount: 4,
     errorCount: 0,
+    isCurrent: true,
     errors: [],
   };
 
-  const errorLines = () =>
-    Array.from(element.querySelectorAll('.detail-errors li')).map((li) =>
-      li.textContent?.replace(/\s+/g, ' ').trim(),
-    );
+  const errorRows = () =>
+    Array.from(element.querySelectorAll('.detail-errors tr.mat-mdc-row')).map((tr) => ({
+      code: tr.getAttribute('data-code'),
+      cells: Array.from(tr.querySelectorAll('td')).map((td) => td.textContent?.trim()),
+    }));
 
   it('renders the fields of an accepted submission without an error list', async () => {
     backend.expectOne('/api/portfolio/submissions/s-1').flush(details);
@@ -56,6 +58,7 @@ describe('SubmissionDetail', () => {
       '2026-11-01',
       '512 B',
       'Accepted',
+      'Current version for 2026-11-01',
       '4',
       '0',
       expect.any(String),
@@ -65,7 +68,16 @@ describe('SubmissionDetail', () => {
     expect(element.querySelector('.detail-errors')).toBeNull();
   });
 
-  it('lists the errors of a rejected submission', async () => {
+  it('says when an accepted submission is not the current version', async () => {
+    backend.expectOne('/api/portfolio/submissions/s-1').flush({ ...details, isCurrent: false });
+    await fixture.whenStable();
+
+    expect(element.querySelector('.detail-version')?.textContent?.trim()).toBe(
+      'Not the current version',
+    );
+  });
+
+  it('lists the errors of a rejected submission in a table with codes as data only', async () => {
     backend.expectOne('/api/portfolio/submissions/s-1').flush({
       ...details,
       status: 'Rejected',
@@ -84,35 +96,54 @@ describe('SubmissionDetail', () => {
     });
     await fixture.whenStable();
 
-    expect(errorLines()).toEqual([
-      'The file has no rows.',
-      'currency: Missing.',
-      'Row 3, book_value: The book value must not be negative.',
+    expect(errorRows()).toEqual([
+      { code: 'Portfolio.Csv.NoRows', cells: ['File', '', 'The file has no rows.'] },
+      { code: 'Portfolio.Csv.ColumnMissing', cells: ['File', 'currency', 'Missing.'] },
+      {
+        code: 'Portfolio.Csv.BookValueNegative',
+        cells: ['3', 'book_value', 'The book value must not be negative.'],
+      },
     ]);
+    expect(element.querySelector('.detail-errors')?.getAttribute('aria-labelledby')).toBe(
+      'errors-title',
+    );
+    expect(element.textContent).not.toContain('Portfolio.Csv.');
+    expect(element.querySelector('.detail-version')).toBeNull();
   });
 
-  it('says when only the first errors are shown', async () => {
+  it('says when only the first 100 errors are shown', async () => {
     backend.expectOne('/api/portfolio/submissions/s-1').flush({
       ...details,
       status: 'Rejected',
       errorCount: 150,
-      errors: [{ row: 2, column: 'currency', code: 'X', message: 'Bad.' }],
+      errors: Array.from({ length: 100 }, (_, i) => ({
+        row: i + 2,
+        column: 'currency',
+        code: 'X',
+        message: 'Bad.',
+      })),
     });
     await fixture.whenStable();
 
-    expect(element.textContent).toContain('Showing the first 1 of 150 errors.');
+    expect(element.textContent).toContain('Showing the first 100 of 150 errors.');
+    expect(errorRows().length).toBe(100);
   });
 
-  it('shows the error title on 404', async () => {
-    backend
-      .expectOne('/api/portfolio/submissions/s-1')
-      .flush(
-        { title: 'Resource not found', status: 404, code: 'Portfolio.Submission.NotFound' },
-        { status: 404, statusText: 'Not Found' },
-      );
+  it('shows the error title and detail on 404', async () => {
+    backend.expectOne('/api/portfolio/submissions/s-1').flush(
+      {
+        title: 'Resource not found',
+        status: 404,
+        detail: 'The submission does not exist.',
+        code: 'Portfolio.Submission.NotFound',
+      },
+      { status: 404, statusText: 'Not Found' },
+    );
     await fixture.whenStable();
 
-    expect(element.querySelector('[role="alert"]')?.textContent?.trim()).toBe('Resource not found');
+    expect(element.querySelector('[role="alert"]')?.textContent?.trim()).toBe(
+      'Resource not found: The submission does not exist.',
+    );
     expect(element.querySelector('dl')).toBeNull();
   });
 });

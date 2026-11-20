@@ -4,7 +4,7 @@ import { MatProgressBar } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import { PortfolioApi, SubmissionListItem } from '../../core/api/portfolio-api';
-import { errorTitle } from '../../core/http/problem-details.interceptor';
+import { errorMessage } from '../../core/http/problem-details.interceptor';
 import { FileSizePipe } from '../../shared/file-size.pipe';
 
 @Component({
@@ -29,7 +29,7 @@ export class SubmissionHistory {
   );
   protected readonly error = computed(() => {
     const error = this.submissions.error();
-    return error ? errorTitle(error) : null;
+    return error ? errorMessage(error) : null;
   });
 
   reload(): void {

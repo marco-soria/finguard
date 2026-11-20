@@ -20,6 +20,7 @@ describe('SubmissionHistory', () => {
     receivedAt: '2026-11-19T10:00:00Z',
     rowCount: 3,
     errorCount: 0,
+    isCurrent: false,
   };
 
   beforeEach(() => {
@@ -72,6 +73,21 @@ describe('SubmissionHistory', () => {
       expect.any(String),
     ]);
     expect(element.querySelector('a')?.getAttribute('href')).toBe('/submissions/s-1');
+  });
+
+  it('marks the current submission with a text badge', async () => {
+    await respond({
+      items: [
+        { ...item, submissionId: 's-2', isCurrent: true },
+        { ...item, submissionId: 's-1', isCurrent: false },
+      ],
+    });
+
+    const badges = element.querySelectorAll('.current-badge');
+    expect(badges.length).toBe(1);
+    expect(badges[0].textContent?.trim()).toBe('Current');
+    expect(cells()[3]?.replace(/\s+/g, ' ')).toBe('Accepted Current');
+    expect(cells()[9]).toBe('Accepted');
   });
 
   it('shows the error count for a rejected submission only', async () => {

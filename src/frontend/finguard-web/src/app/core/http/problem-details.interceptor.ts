@@ -25,12 +25,20 @@ function toApiError(response: HttpErrorResponse): ApiError {
   return new ApiError(
     response.status,
     body.title,
+    'detail' in body && typeof body.detail === 'string' ? body.detail : undefined,
     'code' in body && typeof body.code === 'string' ? body.code : undefined,
     'traceId' in body && typeof body.traceId === 'string' ? body.traceId : undefined,
   );
 }
 
-/** The text a component shows for a failed call: the API's title, or the generic one. */
-export function errorTitle(error: unknown): string {
-  return error instanceof ApiError ? error.title : GENERIC_ERROR_TITLE;
+/**
+ * The text a component shows for a failed call (D-142). 4xx: `"{title}: {detail}"`, or the title alone without a
+ * detail; backend messages are fixed sentences without user data (D-115). 5xx and anything else: the generic text,
+ * never server text.
+ */
+export function errorMessage(error: unknown): string {
+  if (!(error instanceof ApiError) || error.status < 400 || error.status >= 500) {
+    return GENERIC_ERROR_TITLE;
+  }
+  return error.detail ? `${error.title}: ${error.detail}` : error.title;
 }
