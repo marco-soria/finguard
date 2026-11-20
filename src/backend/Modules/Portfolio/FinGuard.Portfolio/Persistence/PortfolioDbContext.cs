@@ -20,6 +20,8 @@ public sealed class PortfolioDbContext(DbContextOptions<PortfolioDbContext> opti
             submission.Property(s => s.Status).HasConversion<string>().HasMaxLength(Submission.StatusMaxLength);
             // History query of Brief #9: a tenant's submissions by cut-off date, newest first.
             submission.HasIndex(s => new { s.TenantId, s.CutOffDate, s.ReceivedAt });
+            // Duplicate pre-check (D-140). Not unique: dev and test databases already hold identical uploads.
+            submission.HasIndex(s => new { s.TenantId, s.CutOffDate, s.Sha256 });
         });
 
         modelBuilder.Entity<SubmissionContent>(content =>

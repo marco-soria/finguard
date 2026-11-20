@@ -17,6 +17,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history so the decisions guard can diff against the base branch.
+          fetch-depth: 0
+      - name: docs/decisions.md is append-only (D-137)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          deleted=$(git diff --numstat "origin/${BASE_REF}...HEAD" -- docs/decisions.md | awk '{ print $2 }')
+          if [ -n "$deleted" ] && [ "$deleted" != "0" ]; then
+            echo "::error::docs/decisions.md is append-only: add a new delta that supersedes the entry instead of editing it."
+            exit 1
+          fi
       - name: Only pnpm-lock.yaml is allowed
         run: |
           found=$(git ls-files '*package-lock.json' '*yarn.lock' '*npm-shrinkwrap.json')

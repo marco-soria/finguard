@@ -21,9 +21,5 @@ dd {
 }
 
 .detail-errors {
-  padding-inline-start: 1.25rem;
-}
-
-.detail-errors li {
-  margin-block: 0.25rem;
+  max-width: 60rem;
 }

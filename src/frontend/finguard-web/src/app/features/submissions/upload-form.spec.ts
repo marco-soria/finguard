@@ -1,3 +1,4 @@
+import { formatDate } from '@angular/common';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -91,6 +92,7 @@ describe('UploadForm', () => {
       rowCount: 12,
       errorCount: 0,
       errors: [],
+      duplicate: false,
     };
     backend.expectOne('/api/portfolio/submissions').flush(response);
     await fixture.whenStable();
@@ -131,6 +133,31 @@ describe('UploadForm', () => {
     expect(element.querySelector('[role="alert"]')).toBeNull();
   });
 
+  it('reports a duplicate upload with the original date, status and details link', async () => {
+    setDate('2026-11-19');
+    setFile(csv('again.csv'));
+
+    submit();
+    const receivedAt = '2026-11-18T10:00:00Z';
+    backend.expectOne('/api/portfolio/submissions').flush({
+      submissionId: 's-1',
+      status: 'Accepted',
+      receivedAt,
+      rowCount: 12,
+      errorCount: 0,
+      errors: [],
+      duplicate: true,
+    });
+    await fixture.whenStable();
+
+    expect(text('.upload-outcome')).toBe(
+      `Already uploaded on ${formatDate(receivedAt, 'medium', 'en-US')}: Accepted.`,
+    );
+    expect(element.querySelector('[role="status"] a')?.getAttribute('href')).toBe(
+      '/submissions/s-1',
+    );
+  });
+
   it('ignores a second submit while sending', async () => {
     setDate('2026-11-19');
     setFile(csv());
@@ -141,20 +168,25 @@ describe('UploadForm', () => {
     backend.expectOne('/api/portfolio/submissions').flush({});
   });
 
-  it('shows the ApiError title on failure', async () => {
+  it('shows the ApiError title and detail on a 4xx failure', async () => {
     setDate('2026-11-19');
     setFile(csv());
 
     submit();
-    backend
-      .expectOne('/api/portfolio/submissions')
-      .flush(
-        { title: 'Validation failed', status: 400 },
-        { status: 400, statusText: 'Bad Request' },
-      );
+    backend.expectOne('/api/portfolio/submissions').flush(
+      {
+        title: 'Validation failed',
+        status: 400,
+        detail: 'The cut-off date must not be later than today (UTC).',
+        code: 'Portfolio.Submission.CutOffDateInFuture',
+      },
+      { status: 400, statusText: 'Bad Request' },
+    );
     await fixture.whenStable();
 
-    expect(text('[role="alert"]')).toBe('Validation failed');
+    expect(text('[role="alert"]')).toBe(
+      'Validation failed: The cut-off date must not be later than today (UTC).',
+    );
     expect(submitButton().disabled).toBe(false);
   });
 });

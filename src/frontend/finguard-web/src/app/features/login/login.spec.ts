@@ -52,7 +52,7 @@ describe('Login', () => {
   });
 
   it('shows the error title when sign-in fails', async () => {
-    provider.failWith = new ApiError(400, 'Validation failed', 'DevAuth.User.Unknown');
+    provider.failWith = new ApiError(400, 'Validation failed', undefined, 'DevAuth.User.Unknown');
     const fixture = render();
 
     button(fixture.nativeElement, 'Alice').click();

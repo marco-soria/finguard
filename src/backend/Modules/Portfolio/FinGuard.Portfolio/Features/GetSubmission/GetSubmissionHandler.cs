@@ -11,11 +11,15 @@ public static class GetSubmissionHandler
     // Another tenant's id reads as not found, so existence is never revealed (D-101).
     // Never selects portfolio.submission_contents or portfolio.positions: this slice returns metadata and errors.
     private const string Sql = """
-        SELECT id AS "SubmissionId", cut_off_date AS "CutOffDate", file_name AS "FileName",
-               size_bytes AS "SizeBytes", status AS "Status", received_at AS "ReceivedAt",
-               row_count AS "RowCount", error_count AS "ErrorCount"
-        FROM portfolio.submissions
-        WHERE id = @SubmissionId AND tenant_id = @TenantId;
+        SELECT s.id AS "SubmissionId", s.cut_off_date AS "CutOffDate", s.file_name AS "FileName",
+               s.size_bytes AS "SizeBytes", s.status AS "Status", s.received_at AS "ReceivedAt",
+               s.row_count AS "RowCount", s.error_count AS "ErrorCount",
+               s.status = 'Accepted' AND NOT EXISTS (
+                   SELECT 1 FROM portfolio.submissions n
+                   WHERE n.tenant_id = @TenantId AND n.cut_off_date = s.cut_off_date AND n.status = 'Accepted'
+                     AND (n.received_at, n.id) > (s.received_at, s.id)) AS "IsCurrent"
+        FROM portfolio.submissions s
+        WHERE s.id = @SubmissionId AND s.tenant_id = @TenantId;
 
         SELECT row_number AS "Row", "column" AS "Column", code AS "Code", message AS "Message"
         FROM portfolio.submission_errors
@@ -36,11 +40,11 @@ public static class GetSubmissionHandler
             ? Error.NotFound("Portfolio.Submission.NotFound", "The submission does not exist.")
             : new SubmissionDetailsResponse(
                 row.SubmissionId, row.CutOffDate, row.FileName, row.SizeBytes, row.Status, new DateTimeOffset(row.ReceivedAt),
-                row.RowCount, row.ErrorCount, errors);
+                row.RowCount, row.ErrorCount, row.IsCurrent, errors);
     }
 
     // Npgsql hands timestamptz to Dapper as a UTC DateTime, which a DateTimeOffset constructor parameter cannot bind.
     private sealed record Row(
         Guid SubmissionId, DateOnly CutOffDate, string FileName, int SizeBytes, string Status, DateTime ReceivedAt,
-        int RowCount, int ErrorCount);
+        int RowCount, int ErrorCount, bool IsCurrent);
 }

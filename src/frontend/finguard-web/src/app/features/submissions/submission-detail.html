@@ -17,6 +17,12 @@
       <dd>{{ d.sizeBytes | fileSize }}</dd>
       <dt>Status</dt>
       <dd>{{ d.status }}</dd>
+      @if (d.status === 'Accepted') {
+        <dt>Version</dt>
+        <dd class="detail-version">
+          {{ d.isCurrent ? 'Current version for ' + d.cutOffDate : 'Not the current version' }}
+        </dd>
+      }
       <dt>Rows</dt>
       <dd>{{ d.rowCount }}</dd>
       <dt>Errors</dt>
@@ -27,24 +33,27 @@
       <dd>{{ d.submissionId }}</dd>
     </dl>
     @if (d.status === 'Rejected' && d.errors.length > 0) {
-      <!-- Plain list for now; Brief #11 designs the errors view. -->
       <h3 id="errors-title">Errors</h3>
       @if (d.errorCount > d.errors.length) {
         <p>Showing the first {{ d.errors.length }} of {{ d.errorCount }} errors.</p>
       }
-      <ul class="detail-errors" aria-labelledby="errors-title">
-        @for (e of d.errors; track $index) {
-          <li>
-            @if (e.row !== null) {
-              Row {{ e.row }}{{ e.column ? ', ' + e.column : '' }}: {{ e.message }}
-            } @else if (e.column) {
-              {{ e.column }}: {{ e.message }}
-            } @else {
-              {{ e.message }}
-            }
-          </li>
-        }
-      </ul>
+      <!-- Codes stay in the DOM for tests only (D-142); users read the message. -->
+      <table mat-table [dataSource]="d.errors" aria-labelledby="errors-title" class="detail-errors">
+        <ng-container matColumnDef="row">
+          <th mat-header-cell *matHeaderCellDef scope="col">Row</th>
+          <td mat-cell *matCellDef="let e">{{ e.row ?? 'File' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="column">
+          <th mat-header-cell *matHeaderCellDef scope="col">Column</th>
+          <td mat-cell *matCellDef="let e">{{ e.column ?? '' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="message">
+          <th mat-header-cell *matHeaderCellDef scope="col">Message</th>
+          <td mat-cell *matCellDef="let e">{{ e.message }}</td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="errorColumns"></tr>
+        <tr mat-row *matRowDef="let e; columns: errorColumns" [attr.data-code]="e.code"></tr>
+      </table>
     }
   }
 </section>

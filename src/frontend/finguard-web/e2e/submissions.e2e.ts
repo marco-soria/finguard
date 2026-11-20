@@ -1,27 +1,5 @@
-import { expect, Page, test } from '@playwright/test';
-
-const header = 'position_id,asset_class,book_value,currency,description';
-
-// Runs against the shared development database: assert only on this run's unique file name.
-async function signInAs(page: Page, user: 'Alice' | 'Bob'): Promise<void> {
-  await page.goto('/login');
-  await page.getByRole('button', { name: new RegExp(`Sign in as ${user}`) }).click();
-  await expect(page.getByRole('heading', { name: 'Submission history' })).toBeVisible();
-}
-
-async function upload(page: Page, fileName: string, csv: string): Promise<string> {
-  // The API rejects cut-off dates later than today in UTC, so today is taken in UTC.
-  const today = new Date().toISOString().slice(0, 10);
-  await page.getByLabel('Cut-off date').fill(today);
-  await page
-    .getByLabel('Portfolio file')
-    .setInputFiles({ name: fileName, mimeType: 'text/csv', buffer: Buffer.from(csv) });
-  await page.getByRole('button', { name: 'Upload' }).click();
-  return today;
-}
-
-const uniqueName = (kind: string) =>
-  `e2e-${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.csv`;
+import { expect, test } from '@playwright/test';
+import { header, signInAs, uniqueName, uniquePositionId, upload } from './support';
 
 test('Alice uploads a valid CSV, sees it accepted in her history; Bob does not', async ({
   page,
@@ -29,13 +7,18 @@ test('Alice uploads a valid CSV, sees it accepted in her history; Bob does not',
   const fileName = uniqueName('accepted');
 
   await signInAs(page, 'Alice');
-  const today = await upload(page, fileName, `${header}\nP-1,cash,1000.00,USD,E2E\n`);
+  const today = await upload(
+    page,
+    fileName,
+    `${header}\n${uniquePositionId()},cash,1000.00,USD,E2E\n`,
+  );
 
   await expect(page.getByRole('status')).toContainText(`Accepted ${fileName}: 1 positions.`);
   const row = page.getByRole('row').filter({ hasText: fileName });
   await expect(row).toBeVisible();
   await expect(row.getByRole('cell').first()).toHaveText(today);
-  await expect(row.getByRole('cell').nth(3)).toHaveText('Accepted');
+  // Other flows upload for today in parallel, so "Current" may already belong to a newer row.
+  await expect(row.getByRole('cell').nth(3)).toHaveText(/^\s*Accepted/);
 
   await row.getByRole('link', { name: fileName }).click();
   await expect(page.getByRole('heading', { name: 'Submission', exact: true })).toBeVisible();
@@ -55,7 +38,7 @@ test('Alice uploads an invalid CSV and sees it rejected with its errors', async 
   await upload(
     page,
     fileName,
-    `${header}\nP-1,cash,-5,USD,E2E\nP-2,cash,1,EUR,E2E\nP-3,cash,1,USD,=HYPERLINK(1)\n`,
+    `${header}\n${uniquePositionId()},cash,-5,USD,E2E\nP-2,cash,1,EUR,E2E\nP-3,cash,1,USD,=HYPERLINK(1)\n`,
   );
 
   const status = page.getByRole('status');
@@ -66,10 +49,27 @@ test('Alice uploads an invalid CSV and sees it rejected with its errors', async 
 
   await status.getByRole('link', { name: 'View details' }).click();
   await expect(page.getByRole('heading', { name: 'Errors' })).toBeVisible();
-  const errors = page.getByRole('list', { name: 'Errors' }).getByRole('listitem');
+  const errors = page.getByRole('table', { name: 'Errors' }).getByRole('row');
+  // Header row first; codes are data attributes, never visible text (D-142).
   await expect(errors).toHaveText([
-    'Row 2, book_value: The book value must not be negative.',
-    'Row 3, currency: Only USD positions are supported in this version.',
-    'Row 4, description: The description must not start with =, +, -, @, a tab or a line break.',
+    'RowColumnMessage',
+    '2book_valueThe book value must not be negative.',
+    '3currencyOnly USD positions are supported in this version.',
+    '4descriptionThe description must not start with =, +, -, @, a tab or a line break.',
   ]);
+  await expect(errors.nth(1)).toHaveAttribute('data-code', 'Portfolio.Csv.BookValueNegative');
+});
+
+test('A future cut-off date shows the API detail', async ({ page }) => {
+  await signInAs(page, 'Alice');
+  await upload(
+    page,
+    uniqueName('future'),
+    `${header}\n${uniquePositionId()},cash,1,USD,E2E\n`,
+    '2999-01-01',
+  );
+
+  await expect(page.getByRole('alert')).toHaveText(
+    'Validation failed: The cut-off date must not be later than today (UTC).',
+  );
 });

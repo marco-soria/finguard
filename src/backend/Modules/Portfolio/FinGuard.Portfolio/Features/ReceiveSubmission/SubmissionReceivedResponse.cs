@@ -2,12 +2,15 @@ using FinGuard.Portfolio.Features.ReceiveSubmission.Csv;
 
 namespace FinGuard.Portfolio.Features.ReceiveSubmission;
 
-/// <summary>201 for both outcomes (D-112): the client reads <see cref="Status"/>. At most 100 errors.</summary>
+/// <summary>
+/// 201 for both outcomes of a new upload (D-112): the client reads <see cref="Status"/>. At most 100 errors.
+/// <see cref="Duplicate"/> is true when the existing submission is returned instead (200, D-139).
+/// </summary>
 public sealed record SubmissionReceivedResponse(
     Guid SubmissionId, string Status, DateTimeOffset ReceivedAt, int RowCount, int ErrorCount,
-    IReadOnlyList<CsvError> Errors)
+    IReadOnlyList<CsvError> Errors, bool Duplicate)
 {
     // Identifiers and counts only (D-77): Wolverine may log a reply with ToString().
     public override string ToString() =>
-        $"{nameof(SubmissionReceivedResponse)} {{ SubmissionId = {SubmissionId}, Status = {Status}, RowCount = {RowCount}, ErrorCount = {ErrorCount} }}";
+        $"{nameof(SubmissionReceivedResponse)} {{ SubmissionId = {SubmissionId}, Status = {Status}, RowCount = {RowCount}, ErrorCount = {ErrorCount}, Duplicate = {Duplicate} }}";
 }
