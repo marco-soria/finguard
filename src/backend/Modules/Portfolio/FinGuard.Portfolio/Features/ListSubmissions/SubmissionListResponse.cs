@@ -5,4 +5,4 @@ public sealed record SubmissionListResponse(IReadOnlyList<SubmissionListItem> It
 
 public sealed record SubmissionListItem(
     Guid SubmissionId, DateOnly CutOffDate, string FileName, int SizeBytes, string Status, DateTimeOffset ReceivedAt,
-    int RowCount, int ErrorCount);
+    int RowCount, int ErrorCount, bool IsCurrent);

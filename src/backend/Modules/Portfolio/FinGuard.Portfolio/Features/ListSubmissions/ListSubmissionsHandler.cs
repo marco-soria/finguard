@@ -12,13 +12,21 @@ public static class ListSubmissionsHandler
     public const int Max = 100;
 
     // Never selects portfolio.submission_contents, positions or errors: reads carry metadata and counts only.
+    // Current = latest accepted per cut-off date by received_at, tie by id (D-141); derived here, never stored.
     private const string Sql = """
-        SELECT id AS "SubmissionId", cut_off_date AS "CutOffDate", file_name AS "FileName",
-               size_bytes AS "SizeBytes", status AS "Status", received_at AS "ReceivedAt",
-               row_count AS "RowCount", error_count AS "ErrorCount"
-        FROM portfolio.submissions
-        WHERE tenant_id = @TenantId
-        ORDER BY received_at DESC, id DESC
+        WITH current_accepted AS (
+            SELECT DISTINCT ON (cut_off_date) id
+            FROM portfolio.submissions
+            WHERE tenant_id = @TenantId AND status = 'Accepted'
+            ORDER BY cut_off_date, received_at DESC, id DESC
+        )
+        SELECT s.id AS "SubmissionId", s.cut_off_date AS "CutOffDate", s.file_name AS "FileName",
+               s.size_bytes AS "SizeBytes", s.status AS "Status", s.received_at AS "ReceivedAt",
+               s.row_count AS "RowCount", s.error_count AS "ErrorCount", c.id IS NOT NULL AS "IsCurrent"
+        FROM portfolio.submissions s
+        LEFT JOIN current_accepted c ON c.id = s.id
+        WHERE s.tenant_id = @TenantId
+        ORDER BY s.received_at DESC, s.id DESC
         LIMIT @Max
         """;
 
@@ -31,12 +39,12 @@ public static class ListSubmissionsHandler
         return new SubmissionListResponse(rows
             .Select(r => new SubmissionListItem(
                 r.SubmissionId, r.CutOffDate, r.FileName, r.SizeBytes, r.Status, new DateTimeOffset(r.ReceivedAt),
-                r.RowCount, r.ErrorCount))
+                r.RowCount, r.ErrorCount, r.IsCurrent))
             .ToList());
     }
 
     // Npgsql hands timestamptz to Dapper as a UTC DateTime, which a DateTimeOffset constructor parameter cannot bind.
     private sealed record Row(
         Guid SubmissionId, DateOnly CutOffDate, string FileName, int SizeBytes, string Status, DateTime ReceivedAt,
-        int RowCount, int ErrorCount);
+        int RowCount, int ErrorCount, bool IsCurrent);
 }

@@ -256,6 +256,20 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task Upload_FutureCutOffDate_ProblemCarriesDetailAndCode()
+    {
+        using var response = await UploadAsync(DevIdentities.Alice, Csv(), "portfolio.csv", "2999-01-01");
+
+        // The SPA shows title and detail for 4xx (D-142, R-28).
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync(_ct));
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(
+            ("Validation failed", "The cut-off date must not be later than today (UTC).", "Portfolio.Submission.CutOffDateInFuture"),
+            (problem.RootElement.GetProperty("title").GetString(), problem.RootElement.GetProperty("detail").GetString(),
+             problem.RootElement.GetProperty("code").GetString()));
+    }
+
+    [Fact]
     public async Task Upload_MissingFile_Returns400WithCode()
     {
         using var form = new MultipartFormDataContent { { new StringContent(Today), "cutOffDate" } };

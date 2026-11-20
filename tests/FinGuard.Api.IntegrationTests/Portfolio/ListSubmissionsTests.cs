@@ -86,7 +86,7 @@ public sealed class ListSubmissionsTests(ApiFixture fixture)
         Assert.Equal(["items"], json.RootElement.EnumerateObject().Select(p => p.Name));
         var item = Assert.Single(json.RootElement.GetProperty("items").EnumerateArray().ToList());
         Assert.Equal(
-            ["cutOffDate", "errorCount", "fileName", "receivedAt", "rowCount", "sizeBytes", "status", "submissionId"],
+            ["cutOffDate", "errorCount", "fileName", "isCurrent", "receivedAt", "rowCount", "sizeBytes", "status", "submissionId"],
             item.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal));
         // A calendar date on the wire, never a timestamp (D-103).
         Assert.Equal(SubmissionTestData.CutOffDate, item.GetProperty("cutOffDate").GetString());
