@@ -3,6 +3,89 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-20 (session 22: Brief #13 executed)
+
+Branch `feat/compliance-domain-and-policy`. Four commits, as planned in the brief. Phase 3 started.
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-179 | `ILimitPolicyRepository.GetEffectiveAsync` returns `LimitPolicy?`: null when the cut-off date is before the first version | Owner-approved. Reachable: Portfolio accepts cut-off dates before the 2000-01-01 seed, so **Brief #14 must handle null explicitly**. Integration test: 1999-12-31 returns null |
+| D-180 | `compliance.limit_policies` has CHECK constraints mirroring the `LimitPolicy` invariants: each limit `> 0 AND <= 1`, `alert_threshold > 0 AND <= 1`, `rebalance_target_ratio > 0 AND < alert_threshold`, `rebalance_target_ratio * (cash + fixed_income + shares + real_estate) >= 1` (EF `HasCheckConstraint`, names `ck_limit_policies_*`) | Owner's adjustment to the plan. The repository still maps through `LimitPolicy.Create` and throws `InvalidOperationException` (version and error code only) as a second line of defence. `GetEffective_CorruptedRow_Throws` was replaced by `LimitPolicies_InvalidRow_IsRejectedByCheckConstraint` (SqlState 23514, one case per constraint) and a unit test of `LimitPolicyRow.ToDomain` |
+| D-181 | Every `Compliance.Policy.*` error is `ErrorType.Validation` | Owner-approved |
+| D-182 | The domain allow-list test evaluates an architecture that also loads Compliance's direct references (`LoadAssembliesIncludingDependencies`, not recursive) | The shared `Architecture` loads only `FinGuard.*` assemblies, so ArchUnitNET could not see a dependency on EF Core: the temporary probe (`DbContext` property in `Domain/`) passed the first version of the rule. The old `DependsOnNoInfrastructure` rule had the same blind spot. With the fix the probe failed on both `Microsoft.EntityFrameworkCore.DbContext` and `FinGuard.Portfolio.Contracts.AssetClassCode`; a probe using `Error` passed. Probe reverted |
+| D-183 | One status enum `ComplianceStatus` (`Compliant`, `Warning`, `Breached`, ordered by precedence) for class and overall status; overall = max | The brief named the class status `ClassStatus`; one enum keeps one word set (D-173) |
+| D-184 | The seed row has a fixed `created_at` of 2026-11-20T00:00Z (`HasData` needs a constant) | |
+
+### Verification
+- `dotnet build -c Release` (0 warnings), `dotnet format --verify-no-changes`, `dotnet test -c Release` green. Tests:
+  backend 413 (unit 268, integration 130, architecture 15), was 332 (unit 201, integration 116, architecture 15).
+- `has-pending-model-changes`: no changes after `AddLimitPolicies`.
+- `-StartAspire`, then SQL on the dev database: `compliance.limit_policies` has one row (version 1, effective
+  2000-01-01, 0.4000 / 0.3000 / 0.2500 / 0.2500, threshold 0.9000, target 0.8500) and the seven `ck_limit_policies_*`
+  constraints. Aspire stopped with `-Stop`.
+
+### Majors review (R-13, report only; checked 2026-11-20)
+Sources: `dotnet list package --outdated`, `pnpm outdated`, NuGet registration API, aspire.dev and the Aspire 17.0
+change log, the pnpm and dependabot-core issue trackers, nodejs.org.
+
+| Component | Current | Latest major | Finding | Recommendation |
+| --- | --- | --- | --- | --- |
+| Aspire | 13.6.5 | 17.0.0 (2026-11-18) | Targets .NET 10 (no .NET 11 needed). Breaking: `Aspire.AppHost.Sdk` obsolete (ASPIRE012), `AddProject`/`AddCSharpApp` deprecated, parameters required by default, secrets move to `~/.aspire/secrets`. Sources: https://aspire.dev/whats-new/aspire-17/, https://github.com/microsoft/aspire/wiki/17.0-Change-log | Own chore brief after Phase 3 (after Brief #15), before Phase 4; must also update `dev-session.ps1` if the CLI changes |
+| pnpm | 11.28.9 | 12.21.0 | Dependabot version updates read pnpm 12, but the dependency graph (alerts) still reads only the first lockfile document: dependabot-core #15904 and pnpm #13805 are open. R-11 unchanged. Sources: https://github.com/dependabot/dependabot-core/issues/15904, https://github.com/pnpm/pnpm/issues/13805 | Stay on 11 (D-42). Re-check at the start of Phase 5; upgrade only when the graph reads two-document lockfiles |
+| Node | 24.x (`^24.15.0`) | 26 (active LTS since 2026-10) | Node 26 is the last release on the old schedule; Angular 22.3 accepts it. Source: https://nodejs.org/en/blog/announcements/evolving-the-nodejs-release-schedule | Upgrade before Phase 5, together with the Container Apps image (unchanged) |
+| EFCore.NamingConventions | 10.0.1 | 11.0.0 (2026-11-20, new since the session 18 review) | Follows EF Core 11 / .NET 11 (STS) | Stay on 10 with .NET 10 LTS |
+| `Microsoft.*` 11.x, .NET 11 | 10.x | 11.0.0 | Unchanged since session 18 | Stay on 10 LTS |
+| Minor/patch | Dapper 2.1.89, Testcontainers 4.16.0, WolverineFx 6.64.0, Angular 22.2.x, ESLint family, Vitest 5.1.0 | 2.1.100, 4.17.0, 6.64.2, 22.3.0, minors, 5.1.1 | No new major | One chore PR when convenient |
+
+### Risks and flags
+- **R-37 Decimal division** (from planning): documented in ADR-0012; boundary tests assert exact utilizations.
+- **R-38 Null policy.** See D-179: Brief #14 must decide what an evaluation for a cut-off date before 2000-01-01 does
+  (for example skip with a logged reason, or reject upstream).
+- The README status table had the event-flow paragraph in the middle of the table (rows 4 and 5 rendered as text);
+  moved below the table while updating Phase 3.
+
+### Boundary table as run (seed policy, total 1,000,000.00, class value = u x limit x total, exact)
+| u | Cash value | Fixed income value | Shares value | Real estate value | Status |
+| --- | --- | --- | --- | --- | --- |
+| 0.8999 | 359,960.00 | 269,970.00 | 224,975.00 | 224,975.00 | Compliant |
+| 0.90 | 360,000.00 | 270,000.00 | 225,000.00 | 225,000.00 | Warning |
+| 0.9001 | 360,040.00 | 270,030.00 | 225,025.00 | 225,025.00 | Warning |
+| 0.9999 | 399,960.00 | 299,970.00 | 249,975.00 | 249,975.00 | Warning |
+| 1.00 | 400,000.00 | 300,000.00 | 250,000.00 | 250,000.00 | Warning |
+| 1.0001 | 400,040.00 | 300,030.00 | 250,025.00 | 250,025.00 | Breached |
+| 0 | 0.00 | 0.00 | 0.00 | 0.00 | Compliant |
+Unrounded cases: shares 224,999.99 gives u = 0.89999996 (Compliant; 0.9000 when rounded to 4 decimals); shares
+250,000.01 gives u = 1.00000004 (Breached; 1.0000 when rounded).
+
+### Next step
+Brief #14, as in the planning delta below, plus D-179 (null policy).
+
+## Delta 2026-11-20 (session 22: Brief #13 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-169 | Compliance `Domain/` may depend only on `System.*`, itself and `FinGuard.BuildingBlocks.Results` (architecture allow-list) | Closes open question 1 of session 5 |
+| D-170 | `LimitPolicy.Create` returns `Result`; `Evaluation.Create` guards throw on impossible inputs | Expected vs unexpected failures (locked decision) |
+| D-171 | Compliance stays one project with `Domain/`, `Features/`, `Persistence/`; direction enforced by tests | |
+| D-172 | Domain owns `AssetClass`; `AssetClassCode` (Portfolio.Contracts) is mapped in `Features/` | |
+| D-173 | Class status Compliant / Warning (threshold ≤ u ≤ 1) / Breached (u > 1); an alert per Warning or Breached class | |
+| D-174 | Minimal in-memory `Specification<T>` (`IsSatisfiedBy`, `And`, `Not`) with `IsInAlert` and `IsBreached` | |
+| D-175 | Global immutable policy versions in `compliance.limit_policies` (four limit columns, threshold, target ratio, `effective_from` unique); seed v1 effective 2000-01-01 | Not tenant-owned |
+| D-176 | An evaluation uses the policy in force at the cut-off date (highest `effective_from` ≤ cut-off) | |
+| D-177 | `ILimitPolicyRepository` (EF, write side) maps rows through `LimitPolicy.Create` and throws on corrupted rows | |
+| D-178 | ADR-0012: Compliance domain model | |
+
+### Risks and flags
+- **R-37 Decimal division.** `decimal` keeps 28-29 significant digits; utilizations are exact for the boundary inputs
+  but repeating fractions are truncated. Comparisons stay correct at the boundaries because the inputs are cents and
+  the thresholds have ≤ 4 decimals; document it in ADR-0012 and keep the boundary tests exact.
+
+### Next step
+Brief #14: evaluate on `SubmissionAccepted` (from the stored snapshot), persist `Evaluation` (repository), publish
+`EvaluationCompleted` through the outbox, and a read API for the latest evaluation per submission.
+
 ## Delta 2026-11-20 (session 21: Brief #12 executed)
 
 Branch `feat/submission-accepted-event`. Four commits, as planned in the brief.
