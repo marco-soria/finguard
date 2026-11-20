@@ -23,6 +23,89 @@ namespace FinGuard.Compliance.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("FinGuard.Compliance.Persistence.LimitPolicyRow", b =>
+                {
+                    b.Property<int>("Version")
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.Property<decimal>("AlertThreshold")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("alert_threshold");
+
+                    b.Property<decimal>("Cash")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("cash");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date")
+                        .HasColumnName("effective_from");
+
+                    b.Property<decimal>("FixedIncome")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("fixed_income");
+
+                    b.Property<decimal>("RealEstate")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("real_estate");
+
+                    b.Property<decimal>("RebalanceTargetRatio")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("rebalance_target_ratio");
+
+                    b.Property<decimal>("Shares")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("shares");
+
+                    b.HasKey("Version")
+                        .HasName("pk_limit_policies");
+
+                    b.HasIndex("EffectiveFrom")
+                        .IsUnique()
+                        .HasDatabaseName("ix_limit_policies_effective_from");
+
+                    b.ToTable("limit_policies", "compliance", t =>
+                        {
+                            t.HasCheckConstraint("ck_limit_policies_alert_threshold", "alert_threshold > 0 AND alert_threshold <= 1");
+
+                            t.HasCheckConstraint("ck_limit_policies_cash", "cash > 0 AND cash <= 1");
+
+                            t.HasCheckConstraint("ck_limit_policies_fixed_income", "fixed_income > 0 AND fixed_income <= 1");
+
+                            t.HasCheckConstraint("ck_limit_policies_limits_cover_target", "rebalance_target_ratio * (cash + fixed_income + shares + real_estate) >= 1");
+
+                            t.HasCheckConstraint("ck_limit_policies_real_estate", "real_estate > 0 AND real_estate <= 1");
+
+                            t.HasCheckConstraint("ck_limit_policies_rebalance_target_ratio", "rebalance_target_ratio > 0 AND rebalance_target_ratio < alert_threshold");
+
+                            t.HasCheckConstraint("ck_limit_policies_shares", "shares > 0 AND shares <= 1");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Version = 1,
+                            AlertThreshold = 0.90m,
+                            Cash = 0.40m,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 11, 20, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            EffectiveFrom = new DateOnly(2000, 1, 1),
+                            FixedIncome = 0.30m,
+                            RealEstate = 0.25m,
+                            RebalanceTargetRatio = 0.85m,
+                            Shares = 0.25m
+                        });
+                });
+
             modelBuilder.Entity("FinGuard.Compliance.Persistence.PortfolioSnapshot", b =>
                 {
                     b.Property<Guid>("SubmissionId")

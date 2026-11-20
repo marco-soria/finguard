@@ -1,5 +1,6 @@
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
+using FinGuard.Compliance.Domain;
 using FinGuard.Compliance.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -27,6 +28,7 @@ public static class ComplianceModule
         });
         // Lets the Api apply every module's migrations without seeing the internal DbContext types.
         builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<ComplianceDbContext>());
+        builder.Services.AddScoped<ILimitPolicyRepository, LimitPolicyRepository>();
         return builder;
     }
 
