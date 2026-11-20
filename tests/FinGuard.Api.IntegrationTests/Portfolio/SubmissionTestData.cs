@@ -18,12 +18,18 @@ internal static class SubmissionTestData
     public const string Path = "/api/portfolio/submissions";
     public const string CutOffDate = "2026-01-01";
 
+    /// <summary>
+    /// A valid one-row CSV with a unique position id, so repeated calls are never duplicate uploads (D-139) in the
+    /// shared database. Only the idempotency tests reuse bytes on purpose.
+    /// </summary>
     public static byte[] Csv() => Encoding.UTF8.GetBytes(
-        "position_id,asset_class,book_value,currency,description\nP-1,cash,1000.00,USD,Treasury bills\n");
+        $"position_id,asset_class,book_value,currency,description\n{UniquePositionId()},cash,1000.00,USD,Treasury bills\n");
 
     /// <summary>Two data rows, three errors: a negative amount on row 2; an unknown class and a non-USD currency on row 3.</summary>
     public static byte[] InvalidCsv() => Encoding.UTF8.GetBytes(
-        "position_id,asset_class,book_value,currency,description\nP-1,cash,-1,USD,a\nP-2,crypto,5,EUR,b\n");
+        $"position_id,asset_class,book_value,currency,description\n{UniquePositionId()},cash,-1,USD,a\nP-2,crypto,5,EUR,b\n");
+
+    public static string UniquePositionId() => $"P-{Guid.NewGuid():N}";
 
     public static readonly (int? Row, string? Column, string Code)[] InvalidCsvErrors =
     [
@@ -33,18 +39,18 @@ internal static class SubmissionTestData
     ];
 
     public static async Task<HttpResponseMessage> UploadAsync(
-        this HttpClient client, string fileName, CancellationToken ct, byte[]? content = null)
+        this HttpClient client, string fileName, CancellationToken ct, byte[]? content = null, string cutOffDate = CutOffDate)
     {
         var file = new ByteArrayContent(content ?? Csv());
         file.Headers.ContentType = new MediaTypeHeaderValue("text/csv");
-        using var form = new MultipartFormDataContent { { file, "file", fileName }, { new StringContent(CutOffDate), "cutOffDate" } };
+        using var form = new MultipartFormDataContent { { file, "file", fileName }, { new StringContent(cutOffDate), "cutOffDate" } };
         return await client.PostAsync(new Uri(Path, UriKind.Relative), form, ct);
     }
 
     public static async Task<SubmissionReceivedResponse> UploadOkAsync(
-        this HttpClient client, string fileName, CancellationToken ct, byte[]? content = null)
+        this HttpClient client, string fileName, CancellationToken ct, byte[]? content = null, string cutOffDate = CutOffDate)
     {
-        using var response = await client.UploadAsync(fileName, ct, content);
+        using var response = await client.UploadAsync(fileName, ct, content, cutOffDate);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         return (await response.Content.ReadFromJsonAsync<SubmissionReceivedResponse>(ct))!;
     }

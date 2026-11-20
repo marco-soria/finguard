@@ -1,6 +1,7 @@
 using FinGuard.BuildingBlocks.Results;
 using FinGuard.Portfolio.Features.ReceiveSubmission.Csv;
 using FinGuard.Portfolio.Persistence;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace FinGuard.Portfolio.Features.ReceiveSubmission;
@@ -13,7 +14,7 @@ namespace FinGuard.Portfolio.Features.ReceiveSubmission;
 public sealed partial class ReceiveSubmissionHandler(
     PortfolioDbContext db, TimeProvider time, ILogger<ReceiveSubmissionHandler> logger)
 {
-    public Result<SubmissionReceivedResponse> Handle(ReceiveSubmission command)
+    public async Task<Result<SubmissionReceivedResponse>> Handle(ReceiveSubmission command, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(command);
 
@@ -26,6 +27,14 @@ public sealed partial class ReceiveSubmissionHandler(
         var id = Guid.CreateVersion7(receivedAt);
         var fileName = FileNameSanitizer.Sanitize(command.FileName);
         var sha256 = Sha256Hex.Compute(command.Content);
+
+        // Idempotency (D-11, D-139): the earliest submission with the same bytes and cut-off date, whatever its status.
+        // The tenant filter applies. Nothing is written for a duplicate; a simultaneous twin may still be stored (D-140).
+        if (await FindDuplicateAsync(command.CutOffDate, sha256, ct) is { } duplicate)
+        {
+            return duplicate;
+        }
+
         var csv = PortfolioCsvReader.Read(command.Content);
 
         var submission = csv.IsValid
@@ -39,7 +48,32 @@ public sealed partial class ReceiveSubmissionHandler(
 
         LogStored(logger, id, submission.SizeBytes, submission.Status, submission.RowCount, submission.ErrorCount);
         return new SubmissionReceivedResponse(
-            id, submission.Status.ToString(), receivedAt, submission.RowCount, submission.ErrorCount, csv.Errors);
+            id, submission.Status.ToString(), receivedAt, submission.RowCount, submission.ErrorCount, csv.Errors,
+            Duplicate: false);
+    }
+
+    private async Task<SubmissionReceivedResponse?> FindDuplicateAsync(DateOnly cutOffDate, string sha256, CancellationToken ct)
+    {
+        var existing = await db.Set<Submission>().AsNoTracking()
+            .Where(s => s.CutOffDate == cutOffDate && s.Sha256 == sha256)
+            .OrderBy(s => s.ReceivedAt).ThenBy(s => s.Id)
+            .FirstOrDefaultAsync(ct);
+        if (existing is null)
+        {
+            return null;
+        }
+
+        var errors = await db.Set<SubmissionError>().AsNoTracking()
+            .Where(e => e.SubmissionId == existing.Id)
+            .OrderBy(e => e.Ordinal)
+            .Take(PortfolioCsvReader.MaxErrors)
+            .Select(e => new CsvError(e.RowNumber, e.Column, e.Code, e.Message))
+            .ToListAsync(ct);
+
+        LogDuplicate(logger, existing.Id);
+        return new SubmissionReceivedResponse(
+            existing.Id, existing.Status.ToString(), existing.ReceivedAt, existing.RowCount, existing.ErrorCount, errors,
+            Duplicate: true);
     }
 
     // Transport checks (D-112): first failure wins and nothing is stored. Content checks live in PortfolioCsvReader.
@@ -59,4 +93,8 @@ public sealed partial class ReceiveSubmissionHandler(
         Message = "Stored submission {SubmissionId} ({SizeBytes} bytes): {Status}, {RowCount} rows, {ErrorCount} errors")]
     private static partial void LogStored(
         ILogger logger, Guid submissionId, int sizeBytes, SubmissionStatus status, int rowCount, int errorCount);
+
+    // Id only: never the file name, hash or cut-off date (D-91).
+    [LoggerMessage(Level = LogLevel.Information, Message = "Duplicate upload of submission {SubmissionId}")]
+    private static partial void LogDuplicate(ILogger logger, Guid submissionId);
 }

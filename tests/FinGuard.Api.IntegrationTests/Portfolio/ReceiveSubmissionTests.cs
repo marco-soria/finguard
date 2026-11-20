@@ -353,8 +353,9 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
         return body;
     }
 
+    // Unique per call (D-139): the same bytes and cut-off date would return the earlier submission.
     private static byte[] Csv(string description = "Treasury bills") => Encoding.UTF8.GetBytes(
-        $"position_id,asset_class,book_value,currency,description\nP-1,cash,1000.00,USD,{description}\n");
+        $"position_id,asset_class,book_value,currency,description\n{SubmissionTestData.UniquePositionId()},cash,1000.00,USD,{description}\n");
 
     private static MultipartFormDataContent Form(byte[] content, string fileName, string cutOffDate)
     {

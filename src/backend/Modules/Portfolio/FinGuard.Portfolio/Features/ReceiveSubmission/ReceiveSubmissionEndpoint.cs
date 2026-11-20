@@ -23,6 +23,7 @@ internal static class ReceiveSubmissionEndpoint
                 [FromForm] string? cutOffDate,
                 IMessageBus bus,
                 ITenantContext tenant,
+                HttpResponse response,
                 CancellationToken ct) =>
             {
                 // Binding, not business rules: a missing part or an unparsable date cannot become a command.
@@ -45,7 +46,7 @@ internal static class ReceiveSubmissionEndpoint
 
                 var command = new ReceiveSubmission(date, file.FileName, content);
                 var result = await bus.InvokeForCurrentTenantAsync<Result<SubmissionReceivedResponse>>(tenant, command, ct);
-                return result.ToHttpResult(r => TypedResults.Created($"/api/portfolio/submissions/{r.SubmissionId}", r));
+                return result.ToHttpResult(r => ToHttpResult(r, response));
             })
             // Antiforgery protects cookie-authenticated forms; this API authenticates with JWT bearer tokens only (D-92).
             .DisableAntiforgery()
@@ -53,5 +54,18 @@ internal static class ReceiveSubmissionEndpoint
             .WithMetadata(new RequestSizeLimitAttribute(MaxRequestBytes))
             .WithFormOptions(multipartBodyLengthLimit: MaxRequestBytes);
         return group;
+    }
+
+    // A duplicate is not a new resource: 200 with the existing submission's Location (D-139).
+    private static IResult ToHttpResult(SubmissionReceivedResponse r, HttpResponse response)
+    {
+        var location = $"/api/portfolio/submissions/{r.SubmissionId}";
+        if (!r.Duplicate)
+        {
+            return TypedResults.Created(location, r);
+        }
+
+        response.Headers.Location = location;
+        return TypedResults.Ok(r);
     }
 }
