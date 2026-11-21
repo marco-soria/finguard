@@ -62,9 +62,9 @@ alwaysApply: false
 - Read queries never select `portfolio.submission_contents` (file bytes) or `portfolio.positions` unless the slice is
   about positions; they return metadata, counts and stored errors. List queries have a named cap constant and a
   deterministic order (a unique tiebreaker such as `id`) (D-100).
-- Upload validation has two layers (D-112). Transport problems (no file, empty, over 5 MB, not `.csv`, bad or future
-  cut-off date) return 400/413 and store nothing. Content problems store a `Rejected` submission with its errors and
-  answer 201; a valid file stores an `Accepted` submission with its positions and answers 201.
+- Upload validation has two layers (D-112). Transport problems (no file, empty, over 5 MB, not `.csv`, bad, future
+  or pre-2000 cut-off date, D-190) return 400/413 and store nothing. Content problems store a `Rejected` submission
+  with its errors and answer 201; a valid file stores an `Accepted` submission with its positions and answers 201.
 - Idempotent uploads (D-139, D-140): after the transport checks and the hash, the handler looks up the earliest
   submission with the same `cut_off_date` and SHA-256 through the module DbContext (tenant filter applies). A match
   answers `200 OK` with `duplicate: true` and the existing submission's `Location`, and writes nothing.

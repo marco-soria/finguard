@@ -93,13 +93,14 @@ public sealed partial class ReceiveSubmissionHandler(
     }
 
     // Transport checks (D-112): first failure wins and nothing is stored. Content checks live in PortfolioCsvReader.
-    private static Error? Validate(ReceiveSubmission command, DateOnly todayUtc) => command switch
+    internal static Error? Validate(ReceiveSubmission command, DateOnly todayUtc) => command switch
     {
         { Content.Length: 0 } => ReceiveSubmissionErrors.FileEmpty,
         { Content.Length: > ReceiveSubmissionErrors.MaxFileBytes } => ReceiveSubmissionErrors.FileTooLarge,
         _ when !Path.GetExtension(command.FileName).Equals(".csv", StringComparison.OrdinalIgnoreCase)
             => ReceiveSubmissionErrors.NotCsv,
         _ when command.CutOffDate > todayUtc => ReceiveSubmissionErrors.CutOffDateInFuture,
+        _ when command.CutOffDate < ReceiveSubmissionErrors.MinimumCutOffDate => ReceiveSubmissionErrors.CutOffDateTooEarly,
         _ => null,
     };
 
