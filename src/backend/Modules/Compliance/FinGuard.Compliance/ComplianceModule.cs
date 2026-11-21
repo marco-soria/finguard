@@ -1,6 +1,7 @@
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Compliance.Domain;
+using FinGuard.Compliance.Features.GetEvaluation;
 using FinGuard.Compliance.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -35,7 +36,9 @@ public static class ComplianceModule
 
     public static IEndpointRouteBuilder MapComplianceEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/compliance").RequireAuthorization(AuthorizationPolicies.TenantMember);
+        endpoints.MapGroup("/api/compliance")
+            .RequireAuthorization(AuthorizationPolicies.TenantMember)
+            .MapGetEvaluation();
         return endpoints;
     }
 }
