@@ -1,7 +1,7 @@
 # Sample portfolios
 
 Small CSV files for manual checks, demos and Phase 3 compliance work (D-118). All position ids, names and amounts are
-fictional. Upload them from the web app with any cut-off date up to today.
+fictional. Upload them from the web app with any cut-off date from 2000-01-01 (the first limit policy) up to today.
 
 Format (see `AGENTS.md`, domain rules): header `position_id,asset_class,book_value,currency,description`, UTF-8,
 at most 10,000 rows and 5 MB. Validation errors use the codes `Portfolio.Csv.*`.

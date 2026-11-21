@@ -4,7 +4,8 @@ using Microsoft.EntityFrameworkCore;
 namespace FinGuard.Compliance.Persistence;
 
 // Write side's read (ADR-0007): it feeds the evaluation command, so EF, not Dapper.
-internal sealed class LimitPolicyRepository(ComplianceDbContext db) : ILimitPolicyRepository
+// Public so Wolverine builds it in generated code instead of service location (D-94).
+public sealed class LimitPolicyRepository(ComplianceDbContext db) : ILimitPolicyRepository
 {
     public async Task<LimitPolicy?> GetEffectiveAsync(DateOnly cutOffDate, CancellationToken cancellationToken)
     {

@@ -246,6 +246,7 @@ public sealed class ReceiveSubmissionTests(ApiFixture fixture)
     [InlineData("csv", "portfolio.csv", "01/02/2026", "Portfolio.Submission.CutOffDateInvalid")]
     [InlineData("csv", "portfolio.csv", "", "Portfolio.Submission.CutOffDateInvalid")]
     [InlineData("csv", "portfolio.csv", "2999-01-01", "Portfolio.Submission.CutOffDateInFuture")]
+    [InlineData("csv", "portfolio.csv", "1999-12-31", "Portfolio.Submission.CutOffDateTooEarly")]
     public async Task Upload_InvalidInput_Returns400WithCode(string body, string fileName, string cutOffDate, string code)
     {
         var content = body == "empty" ? [] : Csv();

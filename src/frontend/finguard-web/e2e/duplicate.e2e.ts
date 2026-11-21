@@ -3,9 +3,12 @@ import { header, signInAs, uniqueName, uniquePositionId, upload } from './suppor
 
 // A random past cut-off date keeps this flow's "current" rows away from the other flows, which upload for today in
 // parallel. Only this run's file names are asserted on.
+// From 2000-01-01 (the first limit policy, D-190) to 30 days before today.
 function randomPastDate(): string {
-  const day = new Date(Date.UTC(1990, 0, 1) + Math.floor(Math.random() * 10_000) * 86_400_000);
-  return day.toISOString().slice(0, 10);
+  const day = 86_400_000;
+  const first = Date.UTC(2000, 0, 1);
+  const days = Math.floor((Date.now() - 30 * day - first) / day);
+  return new Date(first + Math.floor(Math.random() * (days + 1)) * day).toISOString().slice(0, 10);
 }
 
 test('Uploading the same file twice returns the first; a newer file becomes current', async ({

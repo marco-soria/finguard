@@ -9,6 +9,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The sample files are uploaded end to end: their README states the Compliance outcome too. -->
+    <None Include="..\..\samples\portfolios\*.csv" LinkBase="samples" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\backend\FinGuard.Api\FinGuard.Api.csproj" />
   </ItemGroup>
 

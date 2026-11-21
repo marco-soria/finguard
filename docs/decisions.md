@@ -3,6 +3,88 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-21 (session 23: Brief #14 executed)
+
+Branch `feat/compliance-evaluation`. Five commits, as planned in the brief. The owner approved the answers to the
+plan's open points (D-198, D-199, R-40, R-41).
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-198 | `compliance.evaluations` has no `submission_received_at` column; its index is `(tenant_id, cut_off_date)` | Owner-approved deviation from the brief's table design. "Which evaluation is current for a cut-off date" is a read concern: `compliance.portfolio_snapshots` already holds `received_at` with the index `(tenant_id, cut_off_date, received_at)` in the same schema, so a read that needs it joins `evaluations` to `portfolio_snapshots` on `submission_id` (`tenant_id` filter on both tables). No domain change, no extra repository parameter |
+| D-199 | `EvaluationCompleted` has no route until Advisory subscribes | Owner-approved. Observed on Wolverine 6.64.0 (tracked session of an upload): `ExecutionStarted EvaluatePortfolio`, `NoRoutes EvaluationCompleted`, `ExecutionFinished`, `MessageSucceeded`. No `Sent` record and no outbox row. `Upload_Valid_PublishesOneEvaluationCompleted` counts records of type `Sent` or `NoRoutes` matched by `SubmissionId` (D-165), so it keeps passing once a consumer subscribes. See R-40 |
+| D-200 | `LimitPolicyRepository` and `EvaluationRepository` are `public sealed` | Found by the first integration run: `InvalidServiceLocationException ... Concrete type FinGuard.Compliance.Persistence.EvaluationRepository is not public, so requires service location` (same for `LimitPolicyRepository`); the message went to the error queue. Public types let Wolverine's generated code build them with the handler's own `ComplianceDbContext`, the same reason the DbContext is public (D-94). Entities and row models stay internal |
+| D-201 | `SubmissionAcceptedHandler.Handle` returns `OutgoingMessages` (empty for a duplicate event), not a tuple | The brief said "tuple return, D-164". The tuple exists to answer `InvokeAsync<Result<T>>`; an event handler has no response, so the cascade alone is enough. Same mechanism |
+| D-202 | Statuses and asset classes are stored (`varchar(16)`, EF `HasConversion<string>()`) and returned by the API as enum names (`Compliant`, `FixedIncome`) | Same convention as Portfolio's `status`; the Api has no `JsonStringEnumConverter`. The response also carries `evaluationId`, `submissionId` and `cutOffDate` |
+| D-203 | The transport-check rule (`AGENTS.md`, `backend-vsa` rules, overview) lists the pre-2000 cut-off date | Follows D-190 |
+
+### Tests added
+- Unit: `ReceiveSubmissionHandlerTests` (1999-12-31 gives `CutOffDateTooEarly`, and `NotCsv` still wins first;
+  `Validate_CutOffOnFirstPolicyDate_PassesTransportChecks`, so `Validate` is now `internal`),
+  `EvaluationCompletedTests`, `ContractMappingTests` (every enum value, undefined values throw, event payload),
+  `EvaluationRowTests`, `EvaluatePortfolioTests` (`ToString`).
+- Integration: `EvaluatePortfolioTests` (the brief's flow tests, plus
+  `EvaluatePortfolio_NoPolicyForCutOffDate_GoesToErrorQueueAndKeepsSnapshot` for D-191 and
+  `Evaluation_ForBob_IsInvisibleToAlicesComplianceContext` for both new tables) and `GetEvaluationTests`. The brief's
+  "the API returns `Warning`" part of the exactly-at-limit case is its own test,
+  `GetEvaluation_ExactlyAtLimit_ReturnsWarningWithUtilizationOne`.
+
+### Verification
+- `dotnet build -c Release` (0 warnings), `dotnet format --verify-no-changes`, `dotnet test -c Release` green. Tests:
+  backend 442 (unit 280, integration 147, architecture 15), was 413 (unit 268, integration 130, architecture 15).
+  Frontend: `pnpm lint`, `pnpm test --watch=false` (73), `pnpm exec prettier --check src e2e` green.
+- `has-pending-model-changes`: no changes after `AddEvaluations`.
+- `-StartAspire`, as Alice with a fresh cut-off date: `valid-balanced.csv` gives one evaluation, `Compliant`, policy 1,
+  4 classes, no alerts; `valid-shares-heavy.csv` gives one evaluation, `Breached`, policy 1, 4 classes, one alert
+  (Shares, Breached). `GET .../evaluation` returned both. `wolverine.wolverine_dead_letters`: 0 rows.
+- `pnpm e2e` twice against Aspire: 4 passed both times. Aspire stopped with `-Stop`.
+
+### Risks and flags
+- **R-38 closed** by D-190.
+- **R-39** (display rounding vs status) carried to Brief #15.
+- **R-40 Events before Advisory are dropped.** `EvaluationCompleted` published before Advisory subscribes has no
+  route (D-199). Phase 4's first brief decides whether to backfill from `compliance.evaluations`.
+- **R-41 Simultaneous duplicate `EvaluatePortfolio`.** Two deliveries running at the same moment both pass the
+  existence check; the unique `submission_id` makes one fail, and it reaches the error queue. Replay is safe (it
+  skips). Owner-accepted; no extra Wolverine policy.
+
+### Next step
+Brief #15 (closes Phase 3): evaluation result in the submission detail page (status, classes, alerts, policy version),
+"evaluating…" state while the 404 lasts, three-state theme toggle (D-106), E2E for an accepted and a breached upload.
+R-39 applies.
+
+## Delta 2026-11-21 (session 23: Brief #14 planning)
+
+### Session 22 closing decisions (agreed in the planning chat, recorded here with repo IDs)
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-185 | Aspire 17 upgrade in its own chore brief after Brief #15 and before Phase 4 | Closes R-08 and R-31 when done; `dev-session.ps1` and `docs/dev-environment.md` in scope |
+| D-186 | pnpm stays on 11 until GitHub's dependency graph reads two-document lockfiles (dependabot-core #15904); re-check at Phase 5 start | Confirms D-42 |
+| D-187 | Node 26 arrives with the Phase 5 container images | |
+| D-188 | EFCore.NamingConventions stays on 10.x with .NET 10 LTS | |
+| D-189 | Minor and patch updates come only through Dependabot's monthly grouped PRs; no manual chore PR | D-48 |
+| D-190 | Portfolio rejects cut-off dates before 2000-01-01 (`Portfolio.Submission.CutOffDateTooEarly`, 400, not stored); the constant points to D-175 | Resolves R-38 (option b) |
+
+### Brief #14 decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-191 | A null effective policy in Compliance is a bug after D-190: the handler throws and the message goes to the error queue | |
+| D-192 | The snapshot handler cascades an internal `EvaluatePortfolio` command; snapshot and evaluation commit separately | Replayable evaluation without losing the received fact |
+| D-193 | One evaluation per submission (unique `submission_id`); re-evaluation post-MVP | |
+| D-194 | `IEvaluationRepository` maps the aggregate to row models; no EF constructors in `Domain/` | Same style as `LimitPolicyRow` |
+| D-195 | `share` and `utilization` stored as unconstrained `numeric` (exact unrounded values); alerts derived, not stored | |
+| D-196 | `EvaluationCompleted` in `FinGuard.Compliance.Contracts.Events`; Compliance.Contracts defines its own `AssetClassCode` and `ComplianceStatusCode`; no contract-to-contract references | |
+| D-197 | `GET /api/compliance/submissions/{submissionId}/evaluation`; 404 `Compliance.Evaluation.NotFound` for unknown, other tenant or not yet evaluated; exact decimals, no rounding in the API | |
+
+### Risks and flags
+- **R-38** resolved by D-190.
+- **R-39 Display rounding vs status.** u = 0.89999996 is Compliant but rounds to 90.00 %. #15 must format so the
+  shown number never contradicts the status (for example truncate to 2 decimals, or show the status next to a
+  percentage with more precision near thresholds) and must never recompute a status.
+
+### Next step
+Brief #14 execution (see the delta above).
+
 ## Delta 2026-11-20 (session 22: Brief #13 executed)
 
 Branch `feat/compliance-domain-and-policy`. Four commits, as planned in the brief. Phase 3 started.

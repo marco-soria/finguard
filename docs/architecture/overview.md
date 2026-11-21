@@ -100,10 +100,15 @@ flowchart LR
 `SubmissionAccepted` (ADR-0011) carries the book-value total per asset class, so Compliance never calls back into
 Portfolio. It is published once per new accepted submission, in the same transaction; rejected and duplicate uploads
 publish nothing. Delivery is at-least-once, so Compliance stores its `portfolio_snapshots` row idempotently by
-`EventId`. Evaluation from the snapshot is Phase 3.
+`EventId`. A new snapshot cascades the internal command `EvaluatePortfolio`, which runs in its own transaction: it
+evaluates the snapshot against the limit policy in force at the cut-off date, stores one evaluation per submission with
+its policy snapshot and cascades `EvaluationCompleted` (D-192, D-193). The received fact and the derived result commit
+separately, so a failed evaluation can be replayed from the error queue without losing the snapshot. Advisory, the
+planned consumer of `EvaluationCompleted`, arrives in Phase 4; until it subscribes the event has no route and is
+dropped (R-40). The Api reads the result with `GET /api/compliance/submissions/{id}/evaluation` (D-197).
 
-The upload validates synchronously (D-111, D-112). Transport problems (no file, empty, over 5 MB, not `.csv`, bad or
-future cut-off date) return 400/413 and store nothing. Otherwise the submission is always stored and the Api answers
+The upload validates synchronously (D-111, D-112). Transport problems (no file, empty, over 5 MB, not `.csv`, bad,
+future or pre-2000 cut-off date) return 400/413 and store nothing. Otherwise the submission is always stored and the Api answers
 `201 Created` with `status` `Accepted` (positions stored) or `Rejected` (first 100 errors stored, `errorCount` holds the
 total). There is no 422 or 202 for uploads.
 
@@ -124,7 +129,7 @@ sequenceDiagram
 
   U->>API: POST submission (CSV + cut-off date)
   API->>P: ReceiveSubmission command
-  alt transport problem (empty, too large, not .csv, bad date)
+  alt transport problem (empty, too large, not .csv, bad, future or pre-2000 date)
     API-->>U: 400/413 problem, nothing stored
   end
   P->>P: hash the file
@@ -140,10 +145,11 @@ sequenceDiagram
     API-->>U: 201 Created, status Accepted
   end
   OB-->>C: SubmissionAccepted (durable local queue)
-  C->>C: store portfolio snapshot (idempotent by EventId)
-  Note over C: Phase 3 from here
-  C->>C: evaluate against policy version, build rebalance proposal
-  C->>OB: store evaluation + EvaluationCompleted (one transaction)
+  C->>OB: store portfolio snapshot (idempotent by EventId) + EvaluatePortfolio
+  OB-->>C: EvaluatePortfolio (durable local queue)
+  C->>C: evaluate against the policy version in force at the cut-off date
+  C->>OB: store evaluation + EvaluationCompleted (one transaction, once per submission)
+  Note over C,A: Phase 4 from here (rebalance proposal, Advisory subscribes)
   OB-->>A: EvaluationCompleted
   A->>N: class names, percentages, amounts, status
   alt narrator succeeds and numbers validate

@@ -6,6 +6,10 @@ internal static class ReceiveSubmissionErrors
 {
     public const int MaxFileBytes = 5 * 1024 * 1024;
 
+    // Effective date of Compliance's first limit policy (D-190). Portfolio cannot ask Compliance (D-175), so it is
+    // repeated here; change both together.
+    public static readonly DateOnly MinimumCutOffDate = new(2000, 1, 1);
+
     public static readonly Error FileMissing =
         Error.Validation("Portfolio.Submission.FileMissing", "Attach the portfolio as a form field named 'file'.");
 
@@ -23,4 +27,7 @@ internal static class ReceiveSubmissionErrors
 
     public static readonly Error CutOffDateInFuture =
         Error.Validation("Portfolio.Submission.CutOffDateInFuture", "The cut-off date must not be later than today (UTC).");
+
+    public static readonly Error CutOffDateTooEarly =
+        Error.Validation("Portfolio.Submission.CutOffDateTooEarly", "The cut-off date must be on or after 2000-01-01.");
 }

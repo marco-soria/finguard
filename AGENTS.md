@@ -63,7 +63,7 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
   (case-insensitive), known asset class, description optional ≤ 150 characters and not stored. `position_id` and
   `description` are rejected when they start with a formula trigger (`=`, `+`, `-`, `@`, full-width forms, tab, CR, LF).
 - CSV columns: `position_id, asset_class, book_value, currency, description`. Limits: 5 MB, 10,000 rows,
-  UTF-8. Cut-off date comes from the upload form, not the CSV.
+  UTF-8. Cut-off date comes from the upload form, not the CSV: from 2000-01-01 (first limit policy) up to today (UTC).
 - CSV error codes are `Portfolio.Csv.*` (fixed messages, never cell values). Sample files with their expected
   outcomes: `samples/portfolios/README.md`.
 - Several submissions per cut-off date are allowed. Submissions are immutable; latest accepted = current.

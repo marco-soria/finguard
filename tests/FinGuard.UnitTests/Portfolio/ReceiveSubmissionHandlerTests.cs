@@ -18,6 +18,8 @@ public sealed class ReceiveSubmissionHandlerTests
     [InlineData(10, "portfolio.txt", "2026-03-15", "Portfolio.Submission.NotCsv")]
     [InlineData(10, "portfolio", "2026-03-15", "Portfolio.Submission.NotCsv")]
     [InlineData(10, "portfolio.csv", "2026-03-16", "Portfolio.Submission.CutOffDateInFuture")]
+    [InlineData(10, "portfolio.csv", "1999-12-31", "Portfolio.Submission.CutOffDateTooEarly")]
+    [InlineData(10, "portfolio.txt", "1999-12-31", "Portfolio.Submission.NotCsv")]
     [InlineData(0, "portfolio.txt", "2026-03-16", "Portfolio.Submission.FileEmpty")]
     public async Task Handle_InvalidUpload_ReturnsValidationCode(int size, string fileName, string cutOffDate, string code)
     {
@@ -28,6 +30,15 @@ public sealed class ReceiveSubmissionHandlerTests
         Assert.True(result.IsFailure);
         Assert.Equal((code, BuildingBlocks.Results.ErrorType.Validation), (result.Error.Code, result.Error.Type));
         Assert.Empty(db.ChangeTracker.Entries());
+    }
+
+    [Fact]
+    public void Validate_CutOffOnFirstPolicyDate_PassesTransportChecks()
+    {
+        var error = ReceiveSubmissionHandler.Validate(
+            new ReceiveSubmission(new DateOnly(2000, 1, 1), "portfolio.csv", new byte[10]), DateOnly.FromDateTime(Now.UtcDateTime));
+
+        Assert.Null(error);
     }
 
     private static async Task<BuildingBlocks.Results.Result<SubmissionReceivedResponse>> Handle(
