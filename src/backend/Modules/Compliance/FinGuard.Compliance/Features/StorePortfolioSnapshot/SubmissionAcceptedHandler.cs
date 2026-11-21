@@ -3,6 +3,8 @@ using FinGuard.Portfolio.Contracts;
 using FinGuard.Portfolio.Contracts.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Wolverine;
+using EvaluatePortfolioCommand = FinGuard.Compliance.Features.EvaluatePortfolio.EvaluatePortfolio;
 
 namespace FinGuard.Compliance.Features.StorePortfolioSnapshot;
 
@@ -10,17 +12,19 @@ namespace FinGuard.Compliance.Features.StorePortfolioSnapshot;
 /// Stores Compliance's own snapshot of an accepted submission (D-157), idempotent by <c>EventId</c> (ADR-0009).
 /// Writes through <see cref="ComplianceDbContext"/> only; Wolverine's EF middleware saves and commits. The envelope
 /// tenant is already checked against the payload tenant by <c>TenantPropagationMiddleware</c>.
+/// A new snapshot cascades <see cref="EvaluatePortfolioCommand"/>, which evaluates in its own transaction: the received fact
+/// commits even when the evaluation fails (D-192). A duplicate event cascades nothing.
 /// </summary>
 public sealed partial class SubmissionAcceptedHandler(TimeProvider time, ILogger<SubmissionAcceptedHandler> logger)
 {
-    public async Task Handle(SubmissionAccepted @event, ComplianceDbContext db, CancellationToken ct)
+    public async Task<OutgoingMessages> Handle(SubmissionAccepted @event, ComplianceDbContext db, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(@event);
         ArgumentNullException.ThrowIfNull(db);
 
         if (await db.Set<PortfolioSnapshot>().AnyAsync(s => s.SourceEventId == @event.EventId, ct))
         {
-            return;
+            return [];
         }
 
         // Portfolio guarantees these totals, so this should never fire; after retries the event goes to the error queue.
@@ -36,6 +40,7 @@ public sealed partial class SubmissionAcceptedHandler(TimeProvider time, ILogger
             totals[AssetClassCode.Cash], totals[AssetClassCode.FixedIncome], totals[AssetClassCode.Shares],
             totals[AssetClassCode.RealEstate], @event.EventId, time.GetUtcNow()));
         LogStored(logger, @event.SubmissionId);
+        return [new EvaluatePortfolioCommand(@event.SubmissionId)];
     }
 
     /// <summary>One entry per asset class, each at least 0, and a total above 0 (D-153, AGENTS.md validation).</summary>

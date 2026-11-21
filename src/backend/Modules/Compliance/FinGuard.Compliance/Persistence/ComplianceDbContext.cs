@@ -71,6 +71,37 @@ public sealed class ComplianceDbContext(DbContextOptions<ComplianceDbContext> op
             });
         });
 
+        // One evaluation per submission (D-193). Statuses and classes are stored by enum name; share and utilization
+        // are unconstrained numeric so the stored value equals the domain's unrounded decimal (D-195).
+        modelBuilder.Entity<EvaluationRow>(evaluation =>
+        {
+            evaluation.ToTable("evaluations");
+            evaluation.HasKey(e => e.Id);
+            evaluation.Property(e => e.Id).ValueGeneratedNever();
+            evaluation.HasIndex(e => e.SubmissionId).IsUnique();
+            evaluation.HasIndex(e => new { e.TenantId, e.CutOffDate });
+            evaluation.Property(e => e.TotalBookValue).HasPrecision(18, 2);
+            evaluation.Property(e => e.OverallStatus).HasConversion<string>().HasMaxLength(16);
+            evaluation.Property(e => e.CashLimit).HasPrecision(5, 4);
+            evaluation.Property(e => e.FixedIncomeLimit).HasPrecision(5, 4);
+            evaluation.Property(e => e.SharesLimit).HasPrecision(5, 4);
+            evaluation.Property(e => e.RealEstateLimit).HasPrecision(5, 4);
+            evaluation.Property(e => e.AlertThreshold).HasPrecision(5, 4);
+            evaluation.Property(e => e.RebalanceTargetRatio).HasPrecision(5, 4);
+            evaluation.HasMany(e => e.Classes).WithOne().HasForeignKey(c => c.EvaluationId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<EvaluationClassRow>(evaluationClass =>
+        {
+            evaluationClass.ToTable("evaluation_classes");
+            evaluationClass.HasKey(c => new { c.EvaluationId, c.AssetClass });
+            evaluationClass.Property(c => c.AssetClass).HasConversion<string>().HasMaxLength(16);
+            evaluationClass.Property(c => c.BookValue).HasPrecision(18, 2);
+            evaluationClass.Property(c => c.Share).HasColumnType("numeric");
+            evaluationClass.Property(c => c.Utilization).HasColumnType("numeric");
+            evaluationClass.Property(c => c.Status).HasConversion<string>().HasMaxLength(16);
+        });
+
         // Last: the base class adds the tenant filter to the entity types mapped above.
         base.OnModelCreating(modelBuilder);
     }

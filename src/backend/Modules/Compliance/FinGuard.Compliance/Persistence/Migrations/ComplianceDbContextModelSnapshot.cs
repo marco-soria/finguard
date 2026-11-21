@@ -23,6 +23,126 @@ namespace FinGuard.Compliance.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("FinGuard.Compliance.Persistence.EvaluationClassRow", b =>
+                {
+                    b.Property<Guid>("EvaluationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("evaluation_id");
+
+                    b.Property<string>("AssetClass")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("asset_class");
+
+                    b.Property<decimal>("BookValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("book_value");
+
+                    b.Property<decimal>("Share")
+                        .HasColumnType("numeric")
+                        .HasColumnName("share");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<decimal>("Utilization")
+                        .HasColumnType("numeric")
+                        .HasColumnName("utilization");
+
+                    b.HasKey("EvaluationId", "AssetClass")
+                        .HasName("pk_evaluation_classes");
+
+                    b.ToTable("evaluation_classes", "compliance");
+                });
+
+            modelBuilder.Entity("FinGuard.Compliance.Persistence.EvaluationRow", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AlertThreshold")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("alert_threshold");
+
+                    b.Property<decimal>("CashLimit")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("cash_limit");
+
+                    b.Property<DateOnly>("CutOffDate")
+                        .HasColumnType("date")
+                        .HasColumnName("cut_off_date");
+
+                    b.Property<DateTimeOffset>("EvaluatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("evaluated_at");
+
+                    b.Property<decimal>("FixedIncomeLimit")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("fixed_income_limit");
+
+                    b.Property<string>("OverallStatus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("overall_status");
+
+                    b.Property<int>("PolicyVersion")
+                        .HasColumnType("integer")
+                        .HasColumnName("policy_version");
+
+                    b.Property<decimal>("RealEstateLimit")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("real_estate_limit");
+
+                    b.Property<decimal>("RebalanceTargetRatio")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("rebalance_target_ratio");
+
+                    b.Property<decimal>("SharesLimit")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("numeric(5,4)")
+                        .HasColumnName("shares_limit");
+
+                    b.Property<Guid>("SubmissionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("submission_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<decimal>("TotalBookValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("total_book_value");
+
+                    b.HasKey("Id")
+                        .HasName("pk_evaluations");
+
+                    b.HasIndex("SubmissionId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_evaluations_submission_id");
+
+                    b.HasIndex("TenantId", "CutOffDate")
+                        .HasDatabaseName("ix_evaluations_tenant_id_cut_off_date");
+
+                    b.ToTable("evaluations", "compliance");
+                });
+
             modelBuilder.Entity("FinGuard.Compliance.Persistence.LimitPolicyRow", b =>
                 {
                     b.Property<int>("Version")
@@ -163,6 +283,21 @@ namespace FinGuard.Compliance.Persistence.Migrations
                         .HasDatabaseName("ix_portfolio_snapshots_tenant_id_cut_off_date_received_at");
 
                     b.ToTable("portfolio_snapshots", "compliance");
+                });
+
+            modelBuilder.Entity("FinGuard.Compliance.Persistence.EvaluationClassRow", b =>
+                {
+                    b.HasOne("FinGuard.Compliance.Persistence.EvaluationRow", null)
+                        .WithMany("Classes")
+                        .HasForeignKey("EvaluationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_evaluation_classes_evaluations_evaluation_id");
+                });
+
+            modelBuilder.Entity("FinGuard.Compliance.Persistence.EvaluationRow", b =>
+                {
+                    b.Navigation("Classes");
                 });
 #pragma warning restore 612, 618
         }
