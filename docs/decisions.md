@@ -3,6 +3,89 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-23 (session 24: Brief #15 executed)
+
+Branch `feat/evaluation-result-ui`. Five commits, as planned in the brief. The owner approved the answers to the
+plan's open points (D-213, D-214, D-215) and accepted the `toFixed` risk under R-42.
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-213 | Alert sentences: Warning "{Class} is near its limit ({x} of the limit used).", Breached "{Class} is over its limit ({x} of the limit used).", `{x}` from `formatRatio` | Owner-approved; replaces the brief's "Shares is breached at 104.20 % of its limit.". Exactly 100 % reads "near its limit (100.00 % of the limit used)", which matches the rule |
+| D-214 | The theme toggle shows on every page, `/login` included | Owner-approved: the theme is a browser preference, not an account setting |
+| D-215 | Every E2E flow imports `test` from `e2e/support.ts`, whose automatic fixture records requests and fails the test when one leaves the `baseURL` origin (`data:` and `blob:` allowed), naming the URL | Owner-approved; makes "no request to a third-party host" a permanent check instead of a manual one |
+| D-216 | `ComplianceApi.evaluation` takes `Signal<string \| undefined>`; `undefined` sends no request | The brief said `Signal<string>`. The detail page passes the submission id only when the status is `Accepted`, which is how a rejected submission never requests it (D-204) |
+| D-217 | Polling lives in `SubmissionDetail` (one `setTimeout` at a time, an `effect` that schedules the next retry on each `Compliance.Evaluation.NotFound`, `DestroyRef` clears it); no `core/` utility | Used in one place only. "Check again" resets the counter and reloads |
+| D-218 | `formatPercent` (2 decimals) sits next to `formatRatio` in `shared/format-ratio.ts` for shares and limits | The brief's "plain 2 decimals" |
+| D-219 | The `--fg-status-*` tokens landed with the evaluation section (commit 2), not with the theme toggle (commit 3) | The pills use them; the commit would otherwise render with undefined variables |
+| D-220 | Screenshots come from `e2e/screenshots.e2e.ts`, tagged `@screenshots`; `playwright.config.ts` excludes the tag unless `E2E_SCREENSHOTS` is set: `$env:E2E_SCREENSHOTS = '1'; pnpm e2e --grep '@screenshots'` | Viewport 1280×800, full page, Alice, `valid-shares-heavy.csv` with a random past cut-off date |
+| D-221 | `randomPastDate()` and `sample()` moved to `e2e/support.ts`; the duplicate flow uses the shared helper | Same behaviour |
+
+### Status token contrast (WCAG 2.x, text on pill background; values read back from the running app)
+| Token pair | Light | Ratio | Dark | Ratio |
+| --- | --- | --- | --- | --- |
+| compliant fg / bg | `#0d5223` / `#d7f5dd` | 8.00:1 | `#a8f0b8` / `#0f3d1c` | 9.28:1 |
+| warning fg / bg | `#6b4300` / `#ffe8b3` | 7.19:1 | `#ffd98a` / `#4a3000` | 9.07:1 |
+| breached (`--mat-sys-on-error` / `--mat-sys-error`) | `#ffffff` / `#ba1a1a` | 6.46:1 | `#690005` / `#ffb4ab` | 7.72:1 |
+
+### Tests added
+- Integration: `GetEvaluation_Own_Returns200WithClassesAndAlerts` asserts `alertThreshold` 0.90.
+- Vitest: `formatRatio` (the brief's cases, plus a threshold other than 0.9; the 8-decimal cap case is
+  `0.89999999996` Compliant → `90.00000000 %`, documented in the test), `formatPercent`, `UsdPipe` (`$0.30` for
+  0.1 + 0.2; the large value is 90,000,000,000,000.25 because .01 is not representable there, see R-42),
+  `ThemeService` (default, set, stored value, unknown value, throwing storage), `SubmissionDetail` (request only for
+  accepted, result, rows in order, alert sentences, no alerts, "Evaluating…" in a polite live region then success
+  after a retry, timeout and "Check again", other error, no retry after destroy), `App` (toggle with accessible name
+  on a signed-out page, toggle changes the theme). Two existing `App` tests now find the sign-out button by its text.
+- E2E: `evaluation.e2e.ts` (balanced → Compliant, no alerts, policy version 1, $5,000,000.00; shares-heavy →
+  Breached, Shares row breached, one alert "Shares is over its limit (293.33 % of the limit used)."), `theme.e2e.ts`
+  (Dark persists across a reload; System under a dark OS gives the same background as Dark).
+
+### Verification
+- `dotnet build -c Release` (0 errors), `dotnet format --verify-no-changes`, `dotnet test -c Release` green. Backend
+  442 (unit 280, integration 147, architecture 15), unchanged in count.
+- Frontend: `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm test --watch=false` (103, was 73), `pnpm build`,
+  `pnpm exec prettier --check src e2e` green.
+- `-StartAspire`: `pnpm e2e` twice, 8 passed both times (the four existing flows, two evaluation, two theme). The
+  same-origin fixture found no third-party request. `invalid-mixed.csv`: detail page `Rejected`, no Compliance
+  section, no evaluation request. Screenshots written to `docs/images/`. Aspire stopped with `-Stop`.
+
+### Risks and flags
+- **R-39 closed** by D-207.
+- **R-42** (amounts as JSON numbers) also covers display: `formatRatio` uses `Number.prototype.toFixed` on the
+  IEEE double, so a ratio within about 1e-15 of a decimal boundary can round either way. Owner-accepted; the 8-decimal
+  cap bounds it. String decimals are considered in Phase 5.
+- `material-theme.scss` still sets `color-scheme: light dark` on `html`; it is the stylesheet default that the
+  `ThemeService` inline style overrides.
+
+### Next step
+Unchanged from the planning delta: the Aspire 17 chore brief, then Phase 4 planning.
+
+## Delta 2026-11-23 (session 24: Brief #15 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-204 | The compliance result shows on the submission detail page only, for accepted submissions | History column deferred |
+| D-205 | Pending evaluation: 404 `Compliance.Evaluation.NotFound` → "Evaluating…" with retries at 1, 2, 4, 8 s, then "not available yet" + "Check again" | |
+| D-206 | `EvaluationResponse` gains `alertThreshold` from the policy snapshot (additive) | |
+| D-207 | `formatRatio` widens the decimals until the shown percentage agrees with the API status (max 8); it never derives a status | Resolves R-39 |
+| D-208 | `UsdPipe` is the only money formatter (en-US, USD, 2 decimals) | |
+| D-209 | Status = text + pill with `--fg-status-*` semantic tokens (`light-dark()`, WCAG AA) defined once in `styles.css` | Extends D-106 |
+| D-210 | `ThemeService` with system / light / dark in `localStorage` (`finguard.theme`), applied through `color-scheme` at startup; no inline script | Closes the Phase 3 part of D-106 |
+| D-211 | README carries Playwright screenshots made from sample data only | |
+| D-212 | Phase 3 closes with Brief #15; next is the Aspire 17 chore brief (D-185), then Phase 4 | |
+
+### Risks and flags
+- **R-39** expected to close with D-207.
+- **R-42 JSON numbers for money.** Amounts reach the SPA as JSON numbers (IEEE double). Cent-exact display holds up to
+  about 9×10^13 USD, far above realistic portfolios, but the CSV allows up to 10^16. Revisit in Phase 5 (string
+  decimals) if real data could approach it.
+
+### Next step
+Chore brief: Aspire 13.6 → 17 (AppHost SDK change, `AddProject` replacement, parameters, secrets path,
+`dev-session.ps1`, `docs/dev-environment.md`), then Phase 4 planning (rebalance engine, Advisory, R-40 backfill).
+
 ## Delta 2026-11-21 (session 23: Brief #14 executed)
 
 Branch `feat/compliance-evaluation`. Five commits, as planned in the brief. The owner approved the answers to the

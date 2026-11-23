@@ -20,12 +20,16 @@ alwaysApply: false
   never visible text; use them only as data (for example `data-code`).
 - Authentication sits behind an `AuthService` abstraction (dev token provider now, MSAL for Entra External ID in
   Phase 5). Components never import MSAL directly.
-- Format money in one place (a pipe), always USD. Percentages come pre-computed from the API.
+- Money goes through `UsdPipe` (`shared/`), always USD (D-208). Ratios come from the API unrounded; the SPA formats
+  them with `formatRatio` and never derives a status (D-207). Shares and limits use `formatPercent`.
+- A status shows as text plus a pill coloured with the `--fg-status-*` tokens from `styles.css`; never colour alone
+  (D-209).
 - Semantic HTML, labelled inputs, keyboard-accessible controls.
 - UI library: Angular Material + CDK (D-98). Use its components before writing custom ones; buttons use the
   `matButton` attribute API. No third-party font or icon CDNs (system font stack; CSP review in Phase 5).
-- Component CSS uses `--mat-sys-*` tokens only, never literal colors, so light and dark mode both work (the app follows
-  the OS through `color-scheme: light dark`, D-106).
+- Component CSS uses `--mat-sys-*` and the app's `--fg-*` tokens only, never literal colors, so light and dark mode
+  both work (D-106, D-209). `ThemeService` (`core/theme/`) owns `color-scheme` on `<html>` (system, light, dark;
+  D-210); nothing else sets it.
 - Reads use `httpResource` created in the component's injection context (API services expose factories); writes use
   `HttpClient` (D-102). `ApiError` extends `Error`, so a resource's `error()` is the `ApiError` itself.
 - Calendar dates (`cutOffDate`) stay `yyyy-MM-dd` strings: never `Date` or `DatePipe` (one-day shift west of UTC).
