@@ -9,6 +9,8 @@ if (!baseURL) {
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.e2e.ts',
+  // README screenshots run only on request: $env:E2E_SCREENSHOTS = '1'; pnpm e2e --grep '@screenshots' (D-211).
+  grepInvert: process.env['E2E_SCREENSHOTS'] ? undefined : /@screenshots/,
   retries: 0,
   reporter: 'list',
   use: {
