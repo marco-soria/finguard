@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test';
-import { header, signInAs, uniqueName, uniquePositionId, upload } from './support';
+import { expect, header, signInAs, test, uniqueName, uniquePositionId, upload } from './support';
 
 test('Alice uploads a valid CSV, sees it accepted in her history; Bob does not', async ({
   page,

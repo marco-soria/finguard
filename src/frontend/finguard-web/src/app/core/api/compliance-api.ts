@@ -1,0 +1,58 @@
+import { httpResource, HttpResourceRef } from '@angular/common/http';
+import { Injectable, Signal } from '@angular/core';
+
+/** `Cash`, `FixedIncome`, `Shares` or `RealEstate` (enum names, D-202). */
+export type AssetClass = string;
+
+/** `Compliant`, `Warning` or `Breached`, decided by the API; the SPA never derives it (D-207). */
+export type ComplianceStatus = string;
+
+/** One asset class of an evaluation. Ratios are exact and unrounded (D-197): format them with `formatRatio`. */
+export interface ClassEvaluation {
+  assetClass: AssetClass;
+  bookValue: number;
+  share: number;
+  limit: number;
+  utilization: number;
+  status: ComplianceStatus;
+}
+
+export interface EvaluationAlert {
+  assetClass: AssetClass;
+  status: ComplianceStatus;
+  utilization: number;
+}
+
+/**
+ * `GET /api/compliance/submissions/{id}/evaluation`. `cutOffDate` is a `yyyy-MM-dd` calendar date (D-103).
+ * `alertThreshold` comes from the evaluation's policy snapshot (D-206).
+ */
+export interface EvaluationResponse {
+  evaluationId: string;
+  submissionId: string;
+  cutOffDate: string;
+  overallStatus: ComplianceStatus;
+  policyVersion: number;
+  evaluatedAt: string;
+  totalBookValue: number;
+  alertThreshold: number;
+  classes: ClassEvaluation[];
+  alerts: EvaluationAlert[];
+}
+
+/** The API's 404 code for an unknown, foreign or not-yet-evaluated submission (D-205). */
+export const EVALUATION_NOT_FOUND = 'Compliance.Evaluation.NotFound';
+
+/** Compliance endpoints. Resource factories must run in an injection context (D-102). */
+@Injectable({ providedIn: 'root' })
+export class ComplianceApi {
+  /** No request while `submissionId` is undefined (for example a rejected submission, D-204). */
+  evaluation(
+    submissionId: Signal<string | undefined>,
+  ): HttpResourceRef<EvaluationResponse | undefined> {
+    return httpResource<EvaluationResponse>(() => {
+      const id = submissionId();
+      return id ? `/api/compliance/submissions/${encodeURIComponent(id)}/evaluation` : undefined;
+    });
+  }
+}

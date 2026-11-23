@@ -23,3 +23,45 @@ dd {
 .detail-errors {
   max-width: 60rem;
 }
+
+.compliance {
+  margin-top: 2rem;
+}
+
+/* Status is always text; the colour only repeats it (D-209). */
+.status-pill {
+  display: inline-block;
+  padding: 0.125rem 0.75rem;
+  border-radius: 1rem;
+  font: var(--mat-sys-label-large);
+}
+
+.status-pill[data-status='Compliant'] {
+  background-color: var(--fg-status-compliant-bg);
+  color: var(--fg-status-compliant-fg);
+}
+
+.status-pill[data-status='Warning'] {
+  background-color: var(--fg-status-warning-bg);
+  color: var(--fg-status-warning-fg);
+}
+
+.status-pill[data-status='Breached'] {
+  background-color: var(--fg-status-breached-bg);
+  color: var(--fg-status-breached-fg);
+}
+
+.compliance-classes {
+  max-width: 60rem;
+}
+
+.compliance-classes caption {
+  text-align: start;
+  padding: 0.5rem 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}

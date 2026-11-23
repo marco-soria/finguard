@@ -24,9 +24,9 @@ public sealed class GetEvaluationTests(ApiFixture fixture)
 
         Assert.NotNull(evaluation);
         Assert.Equal(
-            (submissionId, new DateOnly(2026, 6, 30), "Breached", 1, 3_000_000.00m),
+            (submissionId, new DateOnly(2026, 6, 30), "Breached", 1, 3_000_000.00m, 0.90m),
             (evaluation.SubmissionId, evaluation.CutOffDate, evaluation.OverallStatus, evaluation.PolicyVersion,
-             evaluation.TotalBookValue));
+             evaluation.TotalBookValue, evaluation.AlertThreshold));
         // Exact decimals: the API never rounds (D-197). 2.2 / 3 keeps every digit decimal has.
         var sharesShare = 2_200_000.00m / 3_000_000.00m;
         Assert.Equal(

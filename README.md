@@ -13,7 +13,7 @@ an AI narrative. It is a portfolio project built local-first, at near-zero cost 
 | 0 Foundations | ✓ Done | Solution skeleton, Aspire, PostgreSQL, module DbContexts, Wolverine outbox, CI |
 | 1 Walking skeleton | ✓ Done | Development login, tenant resolution, Angular shell, file upload and submission history end to end |
 | 2 Portfolio ingestion | ✓ Done | CSV validation, rejected files with errors, idempotent uploads, current submission per cut-off date, `SubmissionAccepted` event to Compliance |
-| 3 Compliance | In progress | Done: domain model and versioned global limit policy ([ADR-0012](docs/adr/0012-compliance-domain-model.md)), evaluation of every accepted submission with `EvaluationCompleted`, result API. Next: result UI |
+| 3 Compliance | ✓ Done | Domain model and versioned global limit policy ([ADR-0012](docs/adr/0012-compliance-domain-model.md)), evaluation of every accepted submission with `EvaluationCompleted`, result API, result on the submission detail page, system/light/dark theme |
 | 4 Advisory | Planned | AI narrative behind `IAdvisoryNarrator`, deterministic fallback |
 | 5 Azure | Planned | Container Apps, Static Web Apps, Entra External ID, Key Vault, observability |
 
@@ -21,6 +21,13 @@ Event flow today: an accepted upload publishes `SubmissionAccepted` (class total
 transaction, and Compliance stores its own portfolio snapshot from it ([ADR-0011](docs/adr/0011-portfolio-compliance-integration-contract.md)).
 Compliance then evaluates the snapshot against the limit policy in force at the cut-off date, stores the evaluation and
 publishes `EvaluationCompleted`; `GET /api/compliance/submissions/{id}/evaluation` returns it.
+
+The detail page of an accepted submission shows its compliance result: overall status, policy version, one row per
+asset class (book value, share, limit, utilization, status) and the alerts. Screenshots from the sample data:
+
+| Light | Dark |
+| --- | --- |
+| ![Breached sample submission, light theme](docs/images/evaluation-light.png) | ![Breached sample submission, dark theme](docs/images/evaluation-dark.png) |
 
 Every decision is recorded in the [decisions log](docs/decisions.md) (append-only).
 
@@ -83,6 +90,7 @@ aspire run            # Git Bash: aspire.cmd run
 2. Sign in as **Alice** (Acme Pension Fund).
 3. Upload the files from [`samples/portfolios/`](samples/portfolios/README.md) with any cut-off date up to today:
    - `valid-balanced.csv`: accepted, 9 positions, marked **Current** for its date.
+   - `valid-shares-heavy.csv`: accepted; its detail page shows **Breached** with a Shares alert.
    - `invalid-mixed.csv`: rejected; the detail page lists its 9 errors by row and column.
    - The same file again for the same date: "Already uploaded on …"; nothing new is stored.
    - Another valid file for the same date: it becomes the current one; the older one stays in the history.
