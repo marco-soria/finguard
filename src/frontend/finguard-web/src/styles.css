@@ -1,1 +1,11 @@
-/* You can add global styles to this file, and also import other style files */
+/* App-level semantic tokens (D-209). Component CSS uses only these and `--mat-sys-*` (D-106). Each pair meets WCAG AA
+   (4.5:1) in light and dark; the ratios are recorded in docs/decisions.md (session 24). `light-dark()` follows the
+   `color-scheme` the ThemeService sets on <html>. */
+:root {
+  --fg-status-compliant-bg: light-dark(#d7f5dd, #0f3d1c);
+  --fg-status-compliant-fg: light-dark(#0d5223, #a8f0b8);
+  --fg-status-warning-bg: light-dark(#ffe8b3, #4a3000);
+  --fg-status-warning-fg: light-dark(#6b4300, #ffd98a);
+  --fg-status-breached-bg: var(--mat-sys-error);
+  --fg-status-breached-fg: var(--mat-sys-on-error);
+}
