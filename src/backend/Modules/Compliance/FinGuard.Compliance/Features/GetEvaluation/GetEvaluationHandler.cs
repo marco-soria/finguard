@@ -13,7 +13,7 @@ public static class GetEvaluationHandler
     private const string Sql = """
         SELECT id AS "EvaluationId", submission_id AS "SubmissionId", cut_off_date AS "CutOffDate",
                overall_status AS "OverallStatus", policy_version AS "PolicyVersion", evaluated_at AS "EvaluatedAt",
-               total_book_value AS "TotalBookValue"
+               total_book_value AS "TotalBookValue", alert_threshold AS "AlertThreshold"
         FROM compliance.evaluations
         WHERE submission_id = @SubmissionId AND tenant_id = @TenantId;
 
@@ -51,11 +51,11 @@ public static class GetEvaluationHandler
             .ToList();
         return new EvaluationResponse(
             row.EvaluationId, row.SubmissionId, row.CutOffDate, row.OverallStatus, row.PolicyVersion,
-            new DateTimeOffset(row.EvaluatedAt), row.TotalBookValue, classes, alerts);
+            new DateTimeOffset(row.EvaluatedAt), row.TotalBookValue, row.AlertThreshold, classes, alerts);
     }
 
     // Npgsql hands timestamptz to Dapper as a UTC DateTime, which a DateTimeOffset constructor parameter cannot bind.
     private sealed record Row(
         Guid EvaluationId, Guid SubmissionId, DateOnly CutOffDate, string OverallStatus, int PolicyVersion,
-        DateTime EvaluatedAt, decimal TotalBookValue);
+        DateTime EvaluatedAt, decimal TotalBookValue, decimal AlertThreshold);
 }
