@@ -1,8 +1,19 @@
 <header class="app-header">
   <mat-toolbar>
     <h1>FinGuard</h1>
-    @if (auth.isAuthenticated()) {
-      <div class="app-session">
+    <div class="app-session">
+      <!-- A browser preference, so it shows on /login too. -->
+      <mat-button-toggle-group
+        aria-label="Theme"
+        hideSingleSelectionIndicator
+        [value]="theme.theme()"
+        (change)="setTheme($event.value)"
+      >
+        <mat-button-toggle value="system">System</mat-button-toggle>
+        <mat-button-toggle value="light">Light</mat-button-toggle>
+        <mat-button-toggle value="dark">Dark</mat-button-toggle>
+      </mat-button-toggle-group>
+      @if (auth.isAuthenticated()) {
         @let state = tenant();
         @if (state.status === 'loaded') {
           <p class="app-tenant">{{ state.name }}</p>
@@ -10,8 +21,8 @@
           <p class="app-tenant" role="status">Could not load your organization.</p>
         }
         <button matButton="outlined" type="button" (click)="signOut()">Sign out</button>
-      </div>
-    }
+      }
+    </div>
   </mat-toolbar>
 </header>
 <main class="app-main">

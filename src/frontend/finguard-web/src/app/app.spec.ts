@@ -7,6 +7,7 @@ import { AuthProvider } from './core/auth/auth-provider';
 import { AuthService } from './core/auth/auth.service';
 import { FakeAuthProvider } from './core/auth/fake-auth-provider';
 import { ApiError } from './core/http/api-error';
+import { ThemeService } from './core/theme/theme.service';
 
 describe('App', () => {
   let provider: FakeAuthProvider;
@@ -24,6 +25,11 @@ describe('App', () => {
       ],
     });
   });
+
+  const signOutButton = (element: HTMLElement) =>
+    Array.from(element.querySelectorAll<HTMLButtonElement>('header button')).find(
+      (b) => b.textContent?.trim() === 'Sign out',
+    );
 
   function render(signedIn: boolean): HTMLElement {
     if (signedIn) {
@@ -45,7 +51,7 @@ describe('App', () => {
     const element = render(false);
 
     expect(element.querySelector('.app-tenant')).toBeNull();
-    expect(element.querySelector('header button')).toBeNull();
+    expect(signOutButton(element)).toBeUndefined();
   });
 
   it('shows the tenant name when signed in', () => {
@@ -77,8 +83,33 @@ describe('App', () => {
     const element = render(true);
     const signOut = vi.spyOn(TestBed.inject(AuthService), 'signOut');
 
-    element.querySelector<HTMLButtonElement>('header button')?.click();
+    signOutButton(element)?.click();
 
     expect(signOut).toHaveBeenCalledOnce();
+  });
+
+  it('offers a theme toggle with an accessible name, also when signed out', () => {
+    const element = render(false);
+
+    const group = element.querySelector('header mat-button-toggle-group');
+    expect(group?.getAttribute('aria-label')).toBe('Theme');
+    expect(
+      Array.from(group?.querySelectorAll('button') ?? []).map((b) => b.textContent?.trim()),
+    ).toEqual(['System', 'Light', 'Dark']);
+  });
+
+  it('changes the theme from the toggle', () => {
+    localStorage.clear();
+    const element = render(false);
+    const dark = Array.from(element.querySelectorAll<HTMLButtonElement>('header button')).find(
+      (b) => b.textContent?.trim() === 'Dark',
+    );
+
+    dark?.click();
+
+    expect(TestBed.inject(ThemeService).theme()).toBe('dark');
+    expect(document.documentElement.style.colorScheme).toBe('dark');
+    localStorage.clear();
+    document.documentElement.style.colorScheme = '';
   });
 });
