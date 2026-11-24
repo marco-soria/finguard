@@ -3,6 +3,104 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-24 (session 25: Brief #16 executed)
+
+Branch `chore/aspire-17`. Three commits, as planned in the brief. Tooling only, no behaviour change. Closes R-08
+(no literal SDK version left) and R-31.
+
+### Resolved versions (NuGet, 2026-11-24)
+| Package | Version | Notes |
+| --- | --- | --- |
+| `Aspire.Hosting.AppHost`, `Aspire.Hosting.Dotnet`, `Aspire.Hosting.PostgreSQL`, `Aspire.Hosting.JavaScript`, `Aspire.Npgsql` | 17.0.0 (`AspireVersion`) | Latest stable; no 17.0.x patch yet |
+| `Aspire.Npgsql.EntityFrameworkCore.PostgreSQL` | 13.6.5 (`AspireNpgsqlEfVersion`) | Only `17.0.0-preview.1.26567.5` exists; D-227, R-45 |
+| `Aspire.Cli` (.NET global tool) | 17.0.0 | Updated with the owner's approval (D-225) |
+| PostgreSQL image | `postgres:18.6` | Aspire 17 default; Testcontainers aligned (D-223) |
+
+Restore: no NU1605/NU1608. `dotnet list package --include-transitive`: one `Npgsql.EntityFrameworkCore.PostgreSQL`
+(10.0.3). `Microsoft.Extensions.*` is not on one line: `FinGuard.UnitTests` resolves 10.0.14 for
+`Configuration.Binder`, `Diagnostics.HealthChecks` and `Hosting.Abstractions` (through the 13.6.5 EF integration);
+every other project resolves 10.0.15. The baseline already had such splits (33 packages split before, 25 after);
+build and tests are green. Not pinned in this chore.
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-227 | `Aspire.Npgsql.EntityFrameworkCore.PostgreSQL` stays on 13.6.5 under its own CPM property `AspireNpgsqlEfVersion`; every other Aspire package is on 17.0.0 | Owner-approved deviation from D-222 ("Aspire 17.0.x everywhere"): stable packages only. 13.6.5 depends on no other Aspire package |
+| D-228 | `dev-session.ps1` also records and reports `FinGuard.*.exe` processes started from the repo | Aspire 17 runs `AddDotnetProject` resources through their own apphost (`FinGuard.Api.exe`), not `dotnet.exe`. Interface unchanged (D-225) |
+
+### Execution checks
+- Build `-c Release` with warnings as errors: 0 warnings. No `Aspire.AppHost.Sdk`, `AddProject<`, `Projects.` or
+  ASPIRE0xx/CS0618 suppression left (git grep, outside this log and the briefs). `WithReference`, `WaitFor` and
+  `WithHttpHealthCheck` compile on `DotnetProjectResource` (R-44: no API gap).
+- `UserSecretsId` kept (the 17 migration guide keeps it). `aspire secret path`:
+  `%USERPROFILE%\.aspire\secrets\45a8c4f7-9fe1-40ae-b7b8-2bc5442f10d4\Development.json`.
+- CLI: `aspire --version` = `17.0.0+2d325b13709752ba6d9a943635c5e2940a2530c0` in PowerShell 7 and in Git Bash. The
+  tool still installs only an `aspire.cmd` shim, so D-135's `aspire.cmd` / alias note still applies. `aspire doctor`:
+  6 passed, 1 warning (VS Code extension not installed), 0 failed. `dotnet tool update` also printed
+  `Unhandled exception: Access to the path 'bundle' is denied.`: `%USERPROFILE%\.aspire\bundle` is a September symlink
+  to a 13.5.3 bundle that the update could not replace. The tool update succeeded and the AppHost ran; left as is.
+- Dev password (D-224, R-43): Aspire 17 imported the 13.x user secrets into its store by itself; the
+  `Parameters:postgres-password` values in both stores match (compared by hash, never printed). No `aspire secret
+  set`, no volume reset.
+- Run time (via `-StartAspire`): `postgres` on `postgres:18.6` (server 18.6); existing data kept
+  (`portfolio.submissions`: 54 rows); latest applied migration equals the latest in code for all four modules; `api`
+  Healthy; `web` Running and Healthy; `web` still gets `API_HTTP` and `API_HTTPS` (and `services__api__http__0`,
+  `services__api__https__0`), so `proxy.conf.js` is unchanged; `POST /dev/token` through the `web` URL works;
+  `valid-balanced.csv` uploaded through the proxy returns 201 `Accepted` and its evaluation is `Compliant`.
+- `aspire ps --format Json` keeps `appHostPath`, `appHostPid` and `cliPid` (new fields: `status`, `sdkVersion`,
+  `dashboardUrl`, `logFilePath`); `aspire start --format Json` still gives what the script reads.
+
+### `dev-session.ps1` proof (PIDs and tokens redacted)
+```
+-Snapshot     Nothing of this repo is running. Baseline: 16 entries
+-StartAspire  AppHost PID <pid> recorded in .git\finguard-agent-processes.txt
+-Report       agent  AppHost           src\backend\FinGuard.AppHost\FinGuard.AppHost.csproj
+              new    Aspire CLI        ...\aspire.cli\17.0.0\...
+              new    Aspire container  postgres-<suffix> postgres:18.6
+              new    DCP (x8)          ...\aspire.cli\17.0.0\...
+              new    Repo process      src\backend\FinGuard.Api\bin\Debug\net10.0\FinGuard.Api.exe
+              new    Repo process      node ...\finguard-web\node_modules\... (ng serve)
+-Stop         Stopped AppHost (PID <pid>); Stopped Repo process (PID <pid>); dotnet build-server shutdown done
+              Nothing of this repo is running.
+-Report       Nothing of this repo is running.
+```
+Before D-228, the first `-Report` did not list the Api process.
+
+### Tests
+- Backend `dotnet test -c Release` on `postgres:18.6`: 442 / 442 (baseline 442).
+- Vitest: 103 / 103. `pnpm e2e` twice against the Aspire 17 run: 8 / 8 both times.
+
+### Risks and flags
+- **R-45 Aspire EF integration behind the 17 line.** `Aspire.Npgsql.EntityFrameworkCore.PostgreSQL` has no stable
+  17.x. Dependabot ignores majors (D-48), so each phase's majors review checks NuGet by hand; when 17.x stable ships,
+  move it to `AspireVersion` and drop `AspireNpgsqlEfVersion`.
+- R-08 and R-31 closed. R-43 closed (not triggered). R-44 closed (no gap found).
+
+### Next step
+Unchanged from the planning delta below: Phase 4 planning.
+
+## Delta 2026-11-24 (session 25: Brief #16 planning)
+
+### Closed decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-222 | Aspire 17.0.x everywhere; AppHost on `Microsoft.NET.Sdk` with explicit `Aspire.Hosting.AppHost` and `Aspire.Hosting.Dotnet`; Api registered with `AddDotnetProject`; no AppHost `ProjectReference` | Supersedes D-36 (AppHost SDK) and D-37 (implicit AppHost package). Closes R-08 and R-31 |
+| D-223 | PostgreSQL 18.6 for both Aspire and Testcontainers | Minor upgrade within 18 |
+| D-224 | The dev database volume is preserved across the upgrade by carrying the generated password into the Aspire 17 secret store; a reset needs the owner's approval | |
+| D-225 | The Aspire CLI is updated as a .NET global tool only with the owner's approval; `dev-session.ps1` keeps its interface | |
+| D-226 | Phase 4 starts after this chore; the decisions log copy in the Claude Project is synced at each phase close (session 25: synced after Phase 3) | Amends D-56's "every session" |
+
+### Risks and flags
+- **R-43 Generated password vs existing volume.** If Aspire 17 does not read the 13.x user secret, the new password
+  will not match the volume and PostgreSQL rejects the login. Mitigation as in D-224.
+- **R-44 `DotnetProjectResource` differences.** Build ownership moves to Aspire; health checks, environment variable
+  names for references and launch-profile handling may differ. The run-time checks of task 2 cover them.
+
+### Next step
+Phase 4 planning: rebalance engine in Compliance (deterministic, target ratio, headroom allocation, D-03/D-04),
+Advisory module with `IAdvisoryNarrator` (template narrator first), the R-40 backfill question, and the local model
+choice (open question 1 of the kickoff).
+
 ## Delta 2026-11-23 (session 24: Brief #15 executed)
 
 Branch `feat/evaluation-result-ui`. Five commits, as planned in the brief. The owner approved the answers to the

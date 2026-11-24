@@ -21,7 +21,7 @@ namespace FinGuard.Api.IntegrationTests;
 public sealed class ApiFixture : IAsyncLifetime
 {
     // Same tag Aspire uses for the local postgres resource.
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18.3").Build();
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder("postgres:18.6").Build();
 
     public WebApplicationFactory<Program> Factory { get; private set; } = null!;
 

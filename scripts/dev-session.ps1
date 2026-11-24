@@ -94,7 +94,8 @@ function Get-Items {
         elseif ($p.Command -match 'ms-playwright' -or $p.Name -match '^(chrome-headless-shell|chromium)\.exe$') {
             $kind = 'Playwright browser'
         }
-        elseif ($p.Name -match '^(dotnet|node)\.exe$' -and $p.Command -match $RepoPattern -and
+        # Aspire 17 (AddDotnetProject) runs the Api through its own apphost, FinGuard.Api.exe, not dotnet.exe.
+        elseif ($p.Name -match '^(dotnet|node|FinGuard\..+)\.exe$' -and $p.Command -match $RepoPattern -and
                 $p.Command -notmatch $EditorPattern) { $kind = 'Repo process' }
         if ($kind) {
             $items.Add([pscustomobject]@{ Kind = $kind; Key = "P:$($p.Pid):$($p.Started)"; Id = $p.Pid
@@ -172,7 +173,7 @@ switch ($PSCmdlet.ParameterSetName) {
         Show-Items $items
         $lines = @("# FinGuard session baseline $(Get-Date -Format o) (never committed)")
         $lines += Get-ProcessTable |
-            Where-Object { $_.Name -match '^(dotnet|node|aspire|dcp|chrome-headless-shell|chromium)\.exe$' } |
+            Where-Object { $_.Name -match '^(dotnet|node|aspire|dcp|chrome-headless-shell|chromium|FinGuard\..+)\.exe$' } |
             ForEach-Object { "P:$($_.Pid):$($_.Started) $($_.Name) $($_.Command -replace '\s+', ' ')" }
         if (Get-Command docker -ErrorAction SilentlyContinue) {
             $lines += docker ps --format '{{.ID}} {{.Names}} {{.Image}}' 2>$null | ForEach-Object { "C:$_" }
