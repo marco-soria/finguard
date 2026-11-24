@@ -14,7 +14,7 @@ This is a portfolio project: cost must stay near zero until Phase 5 (see ADR-000
 ## Stack (verified 2026-11-13; re-verify before upgrading, pin versions in `Directory.Packages.props`)
 - .NET 10, ASP.NET Core Minimal APIs, EF Core + Npgsql, PostgreSQL.
 - Dapper for read-side queries (ADR-0007).
-- Aspire 13.x AppHost orchestrates API, Angular app and PostgreSQL container locally.
+- Aspire 17.x AppHost orchestrates API, Angular app and PostgreSQL container locally.
 - Wolverine 6.x (CQRS handlers, messaging, PostgreSQL transactional outbox).
 - Angular 22 (TypeScript 6, Node 24 LTS) with **pnpm** only.
 - Microsoft Agent Framework 1.x (`Microsoft.Agents.AI`) over `Microsoft.Extensions.AI`, behind the `IAdvisoryNarrator` port (ADR-0006). Stable packages only.
