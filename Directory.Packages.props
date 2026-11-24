@@ -2,19 +2,23 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
-    <!-- Resolved on 2026-11-14 with scripts/Get-LatestNuGetVersion.ps1. Stable versions only. -->
-    <AspireVersion>13.6.5</AspireVersion>
+    <!-- Resolved on 2026-11-24 on NuGet. Stable versions only. -->
+    <AspireVersion>17.0.0</AspireVersion>
+    <!-- No stable 17.x yet (only 17.0.0-preview.1); 13.6.5 has no Aspire dependencies. Move to AspireVersion when
+         17.x stable ships (R-45, checked by hand in each phase's majors review). -->
+    <AspireNpgsqlEfVersion>13.6.5</AspireNpgsqlEfVersion>
     <WolverineVersion>6.64.0</WolverineVersion>
     <!-- Latest stable 10.x; the 11.x line targets .NET 11 and is out of scope for net10.0. -->
     <MicrosoftNet10Version>10.0.15</MicrosoftNet10Version>
   </PropertyGroup>
   <ItemGroup Label="Aspire">
-    <!-- Aspire.Hosting.AppHost is referenced implicitly by Aspire.AppHost.Sdk (version in the AppHost csproj Sdk
-         attribute); a PackageVersion for it fails restore with NU1009. -->
+    <!-- The AppHost uses Microsoft.NET.Sdk with explicit Aspire.Hosting.AppHost and Aspire.Hosting.Dotnet (D-222). -->
+    <PackageVersion Include="Aspire.Hosting.AppHost" Version="$(AspireVersion)" />
+    <PackageVersion Include="Aspire.Hosting.Dotnet" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Npgsql" Version="$(AspireVersion)" />
-    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(AspireVersion)" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(AspireNpgsqlEfVersion)" />
   </ItemGroup>
   <ItemGroup Label="Messaging">
     <PackageVersion Include="WolverineFx" Version="$(WolverineVersion)" />

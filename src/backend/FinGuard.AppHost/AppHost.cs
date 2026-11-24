@@ -3,7 +3,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 var postgres = builder.AddPostgres("postgres").WithDataVolume();
 var database = postgres.AddDatabase("finguard");
 
-var api = builder.AddProject<Projects.FinGuard_Api>("api")
+var api = builder.AddDotnetProject("api", "../FinGuard.Api/FinGuard.Api.csproj")
     .WithReference(database)
     .WaitFor(database)
     .WithHttpHealthCheck("/health");
