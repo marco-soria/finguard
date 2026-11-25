@@ -3,6 +3,88 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-25 (session 26: Brief #17 executed)
+
+Branch `feat/rebalance-proposal`. Four commits, as planned in the brief. ADR-0013 accepted; the relax step of D-03 is
+superseded (D-233, confirmed by the owner before execution).
+
+### Owner answers to the execution plan
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-239 | D-233 confirmed: no relax step; verification gives `NotNeeded` / `Full` / `Partial`. The feasibility proof is in ADR-0013 | Owner-approved |
+| D-240 | Rounding edge case, which the brief did not define. Each receiver gets `floor_cents(min(S, H) x h / H)`. The leftover goes to the receiver with the largest headroom, ties by enum order (D-04). With no receiver, the leftover goes to the non-reducer with the largest headroom (`t - v`, may be 0 or negative), ties by enum order, and that class counts as a receiver | Owner-approved. A non-reducer always exists: all four in alert would need shares summing to at least `0.90 x sum(L) >= 0.90 / 0.85 > 1`. Bound: `S > H` leaves `S - H <= 3` cents; `S <= H` leaves rounding only (`<= 2` cents); every receiver ends `<= target + 0.03` (ADR-0013) |
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-241 | The status rule lives once in `ClassResult.For(utilization, alertThreshold)` (the Specifications). `Evaluation.Create` and the engine's verification both call it | Replaces the private `Evaluation.StatusOf`; "no second implementation of the status rule" |
+| D-242 | `EvaluationCompleted.ProposalStatus` and `ClassEvaluation.ProposedBookValue` are non-nullable and appended as the last positional parameters | Additive (ADR-0011). No stored messages to break: the event still has no route (D-199) |
+| D-243 | API `proposal.moves` leaves out classes with zero change. The order (D-235) is implemented once, in `Features/GetEvaluation/ProposalOrdering`. A stored status with a missing class amount throws (both columns are written in one transaction) | |
+| D-244 | UI totals row: Current = `totalBookValue`; Proposed = `totalBookValue` + sum of the API's changes; Change = that sum (`$0.00 (no change)`). Signed change text: `+$x (increase)`, `−$x (decrease)` (U+2212), `$0.00 (no change)`. `data-proposal-status` is `None` for a legacy evaluation | Display arithmetic on API values only; no rule in the SPA |
+| D-245 | **Deviation, needs the owner's OK:** the Partial sentence is `Partial: rounding leaves a class outside its target; review the amounts.`, without naming `{Class}` | The API does not say which class stays outside its target, and the SPA must not derive it. Option if wanted: add the class to the API's `proposal` block (additive) |
+| D-246 | **Deviation from the brief's wording:** the `NotNeeded` boundary test uses three classes at 0.8999 and none at 0. A Compliant portfolio cannot contain a zero class under the seed policy: the other three cap at `0.8999 x 0.95 < 1` of the total. The zero-value class is covered as a receiver (`Propose_FractionalTargetsAndZeroClass_...`) and in the generated table | |
+
+### Execution checks
+- Shares-heavy (T = 3,000,000.00), engine output equals the hand calculation in `RebalanceEngineTests`:
+  Shares 2,200,000.00 to 637,500.00 (−1,562,500.00); Cash 300,000.00 to 993,374.43 (+693,374.43, including the 0.01
+  leftover); Real estate 100,000.00 to 617,623.26 (+517,623.26); Fixed income 400,000.00 to 751,502.31
+  (+351,502.31). Status `Full`; total 3,000,000.00. DB rows, `EvaluationCompleted` and API agree (integration tests).
+- Generated table (seed 17, 10,000 portfolios, totals 1.00 to 10^12, half with free weights, half near the limits):
+  NotNeeded 1,449, Full 8,551, **Partial 0**; 2,124 cases with a middle class; no-receiver fallback 0 (reachable only
+  below 1.00 with the seed policy; covered by the 0.01 unit test, which is `Partial`).
+- `has-pending-model-changes`: no changes after `AddRebalanceProposal`.
+- Running app (`-StartAspire`): shares-heavy shows `Full` with the amounts above, balanced shows "No rebalancing
+  needed.", and a rejected file has no compliance section (no evaluation, D-204).
+
+### Tests
+- Backend `dotnet test -c Release`: 463 / 463 (baseline 442; +21).
+- Vitest: 111 / 111 (baseline 103). `pnpm e2e` twice: 9 / 9 both times.
+
+### Risks and flags
+- **R-46** measured: no `Partial` at totals of 1.00 USD or more in the generated table. Keep it open until Advisory
+  shows `Partial` text (#18).
+- **R-47 Untracked `finguard.sln`.** An ignored `finguard.sln` (created 2026-11-25 08:15, not by this session) sits next
+  to `FinGuard.slnx`. With it, a bare `dotnet build` fails with MSB1011. This session used `dotnet build FinGuard.slnx`.
+  The owner decides whether to delete it.
+
+### Next step
+Brief #18: Advisory module with `TemplateNarrator` (consumes `EvaluationCompleted` with the proposal) and its UI.
+
+## Delta 2026-11-25 (session 26: Phase 4 plan and Brief #17 planning)
+
+### Session 25 closing decisions (agreed in the planning chat, recorded here)
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-229 | Phase 4 runs locally at zero cost and needs no account: `TemplateNarrator` first, then a local model through Ollama in a container (Aspire Community Toolkit), verified at Brief #19. GitHub Models is not relied on (a November 2026 source reports it retired; unverified) | Open question 1 of the kickoff (local model) narrowed; final choice in Brief #19 |
+| D-230 | A Phase 6 (VPS: Dokploy, Tailscale, Hetzner; personal domain) is planned after Phase 5, not designed yet. Phase 5 is designed to be portable: one standard image configured by environment variables, migrations as a job, OTLP exporter chosen by configuration, Entra External ID kept, SPA as a static build, AI provider behind `IAdvisoryNarrator` | |
+| D-231 | The owner buys the personal domain before Phase 5; SWA Free supports custom domains with free certificates, so Phase 5 already uses it | |
+| D-232 | The repository stays a monorepo for every phase | |
+
+### Phase 4 plan
+| Brief | Scope |
+| --- | --- |
+| #17 | Rebalance engine in Compliance, stored with the evaluation, in `EvaluationCompleted`, API and UI |
+| #18 | Advisory module: consumes `EvaluationCompleted`, `TemplateNarrator`, stores the narrative, API, "Advisory" section with an asynchronous state; R-40 backfill decision |
+| #19 | `AgentFrameworkNarrator` over an `IChatClient` on a local model (Ollama via Aspire), output validation (numbers must match), timeout and fallback to the template, prompt-injection safeguards; closes Phase 4 |
+Phase 5 then starts at #20.
+
+### Brief #17 decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-233 | The relax-to-alert-threshold step of D-03 is removed: under `R × ΣL ≥ 1` the plan at the target ratio is always feasible in exact arithmetic. A verification step re-evaluates the proposed allocation: `Full` if every class ends Compliant, `Partial` otherwise (rounding only); `NotNeeded` for Compliant evaluations | **Supersedes part of D-03; owner confirmation required.** ADR-0013 |
+| D-234 | Reducers = Warning and Breached classes, reduced to `floor_cents(R × L × T)`; receivers = classes below their target, proportional to headroom, leftover cents to the largest headroom (D-04); middle classes untouched | |
+| D-235 | Move order: Breached, Warning (utilization desc), then receivers (amount desc), ties by `AssetClass` order; presentation only | |
+| D-236 | The proposal is part of `Evaluation` (computed in `Evaluation.Create`), stored in two nullable columns; no backfill | |
+| D-237 | `EvaluationCompleted` gains `ProposalStatus` and `ClassEvaluation.ProposedBookValue` (additive) | |
+| D-238 | API `proposal` block (null for legacy evaluations) and a "Rebalancing proposal" section with a totals row | |
+
+### Risks and flags
+- **R-46 Rounding `Partial` on tiny totals.** Only reachable through cent rounding; the generated table measures it.
+  If it shows up for realistic totals, revisit the rounding rule.
+
+### Next step
+Brief #18: Advisory module with `TemplateNarrator` (consumes `EvaluationCompleted` with the proposal) and its UI.
+
 ## Delta 2026-11-24 (session 25: Brief #16 executed)
 
 Branch `chore/aspire-17`. Three commits, as planned in the brief. Tooling only, no behaviour change. Closes R-08

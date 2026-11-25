@@ -21,10 +21,13 @@ alwaysApply: false
   - An alert is raised for every class with status `Warning` or `Breached` (class, status, utilization).
 - Express domain predicates as Specifications (`IsInAlert`, `IsBreached`). They are domain rules, not EF query helpers.
 - The rebalance engine is a pure domain service: (class totals, policy) in, proposal out. No I/O, no clock, no AI.
-  - Order: breached classes first, then classes in alert.
-  - Target = `RebalanceTargetRatio` (default 0.85) x limit. If infeasible, relax to `AlertThreshold` and mark `Partial`.
-  - Surplus goes to the other classes proportionally to headroom up to their target.
-  - Rounding to cents must preserve the total; the remainder cent goes to the class with the largest headroom.
+  `RebalanceEngine.Propose` in `Domain/Rebalancing/`, called by `Evaluation.Create` (ADR-0013).
+  - Reducers (Warning and Breached) go to their target `floor_cents(RebalanceTargetRatio x limit x total)`.
+  - Receivers (below their target) get `floor_cents(min(S, H) x headroom / H)`; leftover cents go to the largest
+    headroom, ties by `AssetClass` order. No receiver: the non-reducer with the largest headroom. Middle classes stay.
+  - No relax step (D-233). Verification re-evaluates the proposal with the same status rule: `NotNeeded` (Compliant
+    evaluation), `Full` (every class ends Compliant), `Partial` (cent rounding only). The total is preserved.
+  - Presentation order (Breached, Warning, then receivers by amount) lives in the read slice, not in the engine.
 - Policy invariants, enforced at creation: `RebalanceTargetRatio x sum(limits) >= 1` and `RebalanceTargetRatio < AlertThreshold`.
 - Policy versions are immutable and global (`compliance.limit_policies`, not tenant-owned). An evaluation uses the
   policy in force at the cut-off date (highest `effective_from` <= cut-off); before the first version the repository
