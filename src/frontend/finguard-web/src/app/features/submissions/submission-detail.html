@@ -138,6 +138,58 @@
           } @else {
             <p class="compliance-no-alerts">No alerts.</p>
           }
+          <section
+            class="proposal"
+            aria-labelledby="proposal-title"
+            [attr.data-proposal-status]="r.proposal?.status ?? 'None'"
+          >
+            <h4 id="proposal-title">Rebalancing proposal</h4>
+            @if (r.proposal; as p) {
+              <p class="proposal-summary">{{ p.sentence }}</p>
+              @if (p.rows.length > 0) {
+                <table mat-table [dataSource]="p.rows" class="proposal-moves">
+                  <caption>
+                    Proposed book value by asset class (USD)
+                  </caption>
+                  <ng-container matColumnDef="assetClass">
+                    <th mat-header-cell *matHeaderCellDef scope="col">Asset class</th>
+                    <td mat-cell *matCellDef="let m">{{ m.name }}</td>
+                    <th mat-footer-cell *matFooterCellDef scope="row">Total</th>
+                  </ng-container>
+                  <ng-container matColumnDef="current">
+                    <th mat-header-cell *matHeaderCellDef scope="col" class="num">Current</th>
+                    <td mat-cell *matCellDef="let m" class="num">{{ m.currentBookValue | usd }}</td>
+                    <td mat-footer-cell *matFooterCellDef class="num">
+                      {{ p.currentTotal | usd }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="proposed">
+                    <th mat-header-cell *matHeaderCellDef scope="col" class="num">Proposed</th>
+                    <td mat-cell *matCellDef="let m" class="num">
+                      {{ m.proposedBookValue | usd }}
+                    </td>
+                    <td mat-footer-cell *matFooterCellDef class="num">
+                      {{ p.proposedTotal | usd }}
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="change">
+                    <th mat-header-cell *matHeaderCellDef scope="col" class="num">Change</th>
+                    <td mat-cell *matCellDef="let m" class="num">{{ m.changeText }}</td>
+                    <td mat-footer-cell *matFooterCellDef class="num">{{ p.changeTotalText }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="proposalColumns"></tr>
+                  <tr
+                    mat-row
+                    *matRowDef="let m; columns: proposalColumns"
+                    [attr.data-class]="m.assetClass"
+                  ></tr>
+                  <tr mat-footer-row *matFooterRowDef="proposalColumns" class="proposal-total"></tr>
+                </table>
+              }
+            } @else {
+              <p class="proposal-summary">No proposal is available for this evaluation.</p>
+            }
+          </section>
         }
       </section>
     }

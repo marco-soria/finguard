@@ -23,6 +23,23 @@ export interface EvaluationAlert {
   utilization: number;
 }
 
+/** `NotNeeded`, `Full` or `Partial`, decided by the API (ADR-0013); the SPA never derives it. */
+export type ProposalStatus = string;
+
+/** One class that changes. `change` is signed: negative reduces the class, positive adds to it. */
+export interface ProposalMove {
+  assetClass: AssetClass;
+  currentBookValue: number;
+  proposedBookValue: number;
+  change: number;
+}
+
+/** The rebalance proposal; `moves` come in presentation order from the API (D-235) and are empty for `NotNeeded`. */
+export interface RebalanceProposal {
+  status: ProposalStatus;
+  moves: ProposalMove[];
+}
+
 /**
  * `GET /api/compliance/submissions/{id}/evaluation`. `cutOffDate` is a `yyyy-MM-dd` calendar date (D-103).
  * `alertThreshold` comes from the evaluation's policy snapshot (D-206).
@@ -38,6 +55,8 @@ export interface EvaluationResponse {
   alertThreshold: number;
   classes: ClassEvaluation[];
   alerts: EvaluationAlert[];
+  /** `null` for evaluations stored before the rebalance engine existed (D-238). */
+  proposal: RebalanceProposal | null;
 }
 
 /** The API's 404 code for an unknown, foreign or not-yet-evaluated submission (D-205). */

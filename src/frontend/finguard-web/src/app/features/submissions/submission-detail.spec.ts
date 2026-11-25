@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { problemDetailsInterceptor } from '../../core/http/problem-details.interceptor';
-import SubmissionDetail, { EVALUATION_RETRY_DELAYS_MS } from './submission-detail';
+import SubmissionDetail, { changeText, EVALUATION_RETRY_DELAYS_MS } from './submission-detail';
 
 describe('SubmissionDetail', () => {
   let fixture: ComponentFixture<SubmissionDetail>;
@@ -391,5 +391,105 @@ describe('SubmissionDetail', () => {
       vi.advanceTimersByTime(60_000);
       backend.expectNone(evaluationUrl);
     });
+  });
+
+  describe('rebalancing proposal', () => {
+    // Shares-heavy sample as the API returns it: the reducer first, then receivers by amount.
+    const fullProposal = {
+      status: 'Full',
+      moves: [
+        {
+          assetClass: 'Shares',
+          currentBookValue: 2200000,
+          proposedBookValue: 637500,
+          change: -1562500,
+        },
+        {
+          assetClass: 'Cash',
+          currentBookValue: 300000,
+          proposedBookValue: 993374.43,
+          change: 693374.43,
+        },
+        {
+          assetClass: 'RealEstate',
+          currentBookValue: 100000,
+          proposedBookValue: 617623.26,
+          change: 517623.26,
+        },
+        {
+          assetClass: 'FixedIncome',
+          currentBookValue: 400000,
+          proposedBookValue: 751502.31,
+          change: 351502.31,
+        },
+      ],
+    };
+
+    const showProposal = async (proposal: unknown) => {
+      await acceptSubmission();
+      backend.expectOne(evaluationUrl).flush({ ...evaluation, proposal });
+      await fixture.whenStable();
+    };
+
+    const section = () => element.querySelector('.proposal');
+    const summary = () => element.querySelector('.proposal-summary')?.textContent?.trim();
+    const rows = (selector: string) =>
+      Array.from(element.querySelectorAll(`.proposal-moves ${selector}`)).map((tr) =>
+        Array.from(tr.querySelectorAll('th, td')).map((cell) => cell.textContent?.trim()),
+      );
+
+    it('says no rebalancing is needed and shows no table', async () => {
+      await showProposal({ status: 'NotNeeded', moves: [] });
+
+      expect(section()?.getAttribute('data-proposal-status')).toBe('NotNeeded');
+      expect(summary()).toBe('No rebalancing needed.');
+      expect(element.querySelector('.proposal-moves')).toBeNull();
+    });
+
+    it('lists the moves in API order with signed changes and a totals row', async () => {
+      await showProposal(fullProposal);
+
+      expect(section()?.getAttribute('data-proposal-status')).toBe('Full');
+      expect(summary()).toBe('Moving the amounts below brings every class within its limit.');
+      expect(element.querySelector('.proposal-moves caption')).not.toBeNull();
+      expect(rows('tr.mat-mdc-row')).toEqual([
+        ['Shares', '$2,200,000.00', '$637,500.00', '−$1,562,500.00 (decrease)'],
+        ['Cash', '$300,000.00', '$993,374.43', '+$693,374.43 (increase)'],
+        ['Real estate', '$100,000.00', '$617,623.26', '+$517,623.26 (increase)'],
+        ['Fixed income', '$400,000.00', '$751,502.31', '+$351,502.31 (increase)'],
+      ]);
+      expect(rows('tr.proposal-total')).toEqual([
+        ['Total', '$3,000,000.00', '$3,000,000.00', '$0.00 (no change)'],
+      ]);
+    });
+
+    it('explains a partial proposal', async () => {
+      await showProposal({ ...fullProposal, status: 'Partial' });
+
+      expect(section()?.getAttribute('data-proposal-status')).toBe('Partial');
+      expect(summary()).toBe(
+        'Partial: rounding leaves a class outside its target; review the amounts.',
+      );
+    });
+
+    it('says when an older evaluation has no proposal', async () => {
+      await showProposal(null);
+
+      expect(section()?.getAttribute('data-proposal-status')).toBe('None');
+      expect(summary()).toBe('No proposal is available for this evaluation.');
+      expect(element.querySelector('.proposal-moves')).toBeNull();
+    });
+  });
+});
+
+describe('changeText', () => {
+  it.each([
+    [693374.43, '+$693,374.43 (increase)'],
+    [-1562500, '−$1,562,500.00 (decrease)'],
+    [0, '$0.00 (no change)'],
+    // A floating-point sum of exact cents never shows as "-$0.00".
+    [0.1 + 0.2 - 0.3, '$0.00 (no change)'],
+  ])('formats %d as %s', (change, expected) => {
+    expect(changeText(change)).toBe(expected);
   });
 });

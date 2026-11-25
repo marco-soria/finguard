@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Dapper;
 using FinGuard.Api.IntegrationTests.Portfolio;
 using FinGuard.Compliance.Features.GetEvaluation;
 using FinGuard.Tenancy.Development;
+using Npgsql;
 
 namespace FinGuard.Api.IntegrationTests.Compliance;
 
@@ -42,6 +44,59 @@ public sealed class GetEvaluationTests(ApiFixture fixture)
             ],
             evaluation.Classes);
         Assert.Equal([new AlertItem("Shares", "Breached", sharesShare / 0.25m)], evaluation.Alerts);
+    }
+
+    [Fact]
+    public async Task Upload_SharesHeavy_ApiReturnsTheStoredFullProposalInPresentationOrder()
+    {
+        var identity = await fixture.ProvisionTenantAsync(_ct);
+        using var client = fixture.CreateClient(identity);
+        var submissionId = await UploadAsync(client, "valid-shares-heavy.csv");
+
+        var evaluation = await client.GetFromJsonAsync<EvaluationResponse>(PathFor(submissionId), _ct);
+
+        // Same amounts as the stored rows (EvaluatePortfolioTests.Upload_SharesHeavy_StoresFullProposalPreservingTotal):
+        // the reducer first, then receivers by amount received.
+        Assert.NotNull(evaluation?.Proposal);
+        Assert.Equal("Full", evaluation.Proposal.Status);
+        Assert.Equal(
+            [
+                new MoveItem("Shares", 2_200_000.00m, 637_500.00m, -1_562_500.00m),
+                new MoveItem("Cash", 300_000.00m, 993_374.43m, 693_374.43m),
+                new MoveItem("RealEstate", 100_000.00m, 617_623.26m, 517_623.26m),
+                new MoveItem("FixedIncome", 400_000.00m, 751_502.31m, 351_502.31m),
+            ],
+            evaluation.Proposal.Moves);
+        Assert.Equal(0m, evaluation.Proposal.Moves.Sum(m => m.Change));
+    }
+
+    [Fact]
+    public async Task GetEvaluation_Balanced_ReturnsNotNeededWithoutMoves()
+    {
+        using var client = fixture.CreateClient(DevIdentities.Alice);
+        var submissionId = await UploadAsync(client, Csv("350.00", "250.00", "200.00", "200.00"));
+
+        var evaluation = await client.GetFromJsonAsync<EvaluationResponse>(PathFor(submissionId), _ct);
+
+        Assert.Equal("NotNeeded", evaluation?.Proposal?.Status);
+        Assert.Empty(evaluation!.Proposal!.Moves);
+    }
+
+    [Fact]
+    public async Task GetEvaluation_LegacyWithoutProposal_ReturnsNullProposal()
+    {
+        // An evaluation stored before the rebalance engine: the two new columns were never written (D-236).
+        var identity = await fixture.ProvisionTenantAsync(_ct);
+        var submissionId = Guid.CreateVersion7();
+        await InsertLegacyEvaluationAsync(identity.TenantId, submissionId);
+        using var client = fixture.CreateClient(identity);
+
+        using var response = await client.GetAsync(PathFor(submissionId), _ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(_ct));
+        Assert.Equal(JsonValueKind.Null, json.RootElement.GetProperty("proposal").ValueKind);
+        Assert.Equal(4, json.RootElement.GetProperty("classes").GetArrayLength());
     }
 
     [Fact]
@@ -99,6 +154,27 @@ public sealed class GetEvaluationTests(ApiFixture fixture)
         var (_, response) = await SubmissionEvents.UploadTrackedAsync(
             fixture, client, content, "2026-06-30", HttpStatusCode.Created, _ct);
         return response.SubmissionId;
+    }
+
+    private async Task InsertLegacyEvaluationAsync(Guid tenantId, Guid submissionId)
+    {
+        var evaluationId = Guid.CreateVersion7();
+        await using var connection = new NpgsqlConnection(fixture.ConnectionString);
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            INSERT INTO compliance.evaluations
+                (id, tenant_id, submission_id, cut_off_date, evaluated_at, total_book_value, overall_status,
+                 policy_version, cash_limit, fixed_income_limit, shares_limit, real_estate_limit, alert_threshold,
+                 rebalance_target_ratio)
+            VALUES (@evaluationId, @tenantId, @submissionId, DATE '2026-06-30', now(), 100.00, 'Compliant',
+                    1, 0.40, 0.30, 0.25, 0.25, 0.90, 0.85);
+            INSERT INTO compliance.evaluation_classes (evaluation_id, tenant_id, asset_class, book_value, share, utilization, status)
+            VALUES (@evaluationId, @tenantId, 'Cash', 35.00, 0.35, 0.875, 'Compliant'),
+                   (@evaluationId, @tenantId, 'FixedIncome', 25.00, 0.25, 0.25 / 0.30, 'Compliant'),
+                   (@evaluationId, @tenantId, 'Shares', 20.00, 0.20, 0.80, 'Compliant'),
+                   (@evaluationId, @tenantId, 'RealEstate', 20.00, 0.20, 0.80, 'Compliant');
+            """,
+            new { evaluationId, tenantId, submissionId }, cancellationToken: _ct));
     }
 
     private async Task AssertNotFoundAsync(HttpResponseMessage response)

@@ -13,7 +13,8 @@ public static class GetEvaluationHandler
     private const string Sql = """
         SELECT id AS "EvaluationId", submission_id AS "SubmissionId", cut_off_date AS "CutOffDate",
                overall_status AS "OverallStatus", policy_version AS "PolicyVersion", evaluated_at AS "EvaluatedAt",
-               total_book_value AS "TotalBookValue", alert_threshold AS "AlertThreshold"
+               total_book_value AS "TotalBookValue", alert_threshold AS "AlertThreshold",
+               proposal_status AS "ProposalStatus"
         FROM compliance.evaluations
         WHERE submission_id = @SubmissionId AND tenant_id = @TenantId;
 
@@ -24,7 +25,7 @@ public static class GetEvaluationHandler
                    WHEN 'Shares' THEN e.shares_limit
                    WHEN 'RealEstate' THEN e.real_estate_limit
                END AS "Limit",
-               c.utilization AS "Utilization", c.status AS "Status"
+               c.utilization AS "Utilization", c.status AS "Status", c.proposed_book_value AS "ProposedBookValue"
         FROM compliance.evaluation_classes c
         JOIN compliance.evaluations e ON e.id = c.evaluation_id
         WHERE e.submission_id = @SubmissionId AND e.tenant_id = @TenantId AND c.tenant_id = @TenantId
@@ -38,24 +39,36 @@ public static class GetEvaluationHandler
         await using var results = await connection.QueryMultipleAsync(new CommandDefinition(
             Sql, new { query.SubmissionId, TenantId = tenant.RequiredTenantId }, cancellationToken: ct));
         var row = await results.ReadSingleOrDefaultAsync<Row>();
-        var classes = (await results.ReadAsync<ClassEvaluationItem>()).ToList();
+        var classRows = (await results.ReadAsync<ClassRow>()).ToList();
 
         if (row is null)
         {
             return Error.NotFound("Compliance.Evaluation.NotFound", "The evaluation does not exist.");
         }
 
+        var classes = classRows
+            .Select(c => new ClassEvaluationItem(c.AssetClass, c.BookValue, c.Share, c.Limit, c.Utilization, c.Status))
+            .ToList();
         var alerts = classes
             .Where(c => c.Status != "Compliant")
             .Select(c => new AlertItem(c.AssetClass, c.Status, c.Utilization))
             .ToList();
         return new EvaluationResponse(
             row.EvaluationId, row.SubmissionId, row.CutOffDate, row.OverallStatus, row.PolicyVersion,
-            new DateTimeOffset(row.EvaluatedAt), row.TotalBookValue, row.AlertThreshold, classes, alerts);
+            new DateTimeOffset(row.EvaluatedAt), row.TotalBookValue, row.AlertThreshold, classes, alerts,
+            ProposalOrdering.Build(row.ProposalStatus, classes.Zip(classRows, (item, c) => (item, ProposedOf(c)))));
     }
 
     // Npgsql hands timestamptz to Dapper as a UTC DateTime, which a DateTimeOffset constructor parameter cannot bind.
     private sealed record Row(
         Guid EvaluationId, Guid SubmissionId, DateOnly CutOffDate, string OverallStatus, int PolicyVersion,
-        DateTime EvaluatedAt, decimal TotalBookValue, decimal AlertThreshold);
+        DateTime EvaluatedAt, decimal TotalBookValue, decimal AlertThreshold, string? ProposalStatus);
+
+    private sealed record ClassRow(
+        string AssetClass, decimal BookValue, decimal Share, decimal Limit, decimal Utilization, string Status,
+        decimal? ProposedBookValue);
+
+    // Only read when proposal_status is set; both columns are written in the same transaction (D-236).
+    private static decimal ProposedOf(ClassRow row) =>
+        row.ProposedBookValue ?? throw new InvalidOperationException("A stored proposal is missing a class amount.");
 }
