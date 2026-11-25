@@ -28,7 +28,7 @@ public sealed class LimitPolicy
 
     public Ratio AlertThreshold { get; }
 
-    /// <summary>Kept here for its invariant; the rebalance engine that uses it is Phase 4.</summary>
+    /// <summary>Share of each limit the rebalance engine targets (ADR-0013).</summary>
     public Ratio RebalanceTargetRatio { get; }
 
     public static Result<LimitPolicy> Create(

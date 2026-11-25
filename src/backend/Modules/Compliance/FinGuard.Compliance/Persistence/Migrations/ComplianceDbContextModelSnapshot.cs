@@ -39,6 +39,11 @@ namespace FinGuard.Compliance.Persistence.Migrations
                         .HasColumnType("numeric(18,2)")
                         .HasColumnName("book_value");
 
+                    b.Property<decimal?>("ProposedBookValue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("proposed_book_value");
+
                     b.Property<decimal>("Share")
                         .HasColumnType("numeric")
                         .HasColumnName("share");
@@ -101,6 +106,11 @@ namespace FinGuard.Compliance.Persistence.Migrations
                     b.Property<int>("PolicyVersion")
                         .HasColumnType("integer")
                         .HasColumnName("policy_version");
+
+                    b.Property<string>("ProposalStatus")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("proposal_status");
 
                     b.Property<decimal>("RealEstateLimit")
                         .HasPrecision(5, 4)

@@ -5,6 +5,7 @@ namespace FinGuard.Compliance.Contracts.Events;
 /// accepted submission once, against the limit policy in force at its cut-off date (D-193).
 /// </summary>
 /// <param name="PolicyVersion">The limit policy version the evaluation used.</param>
+/// <param name="ProposalStatus">Outcome of the rebalance proposal; the amounts are in <c>Classes</c> (ADR-0013).</param>
 /// <param name="Classes">
 /// Exactly four entries, one per <see cref="AssetClassCode"/> in enum order. Amounts are book value in USD (ADR-0010).
 /// </param>
@@ -18,7 +19,8 @@ public sealed record EvaluationCompleted(
     DateOnly CutOffDate,
     ComplianceStatusCode OverallStatus,
     int PolicyVersion,
-    IReadOnlyList<ClassEvaluation> Classes)
+    IReadOnlyList<ClassEvaluation> Classes,
+    ProposalStatusCode ProposalStatus)
 {
     // Identifiers only: never dates, amounts or statuses in logs (D-162).
     public override string ToString() =>
