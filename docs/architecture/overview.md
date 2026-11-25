@@ -147,9 +147,9 @@ sequenceDiagram
   OB-->>C: SubmissionAccepted (durable local queue)
   C->>OB: store portfolio snapshot (idempotent by EventId) + EvaluatePortfolio
   OB-->>C: EvaluatePortfolio (durable local queue)
-  C->>C: evaluate against the policy version in force at the cut-off date
-  C->>OB: store evaluation + EvaluationCompleted (one transaction, once per submission)
-  Note over C,A: Phase 4 from here (rebalance proposal, Advisory subscribes)
+  C->>C: evaluate against the policy version in force at the cut-off date + rebalance proposal (ADR-0013)
+  C->>OB: store evaluation with proposal + EvaluationCompleted (one transaction, once per submission)
+  Note over C,A: Phase 4 from here (Advisory subscribes)
   OB-->>A: EvaluationCompleted
   A->>N: class names, percentages, amounts, status
   alt narrator succeeds and numbers validate

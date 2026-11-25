@@ -1,5 +1,6 @@
 using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Compliance.Domain;
+using FinGuard.Compliance.Domain.Rebalancing;
 
 namespace FinGuard.Compliance.Persistence;
 
@@ -39,6 +40,9 @@ internal sealed class EvaluationRow : ITenantOwned
 
     public decimal RebalanceTargetRatio { get; init; }
 
+    // Null only for evaluations stored before the rebalance engine (D-236); no backfill.
+    public ProposalStatus? ProposalStatus { get; init; }
+
     public List<EvaluationClassRow> Classes { get; init; } = [];
 
     public static EvaluationRow From(Evaluation evaluation)
@@ -61,6 +65,7 @@ internal sealed class EvaluationRow : ITenantOwned
             RealEstateLimit = limits[AssetClass.RealEstate].Value,
             AlertThreshold = evaluation.Policy.AlertThreshold.Value,
             RebalanceTargetRatio = evaluation.Policy.RebalanceTargetRatio.Value,
+            ProposalStatus = evaluation.Proposal.Status,
             Classes = evaluation.Classes
                 .Select(c => new EvaluationClassRow
                 {
@@ -70,6 +75,8 @@ internal sealed class EvaluationRow : ITenantOwned
                     Share = c.Utilization.Share.Value,
                     Utilization = c.Utilization.Utilization.Value,
                     Status = c.Status,
+                    ProposedBookValue = evaluation.Proposal.Moves
+                        .Single(m => m.Class == c.Utilization.Class).Proposed.Amount,
                 })
                 .ToList(),
         };
@@ -92,4 +99,7 @@ internal sealed class EvaluationClassRow : ITenantOwned
     public decimal Utilization { get; init; }
 
     public ComplianceStatus Status { get; init; }
+
+    // Null only for evaluations stored before the rebalance engine (D-236).
+    public decimal? ProposedBookValue { get; init; }
 }

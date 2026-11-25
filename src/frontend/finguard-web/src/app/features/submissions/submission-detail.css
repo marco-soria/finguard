@@ -61,6 +61,31 @@ dd {
   color: var(--mat-sys-on-surface-variant);
 }
 
+.proposal {
+  margin-top: 1.5rem;
+}
+
+.proposal-moves {
+  max-width: 60rem;
+}
+
+.proposal-moves caption {
+  text-align: start;
+  padding: 0.5rem 0;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.proposal-total th,
+.proposal-total td {
+  font-weight: 600;
+}
+
+/* A row header in a footer row gets no Material cell padding of its own. */
+.proposal-total th {
+  text-align: start;
+  padding-inline-start: 16px;
+}
+
 .num {
   text-align: end;
   font-variant-numeric: tabular-nums;

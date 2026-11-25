@@ -55,9 +55,9 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
   each evaluation stores the policy version and a snapshot of limits.
 - Utilization = (class value / total) / limit. `>= 0.90` alert. Exactly `1.00` is still within limit (warning).
   `> 1.00` breached. Precedence: breached > warning > compliant. Compare unrounded decimals.
-- Rebalance target = 0.85 x limit (configurable); relax to 0.90 if infeasible and mark the proposal `Partial`.
-  Order: breached classes first, then alert classes. Surplus goes to other classes proportionally to headroom.
-  Rounding to cents must preserve the total.
+- Rebalance (ADR-0013): Warning and Breached classes go to 0.85 x limit (configurable), floored to cents; the surplus
+  goes to classes below their target proportionally to headroom. Order: breached classes first, then alert classes.
+  Rounding to cents must preserve the total. Proposal status `NotNeeded`, `Full` or `Partial` (verification; no relax step).
 - Limits are evaluated on book value (ADR-0010).
 - Portfolio validation: complete data, `book_value >= 0` per row and total > 0, currency `USD` only
   (case-insensitive), known asset class, description optional ≤ 150 characters and not stored. `position_id` and

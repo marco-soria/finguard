@@ -1,4 +1,4 @@
-using FinGuard.Compliance.Domain.Specifications;
+using FinGuard.Compliance.Domain.Rebalancing;
 
 namespace FinGuard.Compliance.Domain;
 
@@ -25,6 +25,7 @@ public sealed class Evaluation
             .Where(c => c.Status != ComplianceStatus.Compliant)
             .Select(c => new Alert(c.Utilization.Class, c.Status, c.Utilization.Utilization))
             .ToList();
+        Proposal = RebalanceEngine.Propose(classes, total, policy);
     }
 
     public Guid Id { get; }
@@ -45,6 +46,9 @@ public sealed class Evaluation
     public IReadOnlyList<Alert> Alerts { get; }
 
     public PolicySnapshot Policy { get; }
+
+    /// <summary>The deterministic rebalance proposal for this evaluation (ADR-0013).</summary>
+    public RebalanceProposal Proposal { get; }
 
     /// <summary>
     /// Inputs come from an accepted submission, so a missing class or a zero total is a bug upstream, not a business
@@ -69,11 +73,9 @@ public sealed class Evaluation
             throw new ArgumentException("The portfolio total must be greater than zero.", nameof(classValues));
         }
 
-        var breached = new IsBreachedSpecification();
-        var warning = new IsInAlertSpecification(policy.AlertThreshold).And(breached.Not());
         var results = classes
             .Select(c => ClassUtilization.Calculate(c, classValues[c], total, policy.Limits[c]))
-            .Select(u => new ClassResult(u, StatusOf(u, breached, warning)))
+            .Select(u => ClassResult.For(u, policy.AlertThreshold))
             .ToList();
 
         return new Evaluation(submissionId, cutOffDate, evaluatedAt, total, results, policy.ToSnapshot());
@@ -82,15 +84,4 @@ public sealed class Evaluation
     // D-162: identifiers only.
     public override string ToString() =>
         $"{nameof(Evaluation)} {{ Id = {Id}, SubmissionId = {SubmissionId}, PolicyVersion = {Policy.Version} }}";
-
-    private static ComplianceStatus StatusOf(
-        ClassUtilization utilization, Specification<ClassUtilization> breached, Specification<ClassUtilization> warning)
-    {
-        if (breached.IsSatisfiedBy(utilization))
-        {
-            return ComplianceStatus.Breached;
-        }
-
-        return warning.IsSatisfiedBy(utilization) ? ComplianceStatus.Warning : ComplianceStatus.Compliant;
-    }
 }

@@ -17,3 +17,4 @@ ADR to change its meaning: add a new one that supersedes it.
 | [0010](0010-valuation-basis-book-value.md) | Limits are evaluated on book value | Accepted |
 | [0011](0011-portfolio-compliance-integration-contract.md) | Portfolio to Compliance integration contract | Accepted |
 | [0012](0012-compliance-domain-model.md) | Compliance domain model | Accepted |
+| [0013](0013-rebalance-engine.md) | Rebalance engine | Accepted |

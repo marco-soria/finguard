@@ -88,6 +88,7 @@ public sealed class ComplianceDbContext(DbContextOptions<ComplianceDbContext> op
             evaluation.Property(e => e.RealEstateLimit).HasPrecision(5, 4);
             evaluation.Property(e => e.AlertThreshold).HasPrecision(5, 4);
             evaluation.Property(e => e.RebalanceTargetRatio).HasPrecision(5, 4);
+            evaluation.Property(e => e.ProposalStatus).HasConversion<string>().HasMaxLength(16);
             evaluation.HasMany(e => e.Classes).WithOne().HasForeignKey(c => c.EvaluationId).OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -100,6 +101,7 @@ public sealed class ComplianceDbContext(DbContextOptions<ComplianceDbContext> op
             evaluationClass.Property(c => c.Share).HasColumnType("numeric");
             evaluationClass.Property(c => c.Utilization).HasColumnType("numeric");
             evaluationClass.Property(c => c.Status).HasConversion<string>().HasMaxLength(16);
+            evaluationClass.Property(c => c.ProposedBookValue).HasPrecision(18, 2);
         });
 
         // Last: the base class adds the tenant filter to the entity types mapped above.

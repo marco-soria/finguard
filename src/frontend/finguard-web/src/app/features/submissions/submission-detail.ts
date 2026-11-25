@@ -18,6 +18,7 @@ import {
   ComplianceApi,
   EVALUATION_NOT_FOUND,
   EvaluationAlert,
+  EvaluationResponse,
 } from '../../core/api/compliance-api';
 import { PortfolioApi } from '../../core/api/portfolio-api';
 import { ApiError } from '../../core/http/api-error';
@@ -47,6 +48,44 @@ function alertText(alert: EvaluationAlert, alertThreshold: number): string {
   return `${className(alert.assetClass)} is ${where} its limit (${used} of the limit used).`;
 }
 
+const usd = new UsdPipe();
+
+const PROPOSAL_SENTENCES: Record<string, string> = {
+  NotNeeded: 'No rebalancing needed.',
+  Full: 'Moving the amounts below brings every class within its limit.',
+  // The API does not say which class stays outside its target, so the sentence does not name one.
+  Partial: 'Partial: rounding leaves a class outside its target; review the amounts.',
+};
+
+/** An explicit sign and a word, never colour alone (D-209). The API's amounts are exact to the cent. */
+export function changeText(change: number): string {
+  const cents = Math.round(change * 100) / 100;
+  const amount = usd.transform(Math.abs(cents));
+  if (cents > 0) {
+    return `+${amount} (increase)`;
+  }
+  return cents < 0 ? `−${amount} (decrease)` : `${amount} (no change)`;
+}
+
+function proposalView(e: EvaluationResponse) {
+  if (!e.proposal) {
+    return null;
+  }
+  const changeTotal = e.proposal.moves.reduce((sum, m) => sum + m.change, 0);
+  return {
+    status: e.proposal.status,
+    sentence: PROPOSAL_SENTENCES[e.proposal.status] ?? e.proposal.status,
+    rows: e.proposal.moves.map((m) => ({
+      ...m,
+      name: className(m.assetClass),
+      changeText: changeText(m.change),
+    })),
+    currentTotal: e.totalBookValue,
+    proposedTotal: e.totalBookValue + changeTotal,
+    changeTotalText: changeText(changeTotal),
+  };
+}
+
 export type EvaluationState = 'none' | 'pending' | 'timeout' | 'error' | 'ready';
 
 @Component({
@@ -70,6 +109,7 @@ export default class SubmissionDetail {
     'utilization',
     'status',
   ];
+  protected readonly proposalColumns = ['assetClass', 'current', 'proposed', 'change'];
   protected readonly details = computed(() =>
     this.submission.hasValue() ? this.submission.value() : undefined,
   );
@@ -121,6 +161,7 @@ export default class SubmissionDetail {
         utilizationText: formatRatio(c.utilization, c.status, e.alertThreshold),
       })),
       alertTexts: e.alerts.map((a) => ({ status: a.status, text: alertText(a, e.alertThreshold) })),
+      proposal: proposalView(e),
     };
   });
 

@@ -120,6 +120,59 @@ public sealed class EvaluatePortfolioTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task Upload_SharesHeavy_StoresFullProposalPreservingTotal()
+    {
+        var identity = await fixture.ProvisionTenantAsync(_ct);
+
+        var (_, response) = await UploadAsync(identity, Sample("valid-shares-heavy.csv"), "2026-06-30");
+
+        // Hand calculation: RebalanceEngineTests.Propose_SharesHeavySample_ReducesSharesToTargetAndSplitsSurplusByHeadroom.
+        var evaluation = Assert.Single(await EvaluationRowsAsync(response.SubmissionId));
+        Assert.Equal("Full", evaluation.ProposalStatus);
+        var classes = await ClassRowsAsync(evaluation.Id);
+        Assert.Equal(
+            [
+                ("Cash", 300_000.00m, (decimal?)993_374.43m),
+                ("FixedIncome", 400_000.00m, (decimal?)751_502.31m),
+                ("Shares", 2_200_000.00m, (decimal?)637_500.00m),
+                ("RealEstate", 100_000.00m, (decimal?)617_623.26m),
+            ],
+            classes.Select(c => (c.AssetClass, c.BookValue, c.ProposedBookValue)));
+        Assert.Equal(evaluation.TotalBookValue, classes.Sum(c => c.ProposedBookValue));
+    }
+
+    [Fact]
+    public async Task Upload_ValidBalanced_StoresNotNeeded()
+    {
+        var identity = await fixture.ProvisionTenantAsync(_ct);
+
+        var (_, response) = await UploadAsync(identity, Sample("valid-balanced.csv"), "2026-06-30");
+
+        var evaluation = Assert.Single(await EvaluationRowsAsync(response.SubmissionId));
+        Assert.Equal("NotNeeded", evaluation.ProposalStatus);
+        Assert.All(await ClassRowsAsync(evaluation.Id), c => Assert.Equal(c.BookValue, c.ProposedBookValue));
+    }
+
+    [Fact]
+    public async Task Upload_Valid_EvaluationCompletedCarriesProposal()
+    {
+        var identity = await fixture.ProvisionTenantAsync(_ct);
+
+        var (session, response) = await UploadAsync(identity, Sample("valid-shares-heavy.csv"), "2026-06-30");
+
+        var published = Assert.Single(Cascaded(session, response.SubmissionId));
+        Assert.Equal(ProposalStatusCode.Full, published.ProposalStatus);
+        Assert.Equal(
+            [
+                (AssetClassCode.Cash, 993_374.43m),
+                (AssetClassCode.FixedIncome, 751_502.31m),
+                (AssetClassCode.Shares, 637_500.00m),
+                (AssetClassCode.RealEstate, 617_623.26m),
+            ],
+            published.Classes.Select(c => (c.AssetClass, c.ProposedBookValue)));
+    }
+
+    [Fact]
     public async Task EvaluatePortfolio_DeliveredTwice_StoresOneEvaluation()
     {
         var @event = Event(Acme, new DateOnly(2026, 1, 31));
@@ -300,7 +353,7 @@ public sealed class EvaluatePortfolioTests(ApiFixture fixture)
                    total_book_value AS TotalBookValue, policy_version AS PolicyVersion, cash_limit AS CashLimit,
                    fixed_income_limit AS FixedIncomeLimit, shares_limit AS SharesLimit,
                    real_estate_limit AS RealEstateLimit, alert_threshold AS AlertThreshold,
-                   rebalance_target_ratio AS RebalanceTargetRatio
+                   rebalance_target_ratio AS RebalanceTargetRatio, proposal_status AS ProposalStatus
             FROM compliance.evaluations WHERE submission_id = @submissionId
             """,
             new { submissionId }, cancellationToken: _ct));
@@ -314,7 +367,7 @@ public sealed class EvaluatePortfolioTests(ApiFixture fixture)
         var rows = await connection.QueryAsync<ClassDbRow>(new CommandDefinition(
             """
             SELECT asset_class AS AssetClass, tenant_id AS TenantId, book_value AS BookValue, share AS Share,
-                   utilization AS Utilization, status AS Status
+                   utilization AS Utilization, status AS Status, proposed_book_value AS ProposedBookValue
             FROM compliance.evaluation_classes WHERE evaluation_id = @evaluationId
             ORDER BY array_position(ARRAY['Cash', 'FixedIncome', 'Shares', 'RealEstate'], asset_class::text)
             """,
@@ -348,8 +401,9 @@ public sealed class EvaluatePortfolioTests(ApiFixture fixture)
     private sealed record EvaluationDbRow(
         Guid Id, Guid TenantId, DateOnly CutOffDate, string OverallStatus, decimal TotalBookValue, int PolicyVersion,
         decimal CashLimit, decimal FixedIncomeLimit, decimal SharesLimit, decimal RealEstateLimit, decimal AlertThreshold,
-        decimal RebalanceTargetRatio);
+        decimal RebalanceTargetRatio, string? ProposalStatus);
 
     private sealed record ClassDbRow(
-        string AssetClass, Guid TenantId, decimal BookValue, decimal Share, decimal Utilization, string Status);
+        string AssetClass, Guid TenantId, decimal BookValue, decimal Share, decimal Utilization, string Status,
+        decimal? ProposedBookValue);
 }
