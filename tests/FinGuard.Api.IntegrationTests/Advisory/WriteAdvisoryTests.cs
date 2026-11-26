@@ -91,10 +91,10 @@ public sealed class WriteAdvisoryTests(ApiFixture fixture)
             Guid.CreateVersion7(now), tenantId, now, Guid.CreateVersion7(now), Guid.CreateVersion7(now),
             new DateOnly(2026, 1, 31), ComplianceStatusCode.Breached, 1,
             [
-                new(AssetClassCode.Cash, 0m, 0.40m, 0m, ComplianceStatusCode.Compliant, 0m),
-                new(AssetClassCode.FixedIncome, 0m, 0.30m, 0m, ComplianceStatusCode.Compliant, 0m),
-                new(AssetClassCode.Shares, 987_654.32m, 0.25m, 4m, ComplianceStatusCode.Breached, 987_654.32m),
-                new(AssetClassCode.RealEstate, 0m, 0.25m, 0m, ComplianceStatusCode.Compliant, 0m),
+                new(AssetClassCode.Cash, 0m, 0.40m, 0m, ComplianceStatusCode.Compliant, 0m, 0m),
+                new(AssetClassCode.FixedIncome, 0m, 0.30m, 0m, ComplianceStatusCode.Compliant, 0m, 0m),
+                new(AssetClassCode.Shares, 987_654.32m, 0.25m, 4m, ComplianceStatusCode.Breached, 987_654.32m, 1m),
+                new(AssetClassCode.RealEstate, 0m, 0.25m, 0m, ComplianceStatusCode.Compliant, 0m, 0m),
             ],
             ProposalStatusCode.Partial, 0.90m, 0.85m);
     }

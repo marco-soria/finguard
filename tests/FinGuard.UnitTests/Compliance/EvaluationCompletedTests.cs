@@ -19,7 +19,7 @@ public sealed class EvaluationCompletedTests
             eventId, Guid.NewGuid(), DateTimeOffset.UtcNow, evaluationId, submissionId, new DateOnly(2026, 3, 31),
             ComplianceStatusCode.Breached, 1,
             [new ClassEvaluation(
-                AssetClassCode.Shares, MarkerAmount, 0.25m, 1.5m, ComplianceStatusCode.Breached, MarkerProposed)],
+                AssetClassCode.Shares, MarkerAmount, 0.25m, 1.5m, ComplianceStatusCode.Breached, MarkerProposed, 0.375m)],
             ProposalStatusCode.Full, 0.9m, 0.85m);
 
         var text = @event.ToString();
@@ -40,7 +40,7 @@ public sealed class EvaluationCompletedTests
     public void ClassEvaluationToString_Always_PrintsClassOnly()
     {
         var text = new ClassEvaluation(
-            AssetClassCode.Shares, MarkerAmount, 0.25m, 1.5m, ComplianceStatusCode.Breached, MarkerProposed).ToString();
+            AssetClassCode.Shares, MarkerAmount, 0.25m, 1.5m, ComplianceStatusCode.Breached, MarkerProposed, 0.375m).ToString();
 
         Assert.Equal("ClassEvaluation { AssetClass = Shares }", text);
     }

@@ -35,7 +35,7 @@ public sealed record AdvisoryFacts(
 
 /// <summary>One asset class: raw values from the event and their display texts.</summary>
 /// <param name="Name">Display name as in the SPA (<c>Fixed income</c>).</param>
-/// <param name="Share">Book value / total, unrounded.</param>
+/// <param name="Share">Book value / total, unrounded, as Compliance stored it (D-269).</param>
 /// <param name="Change">Proposed minus current book value; negative for a reduction.</param>
 /// <param name="ChangeText">The absolute change as money; the sentence says whether it is a reduction.</param>
 public sealed record ClassFacts(

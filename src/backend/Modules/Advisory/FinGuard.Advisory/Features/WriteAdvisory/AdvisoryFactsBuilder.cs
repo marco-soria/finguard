@@ -18,18 +18,15 @@ public static class AdvisoryFactsBuilder
             throw new InvalidOperationException($"EvaluationCompleted {@event.EventId} does not carry one entry per class.");
         }
 
-        var total = @event.Classes.Sum(c => c.BookValue);
         var classes = @event.Classes
             .OrderBy(c => c.AssetClass)
             .Select(c =>
             {
-                // Share as the domain computes it (value / total), for display only; never used for a status.
-                var share = c.BookValue / total;
                 var change = c.ProposedBookValue - c.BookValue;
                 return new ClassFacts(
-                    c.AssetClass, Name(c.AssetClass), c.Status, c.BookValue, share, c.Limit, c.Utilization,
+                    c.AssetClass, Name(c.AssetClass), c.Status, c.BookValue, c.Share, c.Limit, c.Utilization,
                     c.ProposedBookValue, change,
-                    AdvisoryFormat.Money(c.BookValue), AdvisoryFormat.Percent(share), AdvisoryFormat.Percent(c.Limit),
+                    AdvisoryFormat.Money(c.BookValue), AdvisoryFormat.Percent(c.Share), AdvisoryFormat.Percent(c.Limit),
                     AdvisoryFormat.Ratio(c.Utilization, c.Status, @event.AlertThreshold),
                     AdvisoryFormat.Money(c.ProposedBookValue), AdvisoryFormat.Money(Math.Abs(change)));
             })

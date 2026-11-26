@@ -30,6 +30,21 @@ public sealed class AdvisoryFactsBuilderTests
     }
 
     [Fact]
+    public void From_Event_UsesTheSharesCompliancePublished()
+    {
+        // D-269: Advisory formats the event's share; it never divides book value by a total of its own.
+        var @event = SharesHeavy();
+        var marked = @event with
+        {
+            Classes = @event.Classes.Select(c => c with { Share = c.AssetClass == AssetClassCode.Shares ? 0.5m : c.Share }).ToList(),
+        };
+
+        var facts = AdvisoryFactsBuilder.From(marked);
+
+        Assert.Equal((0.5m, "50.00 %"), (facts.Classes[2].Share, facts.Classes[2].ShareText));
+    }
+
+    [Fact]
     public void From_EventWithMissingClass_Throws()
     {
         var @event = SharesHeavy();

@@ -60,18 +60,21 @@ public sealed class ContractMappingTests
              @event.OverallStatus, @event.PolicyVersion));
         Assert.Equal(ProposalStatusCode.Full, @event.ProposalStatus);
         Assert.Equal((0.90m, 0.85m), (@event.AlertThreshold, @event.RebalanceTargetRatio));
+        // D-269: the share is the evaluation's stored, unrounded value, so consumers never recompute it.
+        Assert.Equal(evaluation.Classes.Select(c => c.Utilization.Share.Value), @event.Classes.Select(c => c.Share));
         Assert.NotEqual(Guid.Empty, @event.EventId);
         Assert.Equal(
             [
                 new ClassEvaluation(
-                    AssetClassCode.Cash, 380_000m, 0.40m, 0.95m, ComplianceStatusCode.Warning, 340_000m),
+                    AssetClassCode.Cash, 380_000m, 0.40m, 0.95m, ComplianceStatusCode.Warning, 340_000m, 0.38m),
                 new ClassEvaluation(
                     AssetClassCode.FixedIncome, 200_000m, 0.30m, evaluation.Classes[1].Utilization.Utilization.Value,
-                    ComplianceStatusCode.Compliant, 244_767.45m),
+                    ComplianceStatusCode.Compliant, 244_767.45m, 0.20m),
                 new ClassEvaluation(
-                    AssetClassCode.Shares, 260_000m, 0.25m, 1.04m, ComplianceStatusCode.Breached, 212_500m),
+                    AssetClassCode.Shares, 260_000m, 0.25m, 1.04m, ComplianceStatusCode.Breached, 212_500m, 0.26m),
                 new ClassEvaluation(
-                    AssetClassCode.RealEstate, 160_000m, 0.25m, 0.64m, ComplianceStatusCode.Compliant, 202_732.55m),
+                    AssetClassCode.RealEstate, 160_000m, 0.25m, 0.64m, ComplianceStatusCode.Compliant, 202_732.55m,
+                    0.16m),
             ],
             @event.Classes);
     }
