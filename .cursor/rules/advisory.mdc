@@ -1,0 +1,18 @@
+---
+description: Advisory rules: facts, narrators, narrative validation
+globs: src/backend/Modules/Advisory/**,tests/**/*Advisory*/**
+alwaysApply: false
+---
+<!-- Mirror of .claude/rules/advisory.md. Keep both in sync. -->
+
+# Advisory rules (ADR-0002, ADR-0006, ADR-0014)
+
+- Every number in a narrative comes from `AdvisoryFacts` display texts, formatted once by `AdvisoryFormat`
+  (mirrors the SPA's `UsdPipe`, `formatPercent`, `formatRatio`; shared test vectors in both suites).
+- Narrators never compute amounts, ratios or statuses; they only explain what `EvaluationCompleted` says.
+- Facts carry no free text: only event values, class names and formatted numbers (`EvaluationCompleted_CarriesNoFreeText`).
+- Every narrative passes `NarrativeValidator` before it is stored. A template that fails is a bug: throw.
+- Narrators implement `IAdvisoryNarrator`; no model package outside the narrator adapter (ADR-0006).
+- Narratives are plain-text paragraphs separated by one blank line: no Markdown, no HTML. The SPA uses interpolation.
+- Never log or put in `ToString()` facts, narrative text, amounts, ratios or dates: identifiers only (D-162).
+- The consumer is idempotent by `EventId`; one advisory per evaluation (`advisory.advisories`).

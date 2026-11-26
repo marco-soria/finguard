@@ -18,3 +18,4 @@ ADR to change its meaning: add a new one that supersedes it.
 | [0011](0011-portfolio-compliance-integration-contract.md) | Portfolio to Compliance integration contract | Accepted |
 | [0012](0012-compliance-domain-model.md) | Compliance domain model | Accepted |
 | [0013](0013-rebalance-engine.md) | Rebalance engine | Accepted |
+| [0014](0014-advisory-narrative.md) | Advisory facts, template narrator and narrative validation | Accepted |
