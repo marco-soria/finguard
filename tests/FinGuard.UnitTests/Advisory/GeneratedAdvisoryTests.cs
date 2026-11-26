@@ -16,6 +16,7 @@ public sealed class GeneratedAdvisoryTests(ITestOutputHelper output)
         var failures = 0;
         var statuses = new Dictionary<ProposalStatusCode, int>();
         var receiversAboveTarget = 0;
+        var maxExcess = 0m;
 
         for (var i = 0; i < cases; i++)
         {
@@ -27,13 +28,19 @@ public sealed class GeneratedAdvisoryTests(ITestOutputHelper output)
             statuses[facts.ProposalStatus] = statuses.GetValueOrDefault(facts.ProposalStatus) + 1;
             // Measures the "stays at or below the target" sentence (test-side arithmetic only).
             var total = facts.Classes.Sum(c => c.BookValue);
-            receiversAboveTarget += facts.Classes.Any(c =>
-                c.Change > 0m && c.ProposedBookValue / total > facts.RebalanceTargetRatio * c.Limit) ? 1 : 0;
+            var excess = facts.Classes
+                .Where(c => c.Change > 0m)
+                .Select(c => c.ProposedBookValue - (facts.RebalanceTargetRatio * c.Limit * total))
+                .DefaultIfEmpty(0m)
+                .Max();
+            receiversAboveTarget += excess > 0m ? 1 : 0;
+            maxExcess = Math.Max(maxExcess, excess);
         }
 
         output.WriteLine(
             $"{cases} portfolios: {string.Join(", ", statuses.OrderBy(p => p.Key).Select(p => $"{p.Key} {p.Value}"))}; " +
-            $"validator failures {failures}; with a receiver above its target {receiversAboveTarget}");
+            $"validator failures {failures}; with a receiver above its target {receiversAboveTarget} " +
+            $"(largest excess {maxExcess:0.0000} USD)");
         Assert.Equal(0, failures);
     }
 }
