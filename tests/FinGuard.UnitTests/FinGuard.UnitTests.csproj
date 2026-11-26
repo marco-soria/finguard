@@ -13,6 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\backend\BuildingBlocks\FinGuard.BuildingBlocks.csproj" />
     <ProjectReference Include="..\..\src\backend\FinGuard.ServiceDefaults\FinGuard.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\src\backend\Modules\Advisory\FinGuard.Advisory\FinGuard.Advisory.csproj" />
     <ProjectReference Include="..\..\src\backend\Modules\Compliance\FinGuard.Compliance\FinGuard.Compliance.csproj" />
     <ProjectReference Include="..\..\src\backend\Modules\Portfolio\FinGuard.Portfolio\FinGuard.Portfolio.csproj" />
     <ProjectReference Include="..\..\src\backend\Modules\Tenancy\FinGuard.Tenancy\FinGuard.Tenancy.csproj" />

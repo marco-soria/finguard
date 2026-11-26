@@ -3,12 +3,19 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\FinGuard.BuildingBlocks.csproj" />
     <ProjectReference Include="..\FinGuard.Advisory.Contracts\FinGuard.Advisory.Contracts.csproj" />
+    <ProjectReference Include="..\..\Compliance\FinGuard.Compliance.Contracts\FinGuard.Compliance.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="FinGuard.UnitTests" />
+    <InternalsVisibleTo Include="FinGuard.Api.IntegrationTests" />
   </ItemGroup>
 
 </Project>

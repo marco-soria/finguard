@@ -1,3 +1,4 @@
+using FinGuard.Advisory.Features.WriteAdvisory;
 using FinGuard.Advisory.Persistence;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
@@ -27,6 +28,8 @@ public static class AdvisoryModule
         });
         // Lets the Api apply every module's migrations without seeing the internal DbContext types.
         builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AdvisoryDbContext>());
+        // The only narrator until Brief #19 adds the model (ADR-0006, ADR-0014).
+        builder.Services.AddSingleton<TemplateNarrator>();
         return builder;
     }
 
