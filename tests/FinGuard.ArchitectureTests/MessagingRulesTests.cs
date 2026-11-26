@@ -86,6 +86,46 @@ public sealed partial class MessagingRulesTests
             $"Message types must override ToString() with type name and identifiers only: {string.Join("; ", violations)}");
     }
 
+    [Fact]
+    public void EvaluationCompleted_CarriesNoFreeText()
+    {
+        // ADR-0002 (D-250): Advisory narrates this event, so no string may reach a narrator through it.
+        var root = Contracts
+            .SelectMany(c => c.GetTypes())
+            .Single(t => t.FullName == "FinGuard.Compliance.Contracts.Events.EvaluationCompleted");
+
+        var violations = new List<string>();
+        var seen = new HashSet<Type>();
+        var pending = new Stack<Type>([root]);
+        while (pending.TryPop(out var type))
+        {
+            if (!seen.Add(type) || !type.Assembly.GetName().Name!.StartsWith(Prefix, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            {
+                foreach (var memberType in ExpandGenerics(property.PropertyType))
+                {
+                    if (memberType == typeof(string) || memberType == typeof(char))
+                    {
+                        violations.Add($"{type.Name}.{property.Name}");
+                    }
+
+                    pending.Push(memberType);
+                }
+            }
+        }
+
+        Assert.True(violations.Count == 0, $"EvaluationCompleted must carry no free text: {string.Join("; ", violations)}");
+    }
+
+    private static IEnumerable<Type> ExpandGenerics(Type type) =>
+        type.IsArray
+            ? ExpandGenerics(type.GetElementType()!)
+            : [type, .. type.GetGenericArguments().SelectMany(ExpandGenerics)];
+
     private static readonly HashSet<string> HandlerMethodNames = new(StringComparer.Ordinal)
     {
         "Handle", "HandleAsync", "Consume", "ConsumeAsync",

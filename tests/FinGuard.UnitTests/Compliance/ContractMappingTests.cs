@@ -59,6 +59,7 @@ public sealed class ContractMappingTests
             (@event.TenantId, @event.OccurredAt, @event.EvaluationId, @event.SubmissionId, @event.CutOffDate,
              @event.OverallStatus, @event.PolicyVersion));
         Assert.Equal(ProposalStatusCode.Full, @event.ProposalStatus);
+        Assert.Equal((0.90m, 0.85m), (@event.AlertThreshold, @event.RebalanceTargetRatio));
         Assert.NotEqual(Guid.Empty, @event.EventId);
         Assert.Equal(
             [
