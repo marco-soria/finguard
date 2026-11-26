@@ -1,15 +1,5 @@
 import { DatePipe } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  DestroyRef,
-  effect,
-  inject,
-  input,
-  signal,
-  untracked,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { MatButton } from '@angular/material/button';
 import { MatProgressBar } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
@@ -21,14 +11,12 @@ import {
   EvaluationResponse,
 } from '../../core/api/compliance-api';
 import { PortfolioApi } from '../../core/api/portfolio-api';
-import { ApiError } from '../../core/http/api-error';
 import { errorMessage } from '../../core/http/problem-details.interceptor';
 import { FileSizePipe } from '../../shared/file-size.pipe';
 import { formatPercent, formatRatio } from '../../shared/format-ratio';
+import { retryWhileNotFound } from '../../shared/retry-while-not-found';
 import { UsdPipe } from '../../shared/usd.pipe';
-
-/** Waits before each retry while the evaluation is not ready (about 15 s in total, D-205). */
-export const EVALUATION_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000];
+import { AdvisoryPanel } from './advisory-panel';
 
 const CLASS_NAMES: Record<string, string> = {
   Cash: 'Cash',
@@ -38,9 +26,6 @@ const CLASS_NAMES: Record<string, string> = {
 };
 
 const className = (assetClass: string) => CLASS_NAMES[assetClass] ?? assetClass;
-
-const isNotEvaluatedYet = (error: unknown) =>
-  error instanceof ApiError && error.status === 404 && error.code === EVALUATION_NOT_FOUND;
 
 function alertText(alert: EvaluationAlert, alertThreshold: number): string {
   const used = formatRatio(alert.utilization, alert.status, alertThreshold);
@@ -90,7 +75,16 @@ export type EvaluationState = 'none' | 'pending' | 'timeout' | 'error' | 'ready'
 
 @Component({
   selector: 'app-submission-detail',
-  imports: [DatePipe, FileSizePipe, MatButton, MatProgressBar, MatTableModule, RouterLink, UsdPipe],
+  imports: [
+    AdvisoryPanel,
+    DatePipe,
+    FileSizePipe,
+    MatButton,
+    MatProgressBar,
+    MatTableModule,
+    RouterLink,
+    UsdPipe,
+  ],
   templateUrl: './submission-detail.html',
   styleUrl: './submission-detail.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -124,25 +118,11 @@ export default class SubmissionDetail {
     return d?.status === 'Accepted' ? d.submissionId : undefined;
   });
   protected readonly evaluation = inject(ComplianceApi).evaluation(this.acceptedId);
-  private readonly retries = signal(0);
-  private retryTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly retry = retryWhileNotFound(this.evaluation, EVALUATION_NOT_FOUND);
 
-  protected readonly evaluationState = computed<EvaluationState>(() => {
-    if (!this.acceptedId()) {
-      return 'none';
-    }
-    if (this.evaluation.hasValue()) {
-      return 'ready';
-    }
-    const error = this.evaluation.error();
-    if (!error) {
-      return 'pending';
-    }
-    if (isNotEvaluatedYet(error)) {
-      return this.retries() < EVALUATION_RETRY_DELAYS_MS.length ? 'pending' : 'timeout';
-    }
-    return 'error';
-  });
+  protected readonly evaluationState = computed<EvaluationState>(() =>
+    this.acceptedId() ? this.retry.state() : 'none',
+  );
   protected readonly evaluationError = computed(() => errorMessage(this.evaluation.error()));
 
   /** The evaluation with display texts; statuses stay exactly as the API gave them. */
@@ -165,30 +145,7 @@ export default class SubmissionDetail {
     };
   });
 
-  constructor() {
-    // Each "not evaluated yet" answer schedules the next retry; success, another error or destroy ends it.
-    effect(() => {
-      if (isNotEvaluatedYet(this.evaluation.error())) {
-        untracked(() => this.scheduleRetry());
-      }
-    });
-    inject(DestroyRef).onDestroy(() => clearTimeout(this.retryTimer));
-  }
-
   protected checkAgain(): void {
-    this.retries.set(0);
-    this.evaluation.reload();
-  }
-
-  private scheduleRetry(): void {
-    const delay = EVALUATION_RETRY_DELAYS_MS[this.retries()];
-    if (delay === undefined) {
-      return;
-    }
-    clearTimeout(this.retryTimer);
-    this.retryTimer = setTimeout(() => {
-      this.retries.update((n) => n + 1);
-      this.evaluation.reload();
-    }, delay);
+    this.retry.checkAgain();
   }
 }

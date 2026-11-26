@@ -19,6 +19,7 @@ correct and in sync.
 ## Current rules
 | Rule | Claude Code `paths:` | Cursor `globs:` |
 | --- | --- | --- |
+| `advisory` | `src/backend/Modules/Advisory/**`, `tests/**/*Advisory*/**` | `src/backend/Modules/Advisory/**,tests/**/*Advisory*/**` |
 | `backend-vsa` | `src/backend/**/*.cs` | `src/backend/**/*.cs` |
 | `compliance-domain` | `src/backend/Modules/Compliance/**`, `tests/**/*Compliance*/**` | `src/backend/Modules/Compliance/**,tests/**/*Compliance*/**` |
 | `frontend` | `src/frontend/**` | `src/frontend/**` |

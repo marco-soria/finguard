@@ -26,6 +26,27 @@ describe('formatRatio', () => {
   });
 });
 
+// Same vectors as AdvisoryFormatTests in the backend (D-252): change both together.
+describe('advisory format vectors', () => {
+  it.each([
+    [0.89999996, 'Compliant', '89.999996 %'],
+    [0.9, 'Warning', '90.00 %'],
+    [1, 'Warning', '100.00 %'],
+    [1.00000001, 'Breached', '100.000001 %'],
+    [2.2 / 3 / 0.25, 'Breached', '293.33 %'],
+  ])('formatRatio %d %s is %s', (value, status, expected) => {
+    expect(formatRatio(value, status, 0.9)).toBe(expected);
+  });
+
+  it.each([
+    [0.25, '25.00 %'],
+    [0.85, '85.00 %'],
+    [2.2 / 3, '73.33 %'],
+  ])('formatPercent %d is %s', (value, expected) => {
+    expect(formatPercent(value)).toBe(expected);
+  });
+});
+
 describe('formatPercent', () => {
   it('uses 2 decimals', () => {
     expect(formatPercent(0.25)).toBe('25.00 %');

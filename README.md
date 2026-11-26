@@ -14,7 +14,7 @@ an AI narrative. It is a portfolio project built local-first, at near-zero cost 
 | 1 Walking skeleton | ✓ Done | Development login, tenant resolution, Angular shell, file upload and submission history end to end |
 | 2 Portfolio ingestion | ✓ Done | CSV validation, rejected files with errors, idempotent uploads, current submission per cut-off date, `SubmissionAccepted` event to Compliance |
 | 3 Compliance | ✓ Done | Domain model and versioned global limit policy ([ADR-0012](docs/adr/0012-compliance-domain-model.md)), evaluation of every accepted submission with `EvaluationCompleted`, result API, result on the submission detail page, system/light/dark theme |
-| 4 Advisory | In progress | Deterministic rebalance proposal ([ADR-0013](docs/adr/0013-rebalance-engine.md)) stored with every evaluation, in `EvaluationCompleted`, the API and the detail page. Next: AI narrative behind `IAdvisoryNarrator`, deterministic fallback |
+| 4 Advisory | In progress | Deterministic rebalance proposal ([ADR-0013](docs/adr/0013-rebalance-engine.md)) stored with every evaluation, in `EvaluationCompleted`, the API and the detail page. Template narrative for every evaluation, validated against its facts ([ADR-0014](docs/adr/0014-advisory-narrative.md)). Next: AI narrative behind `IAdvisoryNarrator` with the template as fallback |
 | 5 Azure | Planned | Container Apps, Static Web Apps, Entra External ID, Key Vault, observability |
 
 Event flow today: an accepted upload publishes `SubmissionAccepted` (class totals) through the outbox in the same
@@ -24,7 +24,8 @@ publishes `EvaluationCompleted` with its rebalance proposal; `GET /api/complianc
 
 The detail page of an accepted submission shows its compliance result: overall status, policy version, one row per
 asset class (book value, share, limit, utilization, status), the alerts and the rebalancing proposal (current,
-proposed and signed change per class that moves, with a totals row). Screenshots from the sample data:
+proposed and signed change per class that moves, with a totals row), followed by the Advisory section: a plain-text
+narrative of the result written from a template. Screenshots from the sample data:
 
 | Light | Dark |
 | --- | --- |

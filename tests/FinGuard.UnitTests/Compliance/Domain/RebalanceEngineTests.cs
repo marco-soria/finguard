@@ -230,39 +230,6 @@ public sealed class RebalanceEngineTests(ITestOutputHelper output)
             $"with a middle class {middleCases}; no-receiver fallback {fallbackCases}");
     }
 
-    // A total from 1.00 to 10^12 USD (uniform number of digits), split over the classes with random weights. Half the
-    // cases use free weights (zero in about one case out of five, so zero-value classes are common); the other half
-    // use weights near each class's limit, which yields Compliant, Warning and middle classes.
-    private static Dictionary<AssetClass, Money> RandomPortfolio(Random random)
-    {
-        var digits = random.Next(3, 15);
-        var low = 1L;
-        for (var d = 1; d < digits; d++)
-        {
-            low *= 10;
-        }
-
-        var totalCents = random.NextInt64(low, (low * 10) + 1);
-        int[] nearLimits = [400, 300, 250, 250];
-        var weights = random.Next(2) == 0
-            ? Enumerable.Range(0, 4).Select(_ => random.Next(5) == 0 ? 0 : random.Next(1, 1001)).ToArray()
-            : nearLimits.Select(w => w * random.Next(70, 101) / 100).ToArray();
-        if (weights.Sum() == 0)
-        {
-            weights[random.Next(4)] = 1;
-        }
-
-        var cents = new long[4];
-        var weightTotal = weights.Sum();
-        for (var k = 0; k < 3; k++)
-        {
-            cents[k] = (long)((decimal)totalCents * weights[k] / weightTotal);
-        }
-
-        cents[3] = totalCents - cents[0] - cents[1] - cents[2];
-        return Values(cents[0] / 100m, cents[1] / 100m, cents[2] / 100m, cents[3] / 100m);
-    }
-
     private static ClassMove Move(AssetClass assetClass, decimal current, decimal proposed) =>
         new(assetClass, new Money(current), new Money(proposed));
 

@@ -3,6 +3,82 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-26 (session 28: Brief #18 executed)
+
+Branch `feat/advisory-template-narrative`. The brief's four commits, plus a test commit that reports the R-49
+measurement and two commits from the owner's review (D-269, D-270). ADR-0014 accepted. `EvaluationCompleted` now has a
+route (Advisory); R-40 closed without backfill (D-258).
+
+### Owner answers to the execution summary
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-269 | Advisory never recomputes values that Compliance owns. `ClassEvaluation` gains `decimal Share` (stored, unrounded `book value / total`), appended last (additive, ADR-0011) and filled in `ContractMapping`; `AdvisoryFactsBuilder` formats it. The contract-mapping test checks it against the evaluation | Replaces Advisory's own `book value / total` |
+| D-270 | The receivers' closing sentence is "Each receiving class moves toward {TargetRatioText} of its limit." (one receiver: "The receiving class moves toward …"). Always true; the Full sentence carries the guarantee, backed by verification | Closes R-49. D-260, D-261 and D-268 accepted as recorded |
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-260 | `.claude/rules/backend-vsa.md` and its Cursor mirror said "change an event by adding a `...V2` type, never by editing the old one", which contradicted ADR-0011 ("additive changes only"). The rule now says: additive changes only (a new field appended last, ADR-0011); a breaking change is a new versioned type | Flagged in the plan; the owner approved the plan. D-242 and D-249 already relied on ADR-0011 |
+| D-261 | `EvaluationCompletedHandler` takes `TemplateNarrator` directly, not `IAdvisoryNarrator`: the template is always written first (D-251), whatever narrator #19 adds. Only `TemplateNarrator` is registered (singleton). `TemplateNarrator.Name = "Template"` is the `narrator` column value | `IAdvisoryNarrator` exists as the port (ADR-0006); #19 registers the model narrator behind it |
+| D-262 | `ClassFacts.Change` is signed (proposed − current); `ChangeText` is the absolute amount as money. The sentence says "reduces … by" or "(+…)" | No signed money text, so no `-$` vs `−$` question |
+| D-263 | Grammar for several classes: "breaches the limits for A and B", "reduces A by … to … and B by … to …, each of which is 85.00 % of its limit", one receiver "The receiving class moves toward …" (D-270). Lists use "A, B and C" (no serial comma). The Warning headline lists the classes in alert in D-235 order; the Breached headline lists the breached classes only | The brief fixed the singular wording only |
+| D-264 | Validator error `Advisory.Narrative.UnknownNumber` (validation type), fixed message without the number. Dates tokenize as their parts (`2026`, `06`, `30`), both in the text and in the facts | |
+| D-265 | `AdvisoryFormat` uses invariant culture and `MidpointRounding.AwayFromZero` to match `toFixed`/`Intl` on positive values; `Ratio` uses the same 2-to-8-decimal loop as `formatRatio` | R-48 still applies to exact midpoints |
+| D-266 | The #17 generator moved from `RebalanceEngineTests` to `PolicyTestData.RandomPortfolio` (same code, same seed 17) so both generated checks share it | |
+| D-267 | SPA: the retry loop is `retryWhileNotFound(resource, notFoundCode)` in `shared/retry-while-not-found.ts` (`NOT_FOUND_RETRY_DELAYS_MS`, same delays as D-205). Advisory texts: pending "Writing the advisory…", timeout "The advisory is not ready yet." + Check again, none "No advisory is available for this evaluation.", ready paragraphs + "Written from a template." (shown for `narrator = Template` only) | |
+| D-268 | The two existing E2E checks for `Policy version 1` use `exact: true`: the advisory headline also contains "policy version 1" | Test fix only |
+
+### Risks and flags
+- **R-49 closed by the wording (D-270):** the brief's "Each of these stays at or below 85.00 % of its limit" was not
+  exact. In 9 of the 10,000 generated portfolios a receiver ends above `RebalanceTargetRatio x limit x total` by at most
+  0.01 USD: the leftover cent of ADR-0013 (D-240); no fallback receiver was involved. The generated check keeps
+  reporting the distance.
+- R-48 unchanged (no midpoint difference found in the shared vectors or the generated run).
+
+### Execution checks
+- Generated check (#17 generator, seed 17, 10,000 portfolios): NotNeeded 1,449, Full 8,551, Partial 0; validator
+  failures 0; receivers above target 9 (largest excess 0.01 USD).
+- Shares-heavy narrative (cut-off 2026-06-30) as stored and returned: see `samples/portfolios/README.md`.
+- Tests: backend 502 (baseline 463), Vitest 135 (baseline 111), E2E 11 (baseline 9), run twice against Aspire.
+- Live run: old evaluations show the advisory timeout state; `wolverine.wolverine_dead_letters` 0 rows.
+
+## Delta 2026-11-26 (session 27: Brief #18 planning)
+
+### Owner answers to the Brief #17 execution delta
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-247 | D-245 accepted: the Partial sentence does not name a class. Partial did not occur at totals of 1.00 USD or more (generated table), so an API change is not worth it | Owner-approved in planning |
+| D-248 | R-47: the owner deletes the untracked `finguard.sln` by hand; agents keep building `FinGuard.slnx` explicitly until the next delta confirms it is gone | |
+
+### Brief #18 decisions
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-249 | `EvaluationCompleted` gains `AlertThreshold` and `RebalanceTargetRatio` (additive) | ADR-0011 |
+| D-250 | Architecture test: `EvaluationCompleted` carries no `string` member (no free text can reach a narrator) | ADR-0002 guard |
+| D-251 | One handler: event → `AdvisoryFacts` → `TemplateNarrator` → store, idempotent by `EventId`. #19 adds the model as a later optional step that replaces the text only after validation | |
+| D-252 | `AdvisoryFacts` carry raw values and display texts formatted once by `AdvisoryFormat`, which mirrors `formatRatio`, `formatPercent` and `UsdPipe` with shared test vectors | R-39 consistency |
+| D-253 | Narratives are plain-text paragraphs; the SPA renders them by interpolation only | |
+| D-254 | `NarrativeValidator`: every numeric token must come from the facts' texts; built in #18, applied to the model in #19 | ADR-0002 |
+| D-255 | `advisory.advisories` with unique `evaluation_id`, `submission_id`, `source_event_id`; `facts jsonb`; `narrator` column | ADR-0014 |
+| D-256 | `GET /api/advisory/submissions/{submissionId}/advisory` returns paragraphs, not facts; 404 hides existence | D-197 pattern |
+| D-257 | `AdvisoryPanel` component; the 404 retry loop is shared with the evaluation | |
+| D-258 | No backfill of evaluations stored before Advisory subscribed; **R-40 closed** as accepted (dev data only; Phase 5 starts empty) | |
+| D-259 | Advisory publishes no events until Audit exists | |
+
+### Risks and flags
+- **R-46 closed**: no `Partial` at realistic totals (#17 table) and the template has a `Partial` sentence.
+- **R-48 Last-digit differences between the narrative and the table.** C# formats `decimal`; the SPA formats JSON
+  numbers as doubles. On an exact rounding midpoint a percentage could differ in its last digit. The shared vectors
+  cover the known cases; revisit if a real case appears.
+- **Note for #19:** Wolverine's Eager EF transaction opens before the handler; a model call of several seconds must
+  not run inside a database transaction. #19 decides how (for example a handler without the transaction middleware
+  that calls the model, then a short write).
+
+### Next step
+Brief #19 (closes Phase 4): `AgentFrameworkNarrator` over an `IChatClient` on a local model through Ollama in Aspire,
+validation with `NarrativeValidator`, timeout and fallback to the template text, prompt-injection safeguards. Verify
+packages and Aspire 17 compatibility first.
+
 ## Delta 2026-11-25 (session 26: Brief #17 executed)
 
 Branch `feat/rebalance-proposal`. Four commits, as planned in the brief. ADR-0013 accepted; the relax step of D-03 is

@@ -19,9 +19,12 @@ internal static class ContractMapping
                 .Select(c => new ClassEvaluation(
                     ToContract(c.Utilization.Class), c.Utilization.Value.Amount, c.Utilization.Limit.Value,
                     c.Utilization.Utilization.Value, ToContract(c.Status),
-                    evaluation.Proposal.Moves.Single(m => m.Class == c.Utilization.Class).Proposed.Amount))
+                    evaluation.Proposal.Moves.Single(m => m.Class == c.Utilization.Class).Proposed.Amount,
+                    c.Utilization.Share.Value))
                 .ToList(),
-            ToContract(evaluation.Proposal.Status));
+            ToContract(evaluation.Proposal.Status),
+            evaluation.Policy.AlertThreshold.Value,
+            evaluation.Policy.RebalanceTargetRatio.Value);
     }
 
     public static AssetClassCode ToContract(AssetClass assetClass) => assetClass switch

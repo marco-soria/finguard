@@ -190,6 +190,7 @@
               <p class="proposal-summary">No proposal is available for this evaluation.</p>
             }
           </section>
+          <app-advisory-panel [submissionId]="r.submissionId" [hasProposal]="r.proposal !== null" />
         }
       </section>
     }

@@ -10,4 +10,14 @@ describe('UsdPipe', () => {
   ])('formats %d as %s', (amount, expected) => {
     expect(new UsdPipe().transform(amount)).toBe(expected);
   });
+
+  // Same vectors as AdvisoryFormatTests in the backend (D-252): change both together.
+  it.each([
+    [1562500, '$1,562,500.00'],
+    [0.01, '$0.01'],
+    [0, '$0.00'],
+    [693374.43, '$693,374.43'],
+  ])('matches the advisory vector %d -> %s', (amount, expected) => {
+    expect(new UsdPipe().transform(amount)).toBe(expected);
+  });
 });

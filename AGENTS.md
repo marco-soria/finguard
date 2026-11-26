@@ -47,6 +47,7 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 7. Every tenant-owned row has `tenant_id`, enforced by EF global query filters. Never take the tenant
    from a request body, route or CSV; it comes from `ITenantContext`.
 8. The LLM never computes amounts, never decides compliance, never receives free-text CSV fields.
+   Narratives use only `AdvisoryFacts` texts and pass `NarrativeValidator` (ADR-0014).
 9. No event sourcing, no microservices, no generic repositories, no MediatR. Commands write with EF Core; queries
    read with Dapper over `NpgsqlDataSource`, own schema only, with a mandatory `tenant_id` filter (ADR-0007).
 
@@ -58,6 +59,8 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
 - Rebalance (ADR-0013): Warning and Breached classes go to 0.85 x limit (configurable), floored to cents; the surplus
   goes to classes below their target proportionally to headroom. Order: breached classes first, then alert classes.
   Rounding to cents must preserve the total. Proposal status `NotNeeded`, `Full` or `Partial` (verification; no relax step).
+- Advisory (ADR-0014): one plain-text English narrative per evaluation from `EvaluationCompleted`, written by the
+  `TemplateNarrator` now (a model in #19 may replace it after validation). Evaluations stored before Advisory have none.
 - Limits are evaluated on book value (ADR-0010).
 - Portfolio validation: complete data, `book_value >= 0` per row and total > 0, currency `USD` only
   (case-insensitive), known asset class, description optional ≤ 150 characters and not stored. `position_id` and
