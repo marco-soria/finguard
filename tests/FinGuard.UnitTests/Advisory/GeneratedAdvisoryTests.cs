@@ -26,7 +26,7 @@ public sealed class GeneratedAdvisoryTests(ITestOutputHelper output)
 
             failures += NarrativeValidator.Validate(narrative, facts).IsSuccess ? 0 : 1;
             statuses[facts.ProposalStatus] = statuses.GetValueOrDefault(facts.ProposalStatus) + 1;
-            // Measures the "stays at or below the target" sentence (test-side arithmetic only).
+            // Reports how far receivers end above their exact target (R-49; test-side arithmetic only).
             var total = facts.Classes.Sum(c => c.BookValue);
             var excess = facts.Classes
                 .Where(c => c.Change > 0m)

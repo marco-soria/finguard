@@ -26,7 +26,7 @@ internal static class AdvisoryTestData
         "Shares holds 73.33 % of the portfolio against a limit of 25.00 %, so 293.33 % of the limit is used.\n\n" +
         "The proposal reduces Shares by $1,562,500.00 to $637,500.00, which is 85.00 % of its limit. " +
         "The amount moves to Cash (+$693,374.43), Real estate (+$517,623.26) and Fixed income (+$351,502.31). " +
-        "Each of these stays at or below 85.00 % of its limit. " +
+        "Each receiving class moves toward 85.00 % of its limit. " +
         "After these moves, every asset class is within its limit.\n\n" +
         Disclaimer;
 
@@ -39,7 +39,7 @@ internal static class AdvisoryTestData
         "Cash holds 38.00 % of the portfolio against a limit of 40.00 %, so 95.00 % of the limit is used.\n\n" +
         "The proposal reduces Cash by $40,000.00 to $340,000.00, which is 85.00 % of its limit. " +
         "The amount moves to Fixed income (+$32,592.60) and Real estate (+$7,407.40). " +
-        "Each of these stays at or below 85.00 % of its limit. " +
+        "Each receiving class moves toward 85.00 % of its limit. " +
         "After these moves, every asset class is within its limit.\n\n" +
         Disclaimer;
 }

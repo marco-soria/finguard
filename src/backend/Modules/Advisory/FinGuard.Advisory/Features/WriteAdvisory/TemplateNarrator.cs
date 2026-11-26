@@ -83,9 +83,11 @@ public sealed class TemplateNarrator : IAdvisoryNarrator
         if (receivers.Count > 0)
         {
             sentences.Add($"The amount moves to {List(receivers.Select(c => $"{c.Name} (+{c.ChangeText})"))}.");
+            // Always true: a receiver may end a leftover cent above its target (R-49); the Full sentence carries the
+            // guarantee, which Compliance's verification backs.
             sentences.Add(receivers.Count == 1
-                ? $"It stays at or below {target} of its limit."
-                : $"Each of these stays at or below {target} of its limit.");
+                ? $"The receiving class moves toward {target} of its limit."
+                : $"Each receiving class moves toward {target} of its limit.");
         }
 
         sentences.Add(facts.ProposalStatus == ProposalStatusCode.Partial

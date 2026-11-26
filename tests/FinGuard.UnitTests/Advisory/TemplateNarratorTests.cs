@@ -55,8 +55,25 @@ public sealed class TemplateNarratorTests
         Assert.StartsWith(
             "The proposal reduces Shares by $47,500.00 to $212,500.00 and Cash by $40,000.00 to $340,000.00, " +
             "each of which is 85.00 % of its limit. The amount moves to Fixed income (+$44,767.45) and Real estate " +
-            "(+$42,732.55). Each of these stays at or below 85.00 % of its limit.",
+            "(+$42,732.55). Each receiving class moves toward 85.00 % of its limit.",
             paragraphs[2],
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Narrate_OneReceiver_UsesSingularGrammar()
+    {
+        var facts = AdvisoryFactsBuilder.From(WarningOnly());
+        facts = facts with
+        {
+            Classes = facts.Classes.Select(c => c.Name == "Real estate" ? c with { Change = 0m } : c).ToList(),
+        };
+
+        var text = TemplateNarrator.Narrate(facts);
+
+        Assert.Contains(
+            "The amount moves to Fixed income (+$32,592.60). The receiving class moves toward 85.00 % of its limit.",
+            text,
             StringComparison.Ordinal);
     }
 
