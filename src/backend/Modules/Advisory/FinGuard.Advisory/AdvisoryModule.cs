@@ -1,3 +1,4 @@
+using FinGuard.Advisory.Features.GetAdvisory;
 using FinGuard.Advisory.Features.WriteAdvisory;
 using FinGuard.Advisory.Persistence;
 using FinGuard.BuildingBlocks.Persistence;
@@ -35,7 +36,9 @@ public static class AdvisoryModule
 
     public static IEndpointRouteBuilder MapAdvisoryEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/advisory").RequireAuthorization(AuthorizationPolicies.TenantMember);
+        endpoints.MapGroup("/api/advisory")
+            .RequireAuthorization(AuthorizationPolicies.TenantMember)
+            .MapGetAdvisory();
         return endpoints;
     }
 }

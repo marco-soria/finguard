@@ -3,7 +3,8 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { problemDetailsInterceptor } from '../../core/http/problem-details.interceptor';
-import SubmissionDetail, { changeText, EVALUATION_RETRY_DELAYS_MS } from './submission-detail';
+import { NOT_FOUND_RETRY_DELAYS_MS as EVALUATION_RETRY_DELAYS_MS } from '../../shared/retry-while-not-found';
+import SubmissionDetail, { changeText } from './submission-detail';
 
 describe('SubmissionDetail', () => {
   let fixture: ComponentFixture<SubmissionDetail>;
@@ -27,7 +28,11 @@ describe('SubmissionDetail', () => {
     TestBed.tick();
   });
 
-  afterEach(() => backend.verify());
+  afterEach(() => {
+    // The advisory panel has its own spec; here its request only follows a shown proposal.
+    backend.match(advisoryUrl);
+    backend.verify();
+  });
 
   const details = {
     submissionId: 's-1',
@@ -44,6 +49,7 @@ describe('SubmissionDetail', () => {
 
   const detailUrl = '/api/portfolio/submissions/s-1';
   const evaluationUrl = '/api/compliance/submissions/s-1/evaluation';
+  const advisoryUrl = '/api/advisory/submissions/s-1/advisory';
 
   const evaluation = {
     evaluationId: 'e-1',
@@ -428,7 +434,8 @@ describe('SubmissionDetail', () => {
     const showProposal = async (proposal: unknown) => {
       await acceptSubmission();
       backend.expectOne(evaluationUrl).flush({ ...evaluation, proposal });
-      await fixture.whenStable();
+      // Not whenStable: the advisory request stays open unless a test flushes it.
+      await settle();
     };
 
     const section = () => element.querySelector('.proposal');
@@ -478,6 +485,29 @@ describe('SubmissionDetail', () => {
       expect(section()?.getAttribute('data-proposal-status')).toBe('None');
       expect(summary()).toBe('No proposal is available for this evaluation.');
       expect(element.querySelector('.proposal-moves')).toBeNull();
+    });
+
+    it('shows the advisory under the proposal', async () => {
+      await showProposal(fullProposal);
+      backend.expectOne(advisoryUrl).flush({
+        evaluationId: 'e-1',
+        submissionId: 's-1',
+        narrator: 'Template',
+        generatedAt: '2026-11-19T10:00:02Z',
+        paragraphs: ['First paragraph.', 'Second paragraph.'],
+      });
+      await settle();
+
+      const advisory = element.querySelector('.proposal + app-advisory-panel .advisory');
+      expect(advisory?.getAttribute('data-advisory-state')).toBe('ready');
+      expect(advisory?.querySelectorAll('.advisory-text p').length).toBe(2);
+    });
+
+    it('requests no advisory for an older evaluation without a proposal', async () => {
+      await showProposal(null);
+
+      backend.expectNone(advisoryUrl);
+      expect(element.querySelector('.advisory')?.getAttribute('data-advisory-state')).toBe('none');
     });
   });
 });

@@ -22,7 +22,7 @@ test('A balanced sample portfolio is compliant with no alerts', async ({ page })
   const compliance = await openEvaluation(page, 'valid-balanced.csv');
 
   await expect(compliance.locator('.compliance-overall [data-status]')).toHaveText('Compliant');
-  await expect(compliance.getByText('Policy version 1')).toBeVisible();
+  await expect(compliance.getByText('Policy version 1', { exact: true })).toBeVisible();
   await expect(compliance.getByText('$5,000,000.00')).toBeVisible();
   await expect(compliance.getByText('No alerts.')).toBeVisible();
   const proposal = compliance.getByRole('region', { name: 'Rebalancing proposal' });
@@ -34,7 +34,7 @@ test('A shares-heavy sample portfolio is breached with a Shares alert', async ({
   const compliance = await openEvaluation(page, 'valid-shares-heavy.csv');
 
   await expect(compliance.locator('.compliance-overall [data-status]')).toHaveText('Breached');
-  await expect(compliance.getByText('Policy version 1')).toBeVisible();
+  await expect(compliance.getByText('Policy version 1', { exact: true })).toBeVisible();
   const classes = compliance.getByRole('table', {
     name: 'Utilization by asset class (book value, USD)',
   });

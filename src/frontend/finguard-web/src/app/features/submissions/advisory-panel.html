@@ -1,0 +1,30 @@
+<section class="advisory" aria-labelledby="advisory-title" [attr.data-advisory-state]="state()">
+  <h4 id="advisory-title">Advisory</h4>
+  <div role="status" aria-live="polite">
+    @switch (state()) {
+      @case ('none') {
+        <p class="advisory-note">No advisory is available for this evaluation.</p>
+      }
+      @case ('pending') {
+        <p class="advisory-note">Writing the advisory…</p>
+      }
+      @case ('timeout') {
+        <p class="advisory-note">The advisory is not ready yet.</p>
+      }
+    }
+  </div>
+  @if (state() === 'timeout') {
+    <button matButton="outlined" type="button" (click)="checkAgain()">Check again</button>
+  } @else if (state() === 'error') {
+    <p class="detail-error" role="alert">{{ errorText() }}</p>
+  } @else if (state() === 'ready') {
+    <div class="advisory-text">
+      @for (paragraph of paragraphs(); track $index) {
+        <p>{{ paragraph }}</p>
+      }
+    </div>
+    @if (source(); as s) {
+      <p class="advisory-source">{{ s }}</p>
+    }
+  }
+</section>

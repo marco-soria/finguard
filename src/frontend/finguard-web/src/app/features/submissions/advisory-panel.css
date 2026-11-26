@@ -1,0 +1,20 @@
+.advisory {
+  margin-top: 1.5rem;
+}
+
+.advisory-text {
+  max-width: 60rem;
+}
+
+.advisory-note,
+.advisory-source {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.advisory-source {
+  font: var(--mat-sys-body-small);
+}
+
+.detail-error {
+  color: var(--mat-sys-error);
+}
