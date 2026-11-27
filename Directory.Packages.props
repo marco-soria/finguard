@@ -10,7 +10,7 @@
     <!-- 17.0.0 needs Microsoft.Extensions.AI >= 11.0.0, which pulls .NET 11 abstractions into net10.0; 13.6.1 needs
          >= 10.6.0 and has no Aspire dependencies. Move to AspireVersion with the move to .NET 11 (R-51, D-290). -->
     <OllamaClientVersion>13.6.1</OllamaClientVersion>
-    <WolverineVersion>6.64.0</WolverineVersion>
+    <WolverineVersion>6.65.1</WolverineVersion>
     <!-- Latest stable 10.x; the 11.x line targets .NET 11 and is out of scope for net10.0. -->
     <MicrosoftNet10Version>10.0.15</MicrosoftNet10Version>
   </PropertyGroup>
@@ -35,11 +35,12 @@
   <ItemGroup Label="Data">
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="$(MicrosoftNet10Version)" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="$(MicrosoftNet10Version)" />
-    <!-- Transitive pin: Npgsql EF 10.0.3 and EF 10.0.15 otherwise resolve Relational 10.0.14 and 10.0.15 (MSB3277). -->
+    <!-- Transitive pin: keeps Relational on MicrosoftNet10Version. Npgsql EF 10.0.3 resolved 10.0.14 (MSB3277);
+         10.0.4 needs >= 10.0.15. Keep the pin while Npgsql EF and EF Core patches ship separately. -->
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="$(MicrosoftNet10Version)" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.4" />
     <!-- Read-side queries (ADR-0007). -->
-    <PackageVersion Include="Dapper" Version="2.1.89" />
+    <PackageVersion Include="Dapper" Version="2.1.100" />
     <!-- Community package (R-10); snake_case naming (D-32). -->
     <PackageVersion Include="EFCore.NamingConventions" Version="10.0.1" />
   </ItemGroup>
@@ -49,8 +50,8 @@
   </ItemGroup>
   <ItemGroup Label="Service defaults">
     <!-- 10.x line (template uses 10.10.0); 11.x pulls .NET 11 abstractions into net10.0. -->
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.1" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.1" />
   </ItemGroup>
   <ItemGroup Label="API docs">
     <!-- First-party OpenAPI 3.1 generator (D-303). -->
@@ -84,9 +85,9 @@
     <PackageVersion Include="xunit.v3" Version="4.0.3" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="$(MicrosoftNet10Version)" />
     <!-- 10.x line, matching Microsoft.Extensions.Http.Resilience; 11.x targets .NET 11. -->
-    <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.11.0" />
-    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.0" />
-    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
+    <PackageVersion Include="Microsoft.Extensions.Diagnostics.Testing" Version="10.11.1" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.11.1" />
+    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.17.0" />
     <PackageVersion Include="TngTech.ArchUnitNET" Version="0.13.5" />
   </ItemGroup>
 </Project>
