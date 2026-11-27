@@ -37,16 +37,41 @@ describe('PortfolioApi', () => {
     runInInjectionContext(TestBed.inject(Injector), create);
 
   it('lists submissions through the interceptors', async () => {
-    const resource = inContext(() => api.submissions());
-    TestBed.tick();
+    const call = firstValueFrom(api.listSubmissions({}, null));
 
     const request = backend.expectOne('/api/v1/portfolio/submissions');
     expect(request.request.method).toBe('GET');
+    expect(request.request.params.keys()).toEqual([]);
     expect(request.request.headers.get('Authorization')).toBe('Bearer secret-token');
-    request.flush({ items: [] });
-    await TestBed.inject(ApplicationRef).whenStable();
+    request.flush({ items: [], nextCursor: null });
 
-    expect(resource.value()).toEqual({ items: [] });
+    expect(await call).toEqual({ items: [], nextCursor: null });
+  });
+
+  it('sends only the filters that are set, and the cursor', () => {
+    api
+      .listSubmissions(
+        { status: 'Rejected', cutOffFrom: '2026-01-01', cutOffTo: '2026-01-31', currentOnly: true },
+        'abc_-',
+      )
+      .subscribe();
+
+    backend
+      .expectOne(
+        (r) =>
+          r.url === '/api/v1/portfolio/submissions' &&
+          r.params.toString() ===
+            'status=Rejected&cutOffFrom=2026-01-01&cutOffTo=2026-01-31&currentOnly=true&cursor=abc_-',
+      )
+      .flush({ items: [], nextCursor: null });
+  });
+
+  it('omits currentOnly when it is false', () => {
+    api.listSubmissions({ currentOnly: false }, null).subscribe();
+
+    const request = backend.expectOne('/api/v1/portfolio/submissions');
+    expect(request.request.params.has('currentOnly')).toBe(false);
+    request.flush({ items: [], nextCursor: null });
   });
 
   it('reads one submission by id', () => {
