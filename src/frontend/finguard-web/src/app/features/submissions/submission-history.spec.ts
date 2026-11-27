@@ -43,7 +43,7 @@ describe('SubmissionHistory', () => {
 
   async function respond(body: object, status = 200): Promise<void> {
     backend
-      .expectOne('/api/portfolio/submissions')
+      .expectOne('/api/v1/portfolio/submissions')
       .flush(body, { status, statusText: status === 200 ? 'OK' : 'Error' });
     await fixture.whenStable();
   }

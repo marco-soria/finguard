@@ -176,5 +176,5 @@ public sealed class RefineNarrativeTests(ModelNarratorHost host) : IClassFixture
         return (deadLetters, row.Item1, row.Item2);
     }
 
-    private static string PathFor(Guid submissionId) => $"/api/advisory/submissions/{submissionId}/advisory";
+    private static string PathFor(Guid submissionId) => $"/api/v1/advisory/submissions/{submissionId}/advisory";
 }

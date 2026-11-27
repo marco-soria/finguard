@@ -20,7 +20,7 @@ an AI narrative. It is a portfolio project built local-first, at near-zero cost 
 Event flow today: an accepted upload publishes `SubmissionAccepted` (class totals) through the outbox in the same
 transaction, and Compliance stores its own portfolio snapshot from it ([ADR-0011](docs/adr/0011-portfolio-compliance-integration-contract.md)).
 Compliance then evaluates the snapshot against the limit policy in force at the cut-off date, stores the evaluation and
-publishes `EvaluationCompleted` with its rebalance proposal; `GET /api/compliance/submissions/{id}/evaluation` returns it.
+publishes `EvaluationCompleted` with its rebalance proposal; `GET /api/v1/compliance/submissions/{id}/evaluation` returns it.
 
 The detail page of an accepted submission shows its compliance result: overall status, policy version, one row per
 asset class (book value, share, limit, utilization, status), the alerts and the rebalancing proposal (current,

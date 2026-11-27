@@ -23,7 +23,7 @@ public sealed class SubmissionIdempotencyTests(ApiFixture fixture)
         using var response = await client.UploadAsync("portfolio.csv", _ct, content);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal($"/api/portfolio/submissions/{first.SubmissionId}", response.Headers.Location?.OriginalString);
+        Assert.Equal($"/api/v1/portfolio/submissions/{first.SubmissionId}", response.Headers.Location?.OriginalString);
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(_ct));
         Assert.True(json.RootElement.GetProperty("duplicate").GetBoolean());
         Assert.Equal(first.SubmissionId, json.RootElement.GetProperty("submissionId").GetGuid());

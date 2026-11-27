@@ -40,7 +40,7 @@ describe('PortfolioApi', () => {
     const resource = inContext(() => api.submissions());
     TestBed.tick();
 
-    const request = backend.expectOne('/api/portfolio/submissions');
+    const request = backend.expectOne('/api/v1/portfolio/submissions');
     expect(request.request.method).toBe('GET');
     expect(request.request.headers.get('Authorization')).toBe('Bearer secret-token');
     request.flush({ items: [] });
@@ -53,7 +53,7 @@ describe('PortfolioApi', () => {
     inContext(() => api.submission(signal('abc-123')));
     TestBed.tick();
 
-    backend.expectOne('/api/portfolio/submissions/abc-123').flush({});
+    backend.expectOne('/api/v1/portfolio/submissions/abc-123').flush({});
   });
 
   it('exposes the ApiError from the problem details as the resource error', async () => {
@@ -61,7 +61,7 @@ describe('PortfolioApi', () => {
     TestBed.tick();
 
     backend
-      .expectOne('/api/portfolio/submissions/missing')
+      .expectOne('/api/v1/portfolio/submissions/missing')
       .flush(
         { title: 'Resource not found', status: 404, code: 'Portfolio.Submission.NotFound' },
         { status: 404, statusText: 'Not Found' },
@@ -85,7 +85,7 @@ describe('PortfolioApi', () => {
 
     const call = firstValueFrom(api.upload(file, '2026-11-19'));
 
-    const request = backend.expectOne('/api/portfolio/submissions');
+    const request = backend.expectOne('/api/v1/portfolio/submissions');
     expect(request.request.method).toBe('POST');
     const body = request.request.body as FormData;
     expect(body).toBeInstanceOf(FormData);

@@ -6,7 +6,7 @@ using FinGuard.Tenancy.Development;
 
 namespace FinGuard.Api.IntegrationTests.Advisory;
 
-/// <summary>Brief #18 (D-256): <c>GET /api/advisory/submissions/{id}/advisory</c>, Dapper with the tenant filter.</summary>
+/// <summary>Brief #18 (D-256): <c>GET /api/v1/advisory/submissions/{id}/advisory</c>, Dapper with the tenant filter.</summary>
 [Collection(SubmissionEvents.Collection)]
 public sealed class GetAdvisoryTests(ApiFixture fixture)
 {
@@ -69,7 +69,7 @@ public sealed class GetAdvisoryTests(ApiFixture fixture)
         Assert.Contains("Advisory.Advisory.NotFound", await response.Content.ReadAsStringAsync(_ct), StringComparison.Ordinal);
     }
 
-    private static string PathFor(Guid submissionId) => $"/api/advisory/submissions/{submissionId}/advisory";
+    private static string PathFor(Guid submissionId) => $"/api/v1/advisory/submissions/{submissionId}/advisory";
 
     // Callers use a freshly provisioned tenant, so the sample is never a duplicate upload (D-139).
     private async Task<Guid> UploadAsync(HttpClient client, string sample)

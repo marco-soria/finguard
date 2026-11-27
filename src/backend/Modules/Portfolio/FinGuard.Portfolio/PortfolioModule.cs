@@ -1,3 +1,4 @@
+using FinGuard.BuildingBlocks.Http;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Portfolio.Features.GetSubmission;
@@ -35,7 +36,7 @@ public static class PortfolioModule
 
     public static IEndpointRouteBuilder MapPortfolioEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/portfolio")
+        endpoints.MapGroup($"{ApiRoutes.V1}/portfolio")
             .RequireAuthorization(AuthorizationPolicies.TenantMember)
             .MapReceiveSubmission()
             .MapListSubmissions()

@@ -59,7 +59,7 @@ internal static class ReceiveSubmissionEndpoint
     // A duplicate is not a new resource: 200 with the existing submission's Location (D-139).
     private static IResult ToHttpResult(SubmissionReceivedResponse r, HttpResponse response)
     {
-        var location = $"/api/portfolio/submissions/{r.SubmissionId}";
+        var location = $"{ApiRoutes.V1}/portfolio/submissions/{r.SubmissionId}";
         if (!r.Duplicate)
         {
             return TypedResults.Created(location, r);

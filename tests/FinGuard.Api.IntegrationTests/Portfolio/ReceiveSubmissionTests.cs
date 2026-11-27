@@ -21,7 +21,7 @@ namespace FinGuard.Api.IntegrationTests.Portfolio;
 // First write slice (Brief #8): multipart form -> Wolverine command handler -> EF Core, tenant from ITenantContext.
 public sealed class ReceiveSubmissionTests(ApiFixture fixture)
 {
-    private const string Path = "/api/portfolio/submissions";
+    private const string Path = "/api/v1/portfolio/submissions";
     private const string Today = "2026-01-01";
 
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;

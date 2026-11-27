@@ -3,6 +3,7 @@ using FinGuard.Advisory.Features.Refinement;
 using FinGuard.Advisory.Features.WriteAdvisory;
 using FinGuard.Advisory.Infrastructure;
 using FinGuard.Advisory.Persistence;
+using FinGuard.BuildingBlocks.Http;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
 using Microsoft.AspNetCore.Builder;
@@ -59,7 +60,7 @@ public static class AdvisoryModule
 
     public static IEndpointRouteBuilder MapAdvisoryEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/advisory")
+        endpoints.MapGroup($"{ApiRoutes.V1}/advisory")
             .RequireAuthorization(AuthorizationPolicies.TenantMember)
             .MapGetAdvisory();
         return endpoints;

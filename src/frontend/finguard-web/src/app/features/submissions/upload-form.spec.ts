@@ -57,7 +57,7 @@ describe('UploadForm', () => {
   it('sends nothing without a file or a date', async () => {
     submit();
 
-    backend.expectNone('/api/portfolio/submissions');
+    backend.expectNone('/api/v1/portfolio/submissions');
     expect(text('#portfolio-file-error')).toBe('Choose a CSV file.');
     expect(element.textContent).toContain('Enter the cut-off date.');
   });
@@ -72,7 +72,7 @@ describe('UploadForm', () => {
 
     submit();
 
-    backend.expectNone('/api/portfolio/submissions');
+    backend.expectNone('/api/v1/portfolio/submissions');
     expect(text('#portfolio-file-error')).toBe(message);
   });
 
@@ -94,7 +94,7 @@ describe('UploadForm', () => {
       errors: [],
       duplicate: false,
     };
-    backend.expectOne('/api/portfolio/submissions').flush(response);
+    backend.expectOne('/api/v1/portfolio/submissions').flush(response);
     await fixture.whenStable();
 
     expect(submitButton().disabled).toBe(false);
@@ -115,7 +115,7 @@ describe('UploadForm', () => {
     setFile(csv('bad.csv'));
 
     submit();
-    backend.expectOne('/api/portfolio/submissions').flush({
+    backend.expectOne('/api/v1/portfolio/submissions').flush({
       submissionId: 's-2',
       status: 'Rejected',
       receivedAt: '2026-11-19T10:00:00Z',
@@ -139,7 +139,7 @@ describe('UploadForm', () => {
 
     submit();
     const receivedAt = '2026-11-18T10:00:00Z';
-    backend.expectOne('/api/portfolio/submissions').flush({
+    backend.expectOne('/api/v1/portfolio/submissions').flush({
       submissionId: 's-1',
       status: 'Accepted',
       receivedAt,
@@ -165,7 +165,7 @@ describe('UploadForm', () => {
     submit();
     submit();
 
-    backend.expectOne('/api/portfolio/submissions').flush({});
+    backend.expectOne('/api/v1/portfolio/submissions').flush({});
   });
 
   it('shows the ApiError title and detail on a 4xx failure', async () => {
@@ -173,7 +173,7 @@ describe('UploadForm', () => {
     setFile(csv());
 
     submit();
-    backend.expectOne('/api/portfolio/submissions').flush(
+    backend.expectOne('/api/v1/portfolio/submissions').flush(
       {
         title: 'Validation failed',
         status: 400,

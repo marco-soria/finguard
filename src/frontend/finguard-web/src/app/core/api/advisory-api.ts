@@ -1,8 +1,9 @@
 import { httpResource, HttpResourceRef } from '@angular/common/http';
 import { Injectable, Signal } from '@angular/core';
+import { API_BASE } from './api-base';
 
 /**
- * `GET /api/advisory/submissions/{id}/advisory` (D-256). `paragraphs` are plain text: render them by interpolation
+ * `GET /api/v1/advisory/submissions/{id}/advisory` (D-256). `paragraphs` are plain text: render them by interpolation
  * only, never as HTML (D-253).
  */
 export interface AdvisoryResponse {
@@ -34,7 +35,7 @@ export class AdvisoryApi {
   ): HttpResourceRef<AdvisoryResponse | undefined> {
     return httpResource<AdvisoryResponse>(() => {
       const id = submissionId();
-      return id ? `/api/advisory/submissions/${encodeURIComponent(id)}/advisory` : undefined;
+      return id ? `${API_BASE}/advisory/submissions/${encodeURIComponent(id)}/advisory` : undefined;
     });
   }
 }

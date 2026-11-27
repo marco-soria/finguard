@@ -104,11 +104,11 @@ publish nothing. Delivery is at-least-once, so Compliance stores its `portfolio_
 evaluates the snapshot against the limit policy in force at the cut-off date, stores one evaluation per submission with
 its policy snapshot and cascades `EvaluationCompleted` (D-192, D-193). The received fact and the derived result commit
 separately, so a failed evaluation can be replayed from the error queue without losing the snapshot. The Api reads
-the result with `GET /api/compliance/submissions/{id}/evaluation` (D-197).
+the result with `GET /api/v1/compliance/submissions/{id}/evaluation` (D-197).
 
 Advisory subscribes to `EvaluationCompleted` (ADR-0014). It builds `AdvisoryFacts` (the event's numbers plus their
 display texts), writes the narrative with the `TemplateNarrator`, checks it with `NarrativeValidator` and stores it,
-idempotent by `EventId`. `GET /api/advisory/submissions/{id}/advisory` returns the paragraphs. Evaluations stored
+idempotent by `EventId`. `GET /api/v1/advisory/submissions/{id}/advisory` returns the paragraphs. Evaluations stored
 before Advisory subscribed have no advisory (R-40, closed without backfill). Advisory publishes `AdvisoryGenerated`
 and `AdvisoryFailed` only if the optional Audit module is built (D-259).
 

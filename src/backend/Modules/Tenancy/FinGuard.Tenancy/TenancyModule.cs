@@ -1,3 +1,4 @@
+using FinGuard.BuildingBlocks.Http;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Tenancy.Authorization;
@@ -50,7 +51,7 @@ public static class TenancyModule
 
     public static IEndpointRouteBuilder MapTenancyEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/tenancy")
+        endpoints.MapGroup($"{ApiRoutes.V1}/tenancy")
             .RequireAuthorization(AuthorizationPolicies.TenantMember)
             .MapGetCurrentTenant();
         return endpoints;
