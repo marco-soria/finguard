@@ -15,6 +15,7 @@ an AI narrative. It is a portfolio project built local-first, at near-zero cost 
 | 2 Portfolio ingestion | ✓ Done | CSV validation, rejected files with errors, idempotent uploads, current submission per cut-off date, `SubmissionAccepted` event to Compliance |
 | 3 Compliance | ✓ Done | Domain model and versioned global limit policy ([ADR-0012](docs/adr/0012-compliance-domain-model.md)), evaluation of every accepted submission with `EvaluationCompleted`, result API, result on the submission detail page, system/light/dark theme |
 | 4 Advisory | ✓ Done | Deterministic rebalance proposal ([ADR-0013](docs/adr/0013-rebalance-engine.md)) stored with every evaluation, in `EvaluationCompleted`, the API and the detail page. Template narrative for every evaluation, validated against its facts ([ADR-0014](docs/adr/0014-advisory-narrative.md)). Optional AI context paragraph from a local model, with no figures or statuses, shown only when it passes validation ([ADR-0015](docs/adr/0015-model-narrator.md)) |
+| Pre-cloud hardening | In progress | API under `/api/v1` with an OpenAPI document rendered by Scalar, paged and filtered submission history (Brief #20); rate limiting, forwarded headers and row versioning next (Brief #21) |
 | 5 Azure | Planned | Container Apps, Static Web Apps, Entra External ID, Key Vault, observability |
 
 Event flow today: an accepted upload publishes `SubmissionAccepted` (class totals) through the outbox in the same
@@ -107,7 +108,46 @@ aspire run            # Git Bash: aspire.cmd run
    - `invalid-mixed.csv`: rejected; the detail page lists its 9 errors by row and column.
    - The same file again for the same date: "Already uploaded on …"; nothing new is stored.
    - Another valid file for the same date: it becomes the current one; the older one stays in the history.
-4. Sign in as **Bob** (Globex Insurance): Alice's submissions are not visible.
+4. Filter the history by status, cut-off date range or "Current only"; the filters stay in the URL. "Load more" shows
+   older submissions, 25 at a time.
+5. Sign in as **Bob** (Globex Insurance): Alice's submissions are not visible.
+
+## API
+
+Every endpoint lives under `/api/v1/<module>` (`tenancy`, `portfolio`, `compliance`, `advisory`). Changes stay
+additive; a breaking change would add `/api/v2` (D-302). In Development the API serves its OpenAPI 3.1 document at
+`/openapi/v1.json` and the reference at **`/scalar`** (open the `api` URL from the Aspire dashboard). Every call
+needs a bearer token: `POST /dev/token` with `{"user":"alice"}`, then paste `accessToken` into Scalar's Bearer field.
+The docs are mapped only when `Api:Docs:Enabled` is true (on in Development, off elsewhere) and make no third-party
+calls. `docs/api/openapi.v1.json` pins the contract: a test fails when it changes, and
+`scripts/update-openapi-snapshot.ps1` regenerates it for review.
+
+`GET /api/v1/portfolio/submissions` pages the history with a cursor: `limit` (1 to 100, default 25), `cursor` (the
+previous page's `nextCursor`, null on the last page), `status` (`Accepted` or `Rejected`), `cutOffFrom` and `cutOffTo`
+(inclusive, `yyyy-MM-dd`) and `currentOnly`. Results are newest first; `isCurrent` is computed over all of the
+tenant's submissions. An invalid value answers 400 with one code, checked in this order:
+
+| Code | When |
+| --- | --- |
+| `Portfolio.Submissions.InvalidLimit` | `limit` is not a whole number from 1 to 100 |
+| `Portfolio.Submissions.InvalidCursor` | `cursor` is not a cursor this API issued |
+| `Portfolio.Submissions.InvalidStatus` | `status` is not `Accepted` or `Rejected` |
+| `Portfolio.Submissions.InvalidCutOffRange` | a date is not `yyyy-MM-dd`, or `cutOffFrom` is after `cutOffTo` |
+| `Portfolio.Submissions.InvalidCurrentOnly` | `currentOnly` is not `true` or `false` |
+
+## Changing a limit
+
+Limits change as code, not through an admin screen (D-300). Policy versions in `compliance.limit_policies` are global
+and immutable: add a new version, never edit one.
+
+1. In `ComplianceDbContext`, add a `LimitPolicyRow` to the `HasData` seed with the next `Version`, an `EffectiveFrom`
+   date and all four limits, the alert threshold and the rebalance target ratio. The domain checks the policy
+   invariants ([ADR-0012](docs/adr/0012-compliance-domain-model.md)).
+2. Add a Compliance migration (command in `AGENTS.md`) and review the generated `InsertData`.
+3. Note the change in `docs/decisions.md`.
+
+An evaluation uses the policy in force at its cut-off date (the highest `EffectiveFrom` on or before it) and stores
+the version and a snapshot of the limits, so earlier evaluations keep their version and results.
 
 ## Quality
 
