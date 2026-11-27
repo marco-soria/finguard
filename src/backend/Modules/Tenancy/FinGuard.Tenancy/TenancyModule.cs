@@ -7,6 +7,7 @@ using FinGuard.Tenancy.Persistence;
 using FinGuard.Tenancy.Resolution;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -53,6 +54,9 @@ public static class TenancyModule
     {
         endpoints.MapGroup($"{ApiRoutes.V1}/tenancy")
             .RequireAuthorization(AuthorizationPolicies.TenantMember)
+            .WithTags("Tenancy")
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .MapGetCurrentTenant();
         return endpoints;
     }

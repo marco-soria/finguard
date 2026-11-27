@@ -17,7 +17,11 @@ internal static class ListSubmissionsEndpoint
         {
             var result = await bus.InvokeForCurrentTenantAsync<Result<SubmissionListResponse>>(tenant, new ListSubmissions(), ct);
             return result.ToHttpResult(TypedResults.Ok);
-        });
+        })
+            .WithName("ListSubmissions")
+            .WithSummary("Submission history")
+            .WithDescription("The tenant's submissions, newest first.")
+            .Produces<SubmissionListResponse>();
         return group;
     }
 }

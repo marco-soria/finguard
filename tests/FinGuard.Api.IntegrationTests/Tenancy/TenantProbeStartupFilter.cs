@@ -21,7 +21,9 @@ internal sealed class TenantProbeStartupFilter : IStartupFilter
         app.UseAuthorization();
         app.UseEndpoints(endpoints => endpoints
             .MapGet(Path, (ITenantContext tenant) => TypedResults.Ok(new TenantProbeResponse(tenant.RequiredTenantId)))
-            .RequireAuthorization(AuthorizationPolicies.TenantMember));
+            .RequireAuthorization(AuthorizationPolicies.TenantMember)
+            // Test-only: never part of the pinned OpenAPI contract.
+            .ExcludeFromDescription());
     };
 }
 

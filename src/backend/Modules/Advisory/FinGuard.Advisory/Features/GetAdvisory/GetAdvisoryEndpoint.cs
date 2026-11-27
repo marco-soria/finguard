@@ -19,7 +19,12 @@ internal static class GetAdvisoryEndpoint
                 var result = await bus.InvokeForCurrentTenantAsync<Result<AdvisoryResponse>>(
                     tenant, new GetAdvisory(submissionId), ct);
                 return result.ToHttpResult(TypedResults.Ok);
-            });
+            })
+            .WithName("GetAdvisory")
+            .WithSummary("Rebalancing advisory")
+            .WithDescription("The plain-text narrative of an evaluation and the optional validated AI context paragraph.")
+            .Produces<AdvisoryResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
         return group;
     }
 }

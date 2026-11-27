@@ -5,6 +5,7 @@ using FinGuard.Compliance.Domain;
 using FinGuard.Compliance.Features.GetEvaluation;
 using FinGuard.Compliance.Persistence;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -39,6 +40,9 @@ public static class ComplianceModule
     {
         endpoints.MapGroup($"{ApiRoutes.V1}/compliance")
             .RequireAuthorization(AuthorizationPolicies.TenantMember)
+            .WithTags("Compliance")
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .MapGetEvaluation();
         return endpoints;
     }

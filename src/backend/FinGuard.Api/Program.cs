@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using FinGuard.Advisory;
+using FinGuard.Api.ApiDocs;
 using FinGuard.Api.DevAuth;
 using FinGuard.Api.Errors;
 using FinGuard.Api.Messaging;
@@ -23,6 +24,7 @@ builder.AddAdvisoryModule();
 builder.AddFinGuardAuthentication();
 
 builder.AddFinGuardMessaging();
+builder.AddFinGuardApiDocs();
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
@@ -46,6 +48,7 @@ app.UseTenancy();
 app.UseAuthorization();
 
 app.MapDefaultEndpoints();
+app.MapFinGuardApiDocs();
 if (app.Environment.IsDevelopment())
 {
     app.MapDevTokenEndpoints();

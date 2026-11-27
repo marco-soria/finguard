@@ -17,7 +17,12 @@ internal static class GetSubmissionEndpoint
         {
             var result = await bus.InvokeForCurrentTenantAsync<Result<SubmissionDetailsResponse>>(tenant, new GetSubmission(id), ct);
             return result.ToHttpResult(TypedResults.Ok);
-        });
+        })
+            .WithName("GetSubmission")
+            .WithSummary("Submission details")
+            .WithDescription("One submission with its status, counts, whether it is current, and its first 100 errors.")
+            .Produces<SubmissionDetailsResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
         return group;
     }
 }
