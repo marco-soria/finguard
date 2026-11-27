@@ -5,7 +5,7 @@ test('the footer shows the credits and opens its links in a new tab', async ({ p
   await page.goto('/login');
 
   const footer = page.getByRole('contentinfo');
-  await expect(footer).toContainText('Designed and developed by Marco Antonio Soria');
+  await expect(footer).toContainText('Designed and developed by Marco Soria');
   await expect(footer).toContainText('Demo application. Not investment advice.');
   for (const [name, href] of [
     ['MIT License', 'https://github.com/marco-soria/finguard/blob/main/LICENSE'],

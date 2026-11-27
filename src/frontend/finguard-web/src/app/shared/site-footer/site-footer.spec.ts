@@ -25,7 +25,7 @@ describe('SiteFooter', () => {
     );
 
     expect(lines[0]).toMatch(
-      /^© 2026(–\d{4})? Marco Antonio Soria · Designed and developed by Marco Antonio Soria · MIT License \(opens in a new tab\) · Source on GitHub \(opens in a new tab\)$/,
+      /^© 2026(–\d{4})? Marco Soria · Designed and developed by Marco Soria · MIT License \(opens in a new tab\) · Source on GitHub \(opens in a new tab\)$/,
     );
     expect(lines[1]).toBe('Demo application. Not investment advice.');
     expect(lines.join(' ')).not.toContain('All rights reserved');
