@@ -9,7 +9,7 @@
     <AspireNpgsqlEfVersion>13.6.5</AspireNpgsqlEfVersion>
     <!-- 17.0.0 needs Microsoft.Extensions.AI >= 11.0.0, which pulls .NET 11 abstractions into net10.0; 13.6.1 needs
          >= 10.6.0 and has no Aspire dependencies. Move to AspireVersion with the move to .NET 11 (R-51, D-290). -->
-    <OllamaClientVersion>13.6.1</OllamaClientVersion>
+    <OllamaClientVersion>17.0.0</OllamaClientVersion>
     <WolverineVersion>6.65.1</WolverineVersion>
     <!-- Latest stable 10.x; the 11.x line targets .NET 11 and is out of scope for net10.0. -->
     <MicrosoftNet10Version>10.0.15</MicrosoftNet10Version>
@@ -75,7 +75,7 @@
   <ItemGroup Label="AI">
     <PackageVersion Include="Microsoft.Agents.AI" Version="1.28.0" />
     <!-- 10.11.0 matches Microsoft.Agents.AI 1.28.0; 11.0.0 pulls .NET 11 Microsoft.Extensions.* abstractions into net10.0. -->
-    <PackageVersion Include="Microsoft.Extensions.AI" Version="10.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.AI" Version="11.0.0" />
   </ItemGroup>
   <ItemGroup Label="Analyzers">
     <!-- Stable 5.x requires Roslyn 5.6+; SDK 10.0.403 ships Roslyn 5.9. -->
