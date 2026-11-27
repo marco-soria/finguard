@@ -1,13 +1,60 @@
 <section aria-labelledby="history-title">
   <h2 id="history-title">Submission history</h2>
-  @if (submissions.isLoading()) {
+
+  @let current = filters();
+  <form
+    class="history-filters"
+    role="search"
+    aria-label="Filter submissions"
+    (submit)="$event.preventDefault()"
+  >
+    <mat-form-field>
+      <mat-label>Status</mat-label>
+      <mat-select [value]="current.status ?? ''" (valueChange)="setFilter('status', $event)">
+        <mat-option value="">All</mat-option>
+        <mat-option value="Accepted">Accepted</mat-option>
+        <mat-option value="Rejected">Rejected</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <!-- Native date inputs give yyyy-MM-dd strings: calendar dates never become Date objects (D-103). -->
+    <mat-form-field>
+      <mat-label>Cut-off from</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="current.cutOffFrom ?? ''"
+        (change)="setFilter('cutOffFrom', $any($event.target).value)"
+      />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Cut-off to</mat-label>
+      <input
+        matInput
+        type="date"
+        [value]="current.cutOffTo ?? ''"
+        (change)="setFilter('cutOffTo', $any($event.target).value)"
+      />
+    </mat-form-field>
+    <mat-slide-toggle
+      [checked]="current.currentOnly ?? false"
+      (change)="setFilter('currentOnly', $event.checked)"
+    >
+      Current only
+    </mat-slide-toggle>
+    @if (filtered()) {
+      <button matButton type="button" (click)="clearFilters()">Clear filters</button>
+    }
+  </form>
+
+  @if (loading()) {
     <mat-progress-bar mode="indeterminate" aria-label="Loading submissions" />
   }
   @if (error(); as message) {
     <p class="history-error" role="alert">{{ message }}</p>
-  } @else if (items(); as rows) {
+  }
+  @if (items(); as rows) {
     @if (rows.length === 0) {
-      <p>No submissions yet.</p>
+      <p>{{ filtered() ? 'No submissions match these filters.' : 'No submissions yet.' }}</p>
     } @else {
       <table mat-table [dataSource]="rows">
         <caption class="visually-hidden">
@@ -50,6 +97,13 @@
         <tr mat-header-row *matHeaderRowDef="columns"></tr>
         <tr mat-row *matRowDef="let row; columns: columns"></tr>
       </table>
+      @if (nextCursor()) {
+        <div class="history-more">
+          <button matButton="outlined" type="button" [disabled]="loading()" (click)="loadMore()">
+            Load more
+          </button>
+        </div>
+      }
     }
   }
 </section>

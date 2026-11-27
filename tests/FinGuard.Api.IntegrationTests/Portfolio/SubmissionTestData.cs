@@ -15,7 +15,7 @@ namespace FinGuard.Api.IntegrationTests.Portfolio;
 /// <summary>Upload, seeding and tenant provisioning helpers shared by the Portfolio read-slice tests.</summary>
 internal static class SubmissionTestData
 {
-    public const string Path = "/api/portfolio/submissions";
+    public const string Path = "/api/v1/portfolio/submissions";
     public const string CutOffDate = "2026-01-01";
 
     /// <summary>

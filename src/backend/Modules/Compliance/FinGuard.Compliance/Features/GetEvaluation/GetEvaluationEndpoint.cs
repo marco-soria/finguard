@@ -19,7 +19,12 @@ internal static class GetEvaluationEndpoint
                 var result = await bus.InvokeForCurrentTenantAsync<Result<EvaluationResponse>>(
                     tenant, new GetEvaluation(submissionId), ct);
                 return result.ToHttpResult(TypedResults.Ok);
-            });
+            })
+            .WithName("GetEvaluation")
+            .WithSummary("Compliance evaluation")
+            .WithDescription("The evaluation of an accepted submission against the limit policy, with its rebalance proposal.")
+            .Produces<EvaluationResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
         return group;
     }
 }

@@ -9,7 +9,7 @@ using Npgsql;
 
 namespace FinGuard.Api.IntegrationTests.Compliance;
 
-/// <summary>Brief #14 (D-197): <c>GET /api/compliance/submissions/{id}/evaluation</c>, Dapper with the tenant filter.</summary>
+/// <summary>Brief #14 (D-197): <c>GET /api/v1/compliance/submissions/{id}/evaluation</c>, Dapper with the tenant filter.</summary>
 [Collection(SubmissionEvents.Collection)]
 public sealed class GetEvaluationTests(ApiFixture fixture)
 {
@@ -137,7 +137,7 @@ public sealed class GetEvaluationTests(ApiFixture fixture)
     }
 
     private static Uri PathFor(Guid submissionId) =>
-        new($"/api/compliance/submissions/{submissionId}/evaluation", UriKind.Relative);
+        new($"/api/v1/compliance/submissions/{submissionId}/evaluation", UriKind.Relative);
 
     private static byte[] Csv(string cash, string fixedIncome, string shares, string realEstate) =>
         System.Text.Encoding.UTF8.GetBytes(

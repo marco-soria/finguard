@@ -3,9 +3,11 @@ using FinGuard.Advisory.Features.Refinement;
 using FinGuard.Advisory.Features.WriteAdvisory;
 using FinGuard.Advisory.Infrastructure;
 using FinGuard.Advisory.Persistence;
+using FinGuard.BuildingBlocks.Http;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -59,8 +61,11 @@ public static class AdvisoryModule
 
     public static IEndpointRouteBuilder MapAdvisoryEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/advisory")
+        endpoints.MapGroup($"{ApiRoutes.V1}/advisory")
             .RequireAuthorization(AuthorizationPolicies.TenantMember)
+            .WithTags("Advisory")
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .MapGetAdvisory();
         return endpoints;
     }

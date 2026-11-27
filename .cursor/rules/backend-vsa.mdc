@@ -25,7 +25,14 @@ alwaysApply: false
 - Module DbContexts derive from `TenantAwareDbContext` (named filter `"Tenant"` + `TenantStampingInterceptor`),
   except Tenancy's, whose tables are global. `IgnoreQueryFilters` is banned (RS0030).
 - Module endpoint groups call `.RequireAuthorization(AuthorizationPolicies.TenantMember)`. Every other endpoint needs
-  an authenticated user (fallback policy); only health checks and `/dev/token` allow anonymous callers.
+  an authenticated user (fallback policy); only health checks, `/dev/token` and the API docs (`/openapi`, `/scalar`,
+  mapped only when `Api:Docs:Enabled`) allow anonymous callers.
+- Routes (D-302): module groups map under `ApiRoutes.V1` (`/api/v1/<module>`); a route test fails otherwise. API
+  changes are additive only (new optional parameters, new response fields); a breaking change needs a `/api/v2`
+  decision first.
+- OpenAPI (D-303): every endpoint declares `WithName`, `WithSummary`, `WithDescription`, `Produces<T>` and a
+  `ProducesProblem` per expected 4xx (list its error codes in the description); the module group adds `WithTags` and
+  401/403. When the contract changes, run `scripts/update-openapi-snapshot.ps1` and commit `docs/api/openapi.v1.json`.
 - Upload endpoints (`IFormFile`) call `.DisableAntiforgery()` only because authentication is JWT bearer, no cookies
   (D-92). They set a per-endpoint body limit (`RequestSizeLimitAttribute` metadata) and a matching `WithFormOptions`.
   Never log file names, file contents or file hashes; log the submission id and the size only (D-91).
@@ -62,7 +69,8 @@ alwaysApply: false
 - A query reads only its own module schema. No cross-schema SQL; cross-module data comes from Contracts.
 - Read queries never select `portfolio.submission_contents` (file bytes) or `portfolio.positions` unless the slice is
   about positions; they return metadata, counts and stored errors. List queries have a named cap constant and a
-  deterministic order (a unique tiebreaker such as `id`) (D-100).
+  deterministic order (a unique tiebreaker such as `id`) (D-100); long lists page with a keyset cursor, never
+  offsets (D-299).
 - Upload validation has two layers (D-112). Transport problems (no file, empty, over 5 MB, not `.csv`, bad, future
   or pre-2000 cut-off date, D-190) return 400/413 and store nothing. Content problems store a `Rejected` submission
   with its errors and answer 201; a valid file stores an `Accepted` submission with its positions and answers 201.

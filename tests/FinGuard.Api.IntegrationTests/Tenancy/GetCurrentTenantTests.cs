@@ -9,7 +9,7 @@ namespace FinGuard.Api.IntegrationTests.Tenancy;
 // Reference slice (D-81): Minimal API -> Wolverine query handler -> Dapper, tenant from ITenantContext.
 public sealed class GetCurrentTenantTests(ApiFixture fixture)
 {
-    private const string Path = "/api/tenancy/me";
+    private const string Path = "/api/v1/tenancy/me";
 
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
 

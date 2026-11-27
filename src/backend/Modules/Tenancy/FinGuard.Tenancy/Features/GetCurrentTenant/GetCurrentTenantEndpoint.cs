@@ -17,7 +17,12 @@ internal static class GetCurrentTenantEndpoint
         {
             var result = await bus.InvokeForCurrentTenantAsync<Result<CurrentTenantResponse>>(tenant, new GetCurrentTenant(), ct);
             return result.ToHttpResult(TypedResults.Ok);
-        });
+        })
+            .WithName("GetCurrentTenant")
+            .WithSummary("Current tenant")
+            .WithDescription("The tenant of the signed-in user, taken from the token.")
+            .Produces<CurrentTenantResponse>()
+            .ProducesProblem(StatusCodes.Status404NotFound);
         return group;
     }
 }

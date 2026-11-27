@@ -3,6 +3,68 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-27 (session 32: Brief #20 executed)
+
+Branch `feat/api-surface`. The brief's five commits plus one fix (Scalar third-party calls). Breaking change: every
+route moved from `/api/<module>` to `/api/v1/<module>`; the SPA moved with it. `nextCursor` is additive to the D-100
+list envelope.
+
+### Owner answers to the plan
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-306 | Rate limiting as planned in Appendix A of Brief #20 (numbered D-295 there) | Appendix A of Brief #20 reused D-295; renumbered to D-306. The repo assigns IDs; planning appendices must start after the newest ID in decisions.md. |
+| D-307 | `Scalar.AspNetCore` pinned to exactly 3.3.0 (the brief named 2.x; 3.x is the current stable line, net10.0 target, no dependencies). `Microsoft.AspNetCore.OpenApi` 10.0.15 via `MicrosoftNet10Version`. The Bearer scheme from the document transformer shows a token field in Scalar's request client ("Selected Auth Type: Bearer", "Token") with only the documented 3.x call `AddPreferredSecuritySchemes("Bearer")`. Scalar 3.x enables telemetry, Agent Scalar (AI chat), MCP and web fonts by default and shows a developer toolbar: turned off with `DisableTelemetry`, `DisableAgent`, `DisableMcp`, `DisableDefaultFonts`, `HideDeveloperTools`. Browser check: no request leaves the API origin | Owner condition: no fallback to 2.x without asking |
+| D-308 | History validation: one code per rule, the first failing rule answers 400, codes listed in the OpenAPI description and the README: `Portfolio.Submissions.InvalidLimit`, `.InvalidCursor`, `.InvalidStatus`, `.InvalidCutOffRange` (malformed date or from after to), `.InvalidCurrentOnly` (fifth code, so a bad `currentOnly` is not a framework binding error). Query values bind as strings and are validated in the slice (`SubmissionListFilter`). The cursor is strictly validated (exact length, base64url alphabet, canonical form, version byte, tick range) and not signed; a cross-tenant cursor test proves the tenant filter | Owner: no field-error map in BuildingBlocks |
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-309 | The history page reads pages with `HttpClient` (`PortfolioApi.listSubmissions`), subscribed in the component with `switchMap` (a new filter cancels a page in flight), `catchError` inside and `takeUntilDestroyed`: "Load more" appends pages, which `httpResource` cannot accumulate. Exception recorded in `frontend.md`/`.mdc`. Filters live in the URL with the API's parameter names; native date inputs keep `yyyy-MM-dd` strings | Deviation from D-102, approved in the plan |
+| D-310 | Docs off outside Development: an unmapped `/openapi/v1.json` or `/scalar` answers 401 in Production (the fallback policy answers before routing, as for `/dev/token`), so that test is `OpenApi_DisabledOutsideDevelopment_IsNotServed` (401, no document in the body). `OpenApi_DocsDisabledInDevelopment_Returns404` covers the 404 with a valid token. `/openapi` and `/scalar` are `AllowAnonymous` when mapped | Brief test name adapted |
+| D-311 | Snapshot details: the document transformer clears `servers` (it held the test host address); the test-only tenant probe calls `ExcludeFromDescription()`; the snapshot is indented JSON with LF endings and a final newline; `FINGUARD_UPDATE_OPENAPI_SNAPSHOT=1` (set by `scripts/update-openapi-snapshot.ps1`) makes the test write the file. Module groups add the tag and 401/403 to every operation | |
+| D-312 | Index `ix_submissions_tenant_id_received_at_id` `(tenant_id, received_at DESC, id DESC)`, migration `AddSubmissionsReceivedAtIndex`; `has-pending-model-changes` clean. `EXPLAIN` on the development database (319 rows for Acme): the planner prefers a sequential scan at this size; with `enable_seqscan = off` the keyset predicate is an `Index Cond` on the new index: `Index Cond: ((tenant_id = '…'::uuid) AND (ROW(received_at, id) < ROW('2026-11-27 19:00:00+00'::timestamp with time zone, '00000000-…'::uuid)))`. A missing cursor compares against `('infinity', ffffffff-…)`, so the predicate always has the index's shape | R-53 |
+
+### Results
+- Backend `dotnet test -c Release`: 655 / 655 (unit 440, architecture 20, integration 195; baseline 592 measured at
+  the start of this session, 5 more than the session 30 delta because of the D-295 tests). Build 0 warnings,
+  `dotnet format --verify-no-changes` clean.
+- Vitest 161 / 161 (baseline 146). `pnpm lint`, `pnpm build`, `prettier --check src e2e` clean.
+- E2E 13 / 13 twice against `-StartAspire` (baseline 12; new `history.e2e.ts` seeds 27 uploads through the API with
+  unique content and cut-off dates in a random past window, filters by that window, loads more, filters by status).
+
+### Risks and flags
+- **R-53 Plan at scale unverified.** The `isCurrent` CTE is joined before the sort and limit; on small data the
+  planner sorts in memory. Re-check `EXPLAIN ANALYZE` with realistic volumes in Phase 5; an index-ordered scan with an
+  early limit may need the join moved after the limit.
+- Scalar ships often: on each upgrade re-check its defaults (D-307) with the browser foreign-request check.
+
+### Next step
+Brief #21: rate limiting (D-306), forwarded headers (D-296), `xmin` on advisories (D-298).
+
+## Delta 2026-11-27 (session 31: pre-cloud hardening and Brief #20 planning)
+
+### Phase 4 closed
+Brief #19 merged as #30 ("feat: add a validated AI context paragraph to the advisory"). Phase 4 exit met: proposal
+always present; narrative asynchronous; AI context optional and validated; the app works without a model.
+
+### Pre-cloud hardening (agreed in the planning chat)
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-306 | Rate limiting with the built-in ASP.NET Core middleware: per tenant (uploads 10/min token bucket, reads ~120/min), per IP for anonymous calls (~20/min), `/health` excluded; 429 ProblemDetails with `Retry-After`; in-memory counters per replica accepted | Brief #21. Numbered D-295 in the brief's appendix; renumbered in session 32 |
+| D-296 | `ForwardedHeaders` so the client IP is real behind Azure ingress or Traefik | Brief #21; verified in Phase 5 |
+| D-297 | No caching until telemetry shows a need | |
+| D-298 | `xmin` row version on `advisory.advisories` (the only updated row); everything else is append-only with unique keys | Brief #21 |
+| D-299 | Keyset paging on the submission history replaces the fixed cap of D-100 | Brief #20 |
+| D-300 | Limits change as code: a new policy version with an effective date in a migration; no admin panel (an Entra app-role endpoint is a possible later extension) | README section in #20 |
+| D-301 | Azure: Wolverine `Balanced` durability; scale to zero normally, minimum one replica while recording videos | Phase 5 |
+| D-302 | API versioning by URL segment convention `/api/v1` from one constant; additive changes; `Asp.Versioning.Http` only when a v2 is needed | |
+| D-303 | OpenAPI 3.1 from `Microsoft.AspNetCore.OpenApi`, rendered with Scalar at `/scalar`, behind `Api:Docs:Enabled` (on in Development); snapshot test pins the contract | |
+| D-304 | History filters: status, cut-off range, current only; fixed sort by received time; no free-text search | |
+| D-305 | Plan: #20 API surface, #21 protection, Phase 5 starts at #22 | Replaces "Phase 5 starts at #20" |
+
+### Next step
+Brief #20: API surface (v1 routes, OpenAPI with Scalar, history paging and filters).
+
 ## Delta 2026-11-27 (session 30: Brief #19 executed)
 
 Branch `feat/model-narrator`. The brief's commits, one bug fix found in the live runs (D-292) and one owner redesign

@@ -10,7 +10,7 @@ describe('AdvisoryPanel', () => {
   let element: HTMLElement;
   let backend: HttpTestingController;
 
-  const url = '/api/advisory/submissions/s-1/advisory';
+  const url = '/api/v1/advisory/submissions/s-1/advisory';
   const advisory = {
     evaluationId: 'e-1',
     submissionId: 's-1',

@@ -1,3 +1,4 @@
+using FinGuard.BuildingBlocks.Http;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Portfolio.Features.GetSubmission;
@@ -5,6 +6,7 @@ using FinGuard.Portfolio.Features.ListSubmissions;
 using FinGuard.Portfolio.Features.ReceiveSubmission;
 using FinGuard.Portfolio.Persistence;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -35,8 +37,11 @@ public static class PortfolioModule
 
     public static IEndpointRouteBuilder MapPortfolioEndpoints(this IEndpointRouteBuilder endpoints)
     {
-        endpoints.MapGroup("/api/portfolio")
+        endpoints.MapGroup($"{ApiRoutes.V1}/portfolio")
             .RequireAuthorization(AuthorizationPolicies.TenantMember)
+            .WithTags("Portfolio")
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
             .MapReceiveSubmission()
             .MapListSubmissions()
             .MapGetSubmission();

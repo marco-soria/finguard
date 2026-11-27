@@ -23,6 +23,22 @@ public sealed class ProductionEnvironmentTests(ApiFixture fixture)
         Assert.DoesNotContain("accessToken", body, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("/openapi/v1.json")]
+    [InlineData("/scalar")]
+    public async Task OpenApi_DisabledOutsideDevelopment_IsNotServed(string path)
+    {
+        await using var factory = new ProductionFactory(fixture.ConnectionString);
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(new Uri(path, UriKind.Relative), TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        // Not mapped (Api:Docs:Enabled defaults to false), so the fallback policy answers 401 before routing's 404.
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.DoesNotContain("openapi", body, StringComparison.OrdinalIgnoreCase);
+    }
+
     private sealed class ProductionFactory(string connectionString) : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)

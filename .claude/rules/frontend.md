@@ -29,7 +29,10 @@ paths:
   both work (D-106, D-209). `ThemeService` (`core/theme/`) owns `color-scheme` on `<html>` (system, light, dark;
   D-210); nothing else sets it.
 - Reads use `httpResource` created in the component's injection context (API services expose factories); writes use
-  `HttpClient` (D-102). `ApiError` extends `Error`, so a resource's `error()` is the `ApiError` itself.
+  `HttpClient` (D-102). `ApiError` extends `Error`, so a resource's `error()` is the `ApiError` itself. Exception:
+  a paged list whose "Load more" appends pages reads with `HttpClient` through the API service, subscribed in the
+  component with `switchMap` and `takeUntilDestroyed` (D-309).
+- API paths start from `API_BASE` (`core/api/api-base.ts`, `/api/v1`, D-302); never hard-code `/api/`.
 - Calendar dates (`cutOffDate`) stay `yyyy-MM-dd` strings: never `Date` or `DatePipe` (one-day shift west of UTC).
   Timestamps (`receivedAt`) render in local time with `DatePipe` (D-103).
 - Client-side file checks (extension, empty, size) are UX only; the API is authoritative (D-104).

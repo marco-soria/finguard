@@ -47,9 +47,9 @@ describe('SubmissionDetail', () => {
     errors: [],
   };
 
-  const detailUrl = '/api/portfolio/submissions/s-1';
-  const evaluationUrl = '/api/compliance/submissions/s-1/evaluation';
-  const advisoryUrl = '/api/advisory/submissions/s-1/advisory';
+  const detailUrl = '/api/v1/portfolio/submissions/s-1';
+  const evaluationUrl = '/api/v1/compliance/submissions/s-1/evaluation';
+  const advisoryUrl = '/api/v1/advisory/submissions/s-1/advisory';
 
   const evaluation = {
     evaluationId: 'e-1',
@@ -172,7 +172,7 @@ describe('SubmissionDetail', () => {
   });
 
   it('lists the errors of a rejected submission in a table with codes as data only', async () => {
-    backend.expectOne('/api/portfolio/submissions/s-1').flush({
+    backend.expectOne('/api/v1/portfolio/submissions/s-1').flush({
       ...details,
       status: 'Rejected',
       rowCount: 2,
@@ -206,7 +206,7 @@ describe('SubmissionDetail', () => {
   });
 
   it('says when only the first 100 errors are shown', async () => {
-    backend.expectOne('/api/portfolio/submissions/s-1').flush({
+    backend.expectOne('/api/v1/portfolio/submissions/s-1').flush({
       ...details,
       status: 'Rejected',
       errorCount: 150,
@@ -224,7 +224,7 @@ describe('SubmissionDetail', () => {
   });
 
   it('shows the error title and detail on 404', async () => {
-    backend.expectOne('/api/portfolio/submissions/s-1').flush(
+    backend.expectOne('/api/v1/portfolio/submissions/s-1').flush(
       {
         title: 'Resource not found',
         status: 404,

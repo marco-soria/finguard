@@ -25,3 +25,16 @@ a {
   color: var(--mat-sys-on-secondary-container);
   font: var(--mat-sys-label-small);
 }
+
+.history-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 1rem;
+}
+
+.history-more {
+  display: flex;
+  justify-content: center;
+  margin-block-start: 1rem;
+}

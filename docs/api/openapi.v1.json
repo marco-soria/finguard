@@ -1,0 +1,1138 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "FinGuard API",
+    "description": "Upload an investment portfolio at a cut-off date, evaluate it against the allocation limits and read the rebalancing advisory. Every call needs a bearer token; the tenant comes from the token.",
+    "version": "v1"
+  },
+  "paths": {
+    "/dev/token": {
+      "post": {
+        "tags": [
+          "Development"
+        ],
+        "summary": "Development token",
+        "description": "Development only. Issues a token for a seeded user (alice or bob).",
+        "operationId": "IssueDevToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DevTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tenancy/me": {
+      "get": {
+        "tags": [
+          "Tenancy"
+        ],
+        "summary": "Current tenant",
+        "description": "The tenant of the signed-in user, taken from the token.",
+        "operationId": "GetCurrentTenant",
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentTenantResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portfolio/submissions": {
+      "post": {
+        "tags": [
+          "Portfolio"
+        ],
+        "summary": "Upload a portfolio",
+        "description": "Multipart form with \u0060file\u0060 (CSV, UTF-8, at most 5 MB) and \u0060cutOffDate\u0060 (yyyy-MM-dd). 201 stores an Accepted or Rejected submission; 200 with duplicate true returns the earliest submission with the same cut-off date and file bytes and stores nothing.",
+        "operationId": "ReceiveSubmission",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "allOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "file": {
+                        "$ref": "#/components/schemas/IFormFile"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "cutOffDate": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionReceivedResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionReceivedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload Too Large",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Portfolio"
+        ],
+        "summary": "Submission history",
+        "description": "One page of the tenant\u0027s submissions, newest first (received time, then id). Query parameters, all optional and combined with AND: \u0060limit\u0060 (1 to 100, default 25), \u0060cursor\u0060 (the previous page\u0027s \u0060nextCursor\u0060), \u0060status\u0060 (\u0060Accepted\u0060 or \u0060Rejected\u0060), \u0060cutOffFrom\u0060 and \u0060cutOffTo\u0060 (inclusive, yyyy-MM-dd), \u0060currentOnly\u0060 (true or false). \u0060isCurrent\u0060 is computed over all of the tenant\u0027s submissions, not the page. \u0060nextCursor\u0060 is null on the last page.\n\n400 codes, checked in this order (the first failing rule answers): \u0060Portfolio.Submissions.InvalidLimit\u0060, \u0060Portfolio.Submissions.InvalidCursor\u0060, \u0060Portfolio.Submissions.InvalidStatus\u0060, \u0060Portfolio.Submissions.InvalidCutOffRange\u0060, \u0060Portfolio.Submissions.InvalidCurrentOnly\u0060.",
+        "operationId": "ListSubmissions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cutOffFrom",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cutOffTo",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "currentOnly",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/portfolio/submissions/{id}": {
+      "get": {
+        "tags": [
+          "Portfolio"
+        ],
+        "summary": "Submission details",
+        "description": "One submission with its status, counts, whether it is current, and its first 100 errors.",
+        "operationId": "GetSubmission",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionDetailsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/compliance/submissions/{submissionId}/evaluation": {
+      "get": {
+        "tags": [
+          "Compliance"
+        ],
+        "summary": "Compliance evaluation",
+        "description": "The evaluation of an accepted submission against the limit policy, with its rebalance proposal.",
+        "operationId": "GetEvaluation",
+        "parameters": [
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/advisory/submissions/{submissionId}/advisory": {
+      "get": {
+        "tags": [
+          "Advisory"
+        ],
+        "summary": "Rebalancing advisory",
+        "description": "The plain-text narrative of an evaluation and the optional validated AI context paragraph.",
+        "operationId": "GetAdvisory",
+        "parameters": [
+          {
+            "name": "submissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdvisoryResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdvisoryResponse": {
+        "required": [
+          "evaluationId",
+          "submissionId",
+          "narrator",
+          "generatedAt",
+          "paragraphs",
+          "model",
+          "refinement",
+          "aiContext"
+        ],
+        "type": "object",
+        "properties": {
+          "evaluationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "submissionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "narrator": {
+            "type": "string"
+          },
+          "generatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "paragraphs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "model": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "refinement": {
+            "type": "string"
+          },
+          "aiContext": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "AlertItem": {
+        "required": [
+          "assetClass",
+          "status",
+          "utilization"
+        ],
+        "type": "object",
+        "properties": {
+          "assetClass": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "utilization": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "ClassEvaluationItem": {
+        "required": [
+          "assetClass",
+          "bookValue",
+          "share",
+          "limit",
+          "utilization",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "assetClass": {
+            "type": "string"
+          },
+          "bookValue": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "share": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "limit": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "utilization": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "CsvError": {
+        "required": [
+          "row",
+          "column",
+          "code",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "row": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "column": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "CurrentTenantResponse": {
+        "required": [
+          "tenantId",
+          "tenantName"
+        ],
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tenantName": {
+            "type": "string"
+          }
+        }
+      },
+      "DevToken": {
+        "required": [
+          "accessToken",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DevTokenRequest": {
+        "required": [
+          "user"
+        ],
+        "type": "object",
+        "properties": {
+          "user": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "EvaluationResponse": {
+        "required": [
+          "evaluationId",
+          "submissionId",
+          "cutOffDate",
+          "overallStatus",
+          "policyVersion",
+          "evaluatedAt",
+          "totalBookValue",
+          "alertThreshold",
+          "classes",
+          "alerts",
+          "proposal"
+        ],
+        "type": "object",
+        "properties": {
+          "evaluationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "submissionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cutOffDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "overallStatus": {
+            "type": "string"
+          },
+          "policyVersion": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "evaluatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "totalBookValue": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "alertThreshold": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "classes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ClassEvaluationItem"
+            }
+          },
+          "alerts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AlertItem"
+            }
+          },
+          "proposal": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProposalItem"
+              }
+            ]
+          }
+        }
+      },
+      "IFormFile": {
+        "type": "string",
+        "format": "binary"
+      },
+      "MoveItem": {
+        "required": [
+          "assetClass",
+          "currentBookValue",
+          "proposedBookValue",
+          "change"
+        ],
+        "type": "object",
+        "properties": {
+          "assetClass": {
+            "type": "string"
+          },
+          "currentBookValue": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "proposedBookValue": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "change": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d\u002B)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "ProposalItem": {
+        "required": [
+          "status",
+          "moves"
+        ],
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "moves": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MoveItem"
+            }
+          }
+        }
+      },
+      "SubmissionDetailsResponse": {
+        "required": [
+          "submissionId",
+          "cutOffDate",
+          "fileName",
+          "sizeBytes",
+          "status",
+          "receivedAt",
+          "rowCount",
+          "errorCount",
+          "isCurrent",
+          "errors"
+        ],
+        "type": "object",
+        "properties": {
+          "submissionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cutOffDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rowCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "errorCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "isCurrent": {
+            "type": "boolean"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmissionErrorItem"
+            }
+          }
+        }
+      },
+      "SubmissionErrorItem": {
+        "required": [
+          "row",
+          "column",
+          "code",
+          "message"
+        ],
+        "type": "object",
+        "properties": {
+          "row": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "column": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "SubmissionListItem": {
+        "required": [
+          "submissionId",
+          "cutOffDate",
+          "fileName",
+          "sizeBytes",
+          "status",
+          "receivedAt",
+          "rowCount",
+          "errorCount",
+          "isCurrent"
+        ],
+        "type": "object",
+        "properties": {
+          "submissionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cutOffDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "status": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rowCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "errorCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "isCurrent": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SubmissionListResponse": {
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubmissionListItem"
+            }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "SubmissionReceivedResponse": {
+        "required": [
+          "submissionId",
+          "status",
+          "receivedAt",
+          "rowCount",
+          "errorCount",
+          "errors",
+          "duplicate"
+        ],
+        "type": "object",
+        "properties": {
+          "submissionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "rowCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "errorCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CsvError"
+            }
+          },
+          "duplicate": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "Access token. In Development, POST /dev/token with {\u0022user\u0022:\u0022alice\u0022} or {\u0022user\u0022:\u0022bob\u0022}.",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Development"
+    },
+    {
+      "name": "Tenancy"
+    },
+    {
+      "name": "Portfolio"
+    },
+    {
+      "name": "Compliance"
+    },
+    {
+      "name": "Advisory"
+    }
+  ]
+}

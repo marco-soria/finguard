@@ -52,14 +52,23 @@ internal static class ReceiveSubmissionEndpoint
             .DisableAntiforgery()
             // Endpoint metadata (IRequestSizeLimitMetadata) lowers the server body limit for this route only.
             .WithMetadata(new RequestSizeLimitAttribute(MaxRequestBytes))
-            .WithFormOptions(multipartBodyLengthLimit: MaxRequestBytes);
+            .WithFormOptions(multipartBodyLengthLimit: MaxRequestBytes)
+            .WithName("ReceiveSubmission")
+            .WithSummary("Upload a portfolio")
+            .WithDescription("Multipart form with `file` (CSV, UTF-8, at most 5 MB) and `cutOffDate` (yyyy-MM-dd). " +
+                "201 stores an Accepted or Rejected submission; 200 with duplicate true returns the earliest submission " +
+                "with the same cut-off date and file bytes and stores nothing.")
+            .Produces<SubmissionReceivedResponse>(StatusCodes.Status201Created)
+            .Produces<SubmissionReceivedResponse>()
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge);
         return group;
     }
 
     // A duplicate is not a new resource: 200 with the existing submission's Location (D-139).
     private static IResult ToHttpResult(SubmissionReceivedResponse r, HttpResponse response)
     {
-        var location = $"/api/portfolio/submissions/{r.SubmissionId}";
+        var location = $"{ApiRoutes.V1}/portfolio/submissions/{r.SubmissionId}";
         if (!r.Duplicate)
         {
             return TypedResults.Created(location, r);

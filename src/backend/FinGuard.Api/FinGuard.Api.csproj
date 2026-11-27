@@ -4,6 +4,8 @@
     <PackageReference Include="Aspire.Npgsql" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
     <PackageReference Include="WolverineFx" />
     <PackageReference Include="WolverineFx.EntityFrameworkCore" />
     <PackageReference Include="WolverineFx.Postgresql" />

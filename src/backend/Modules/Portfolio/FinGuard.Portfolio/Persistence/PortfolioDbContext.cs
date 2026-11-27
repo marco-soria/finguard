@@ -22,6 +22,8 @@ public sealed class PortfolioDbContext(DbContextOptions<PortfolioDbContext> opti
             submission.HasIndex(s => new { s.TenantId, s.CutOffDate, s.ReceivedAt });
             // Duplicate pre-check (D-140). Not unique: dev and test databases already hold identical uploads.
             submission.HasIndex(s => new { s.TenantId, s.CutOffDate, s.Sha256 });
+            // Keyset paging of the history (D-299): ORDER BY received_at DESC, id DESC within the tenant.
+            submission.HasIndex(s => new { s.TenantId, s.ReceivedAt, s.Id }).IsDescending(false, true, true);
         });
 
         modelBuilder.Entity<SubmissionContent>(content =>

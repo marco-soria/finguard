@@ -1,5 +1,6 @@
 import { httpResource, HttpResourceRef } from '@angular/common/http';
 import { Injectable, Signal } from '@angular/core';
+import { API_BASE } from './api-base';
 
 /** `Cash`, `FixedIncome`, `Shares` or `RealEstate` (enum names, D-202). */
 export type AssetClass = string;
@@ -41,7 +42,7 @@ export interface RebalanceProposal {
 }
 
 /**
- * `GET /api/compliance/submissions/{id}/evaluation`. `cutOffDate` is a `yyyy-MM-dd` calendar date (D-103).
+ * `GET /api/v1/compliance/submissions/{id}/evaluation`. `cutOffDate` is a `yyyy-MM-dd` calendar date (D-103).
  * `alertThreshold` comes from the evaluation's policy snapshot (D-206).
  */
 export interface EvaluationResponse {
@@ -71,7 +72,9 @@ export class ComplianceApi {
   ): HttpResourceRef<EvaluationResponse | undefined> {
     return httpResource<EvaluationResponse>(() => {
       const id = submissionId();
-      return id ? `/api/compliance/submissions/${encodeURIComponent(id)}/evaluation` : undefined;
+      return id
+        ? `${API_BASE}/compliance/submissions/${encodeURIComponent(id)}/evaluation`
+        : undefined;
     });
   }
 }

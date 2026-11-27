@@ -35,9 +35,9 @@ describe('authInterceptor', () => {
   afterEach(() => backend.verify());
 
   it('adds the bearer token to /api/ calls', () => {
-    http.get('/api/tenancy/me').subscribe();
+    http.get('/api/v1/tenancy/me').subscribe();
 
-    const request = backend.expectOne('/api/tenancy/me');
+    const request = backend.expectOne('/api/v1/tenancy/me');
     expect(request.request.headers.get('Authorization')).toBe('Bearer secret-token');
     request.flush({});
   });
@@ -55,9 +55,11 @@ describe('authInterceptor', () => {
 
   it('signs out on a 401 from /api/', async () => {
     const auth = TestBed.inject(AuthService);
-    const call = firstValueFrom(http.get('/api/tenancy/me'));
+    const call = firstValueFrom(http.get('/api/v1/tenancy/me'));
 
-    backend.expectOne('/api/tenancy/me').flush(null, { status: 401, statusText: 'Unauthorized' });
+    backend
+      .expectOne('/api/v1/tenancy/me')
+      .flush(null, { status: 401, statusText: 'Unauthorized' });
 
     await expect(call).rejects.toBeInstanceOf(ApiError);
     expect(auth.isAuthenticated()).toBe(false);
@@ -66,9 +68,9 @@ describe('authInterceptor', () => {
 
   it('keeps the session on other errors', async () => {
     const auth = TestBed.inject(AuthService);
-    const call = firstValueFrom(http.get('/api/tenancy/me'));
+    const call = firstValueFrom(http.get('/api/v1/tenancy/me'));
 
-    backend.expectOne('/api/tenancy/me').flush(null, { status: 403, statusText: 'Forbidden' });
+    backend.expectOne('/api/v1/tenancy/me').flush(null, { status: 403, statusText: 'Forbidden' });
 
     await expect(call).rejects.toBeInstanceOf(ApiError);
     expect(auth.isAuthenticated()).toBe(true);

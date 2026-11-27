@@ -13,7 +13,13 @@ internal static class DevTokenEndpoints
     {
         endpoints.MapPost(Path, (DevTokenRequest request, DevTokenIssuer issuer, TimeProvider timeProvider) =>
                 Issue(request, issuer, timeProvider).ToHttpResult(TypedResults.Ok))
-            .AllowAnonymous();
+            .AllowAnonymous()
+            .WithName("IssueDevToken")
+            .WithTags("Development")
+            .WithSummary("Development token")
+            .WithDescription("Development only. Issues a token for a seeded user (alice or bob).")
+            .Produces<DevToken>()
+            .ProducesProblem(StatusCodes.Status400BadRequest);
         return endpoints;
     }
 
