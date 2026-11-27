@@ -20,6 +20,7 @@ accepted in its D-293 form. Phase 4 complete.
 | --- | --- | --- |
 | D-291 | Refinement code lives in `Features/Refinement` (a `RefineNarrative` folder clashed with the message type). `IAdvisoryNarrator` gains `ModelId` (null for the template). The Ollama client runs with its health check off. Without a model, `IAdvisoryNarrator` falls back to the template (`TryAdd`) only to satisfy the handler's dependency. Integration tests use `ModelNarratorHost`: a fake `IChatClient`, its own database per test class, so its Wolverine node never takes the shared host's messages. The third manual sample is a Warning portfolio (`invalid-mixed.csv` is rejected, so it has no advisory). The footer's "(opens in a new tab)" uses a local `.visually-hidden` class | |
 | D-292 | ServiceDefaults' standard resilience handler (10 s per attempt, retries, 30 s total) also wrapped the Ollama client's `HttpClient` (`narrator_httpClient`): local model calls were cut at 10 s and sent again, so the narrator's own timeout never applied (Ollama logged 500 at 10.00 s; one run ended `ModelError` after about 31 s). That client now has no resilience handler and no `HttpClient` timeout (`RemoveAllResilienceHandlers`, EXTEXP0001 suppressed with a comment). A test inspects the handler chain of the client the integration really uses | Bug fix commit with a failing test first |
+| D-295 | AI context is requested only when the proposal status is not `NotNeeded`: with no proposal there is nothing to explain. Otherwise the refinement stays `NotRequested`, no `RefineNarrative` is sent and the panel shows no Context subsection (`EvaluationCompletedHandler.RequestsContext`; unit and integration tests with the balanced sample) | Owner review of the close-out. Removes the balanced run 2 problem by construction |
 | D-294 | Local data only: the six rows written by the first design (`narrator = 'Model'`) were deleted from the owner's development database with one approved `DELETE … WHERE narrator <> 'Template'` (6 rows). No migration, no volume removed | Owner approved |
 
 ### .NET 11 check (owner condition on D-290)
@@ -39,8 +40,9 @@ untouched Tenancy project).
 - Live runs, final design (`-WithAi`, `llama3.2:3b`, CPU): 6/6 accepted (valid-balanced 2/2, valid-shares-heavy 2/2,
   Warning cash portfolio 2/2); Ollama call 4.1 to 9.4 s (first call includes loading the model), 4 to 12 s from upload
   to the stored outcome. Owner check: two texts are generic but plausible; balanced run 2 says Shares "have grown
-  significantly" and moves Shares back although balanced has no proposal, and the Warning runs say reducing Cash brings
-  it "closer to its maximum allocation" (wrong direction). Neither has figures or status words. No further tuning (R-52).
+  significantly" and moves Shares back although balanced has no proposal (no longer possible: D-295 requests no context
+  without a proposal), and the Warning runs say reducing Cash brings it "closer to its maximum allocation" (wrong
+  direction, kept under R-52). Neither has figures or status words. No further tuning.
 - Live runs, first design, after the D-292 fix: 2/6 accepted (both Warning cash runs, both with wrong class statuses),
   4 `StatusMismatch` (balanced and shares-heavy). Before the fix: 2/6 accepted, 3 `StatusMismatch`, 1 `ModelError`.
 - Ollama stopped mid-run: refinement `Rejected`/`ModelError` within about 2 s, template unchanged, no context, dead

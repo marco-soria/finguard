@@ -21,6 +21,8 @@ alwaysApply: false
   and receiving classes and the target in words (`NarratorPrompt`): no figures, no statuses. Changing the instructions
   bumps `NarratorPrompt.Version` and the snapshot hash.
 - API and UI fail closed: a narrator other than `Template` gets no AI context.
+- AI context is requested only when a model is configured and the proposal is not `NotNeeded`; otherwise the
+  refinement stays `NotRequested` (D-295).
 - The model never runs inside a transaction: `RefineNarrativeHandler` takes no DbContext (architecture test).
 - Never put prompts or completions in logs or traces: the chat client's telemetry runs with sensitive data off.
 - Narratives are plain-text paragraphs separated by one blank line: no Markdown, no HTML. The SPA uses interpolation.

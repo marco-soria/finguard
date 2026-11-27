@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using FinGuard.Advisory.Features.Refinement;
 using FinGuard.Advisory.Persistence;
+using FinGuard.Compliance.Contracts;
 using FinGuard.Compliance.Contracts.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -50,7 +51,7 @@ public sealed partial class EvaluationCompletedHandler(
         var advisory = Persistence.Advisory.Create(
             @event.EvaluationId, @event.SubmissionId, @event.EventId, JsonSerializer.Serialize(facts, FactsJson),
             narrative, TemplateNarrator.Name, time.GetUtcNow());
-        if (options.Value.ModelEnabled)
+        if (RequestsContext(facts, options.Value.ModelEnabled))
         {
             advisory.RequestRefinement();
             outgoing.Add(new RefineNarrative(advisory.Id));
@@ -60,6 +61,13 @@ public sealed partial class EvaluationCompletedHandler(
         LogWritten(logger, @event.EvaluationId);
         return outgoing;
     }
+
+    /// <summary>
+    /// AI context explains a proposal, so it is requested only with a model configured and a proposal other than
+    /// <c>NotNeeded</c> (D-295); otherwise the refinement stays <c>NotRequested</c>.
+    /// </summary>
+    internal static bool RequestsContext(AdvisoryFacts facts, bool modelEnabled) =>
+        modelEnabled && facts.ProposalStatus != ProposalStatusCode.NotNeeded;
 
     // Identifiers only: never facts, narrative, amounts or dates (D-162).
     [LoggerMessage(Level = LogLevel.Information, Message = "Wrote advisory for evaluation {EvaluationId}")]

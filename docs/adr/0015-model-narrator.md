@@ -19,7 +19,7 @@ template now always writes the narrative, every figure and every status; the mod
 that may contain none of them.
 
 1. **Refinement is a separate step (D-281).** `EvaluationCompletedHandler` is unchanged except that, when a model is
-   configured, it stores the template advisory with `refinement_status = Pending` and cascades
+   configured and the proposal is not `NotNeeded` (D-295: no proposal, nothing to explain), it stores the template advisory with `refinement_status = Pending` and cascades
    `RefineNarrative(AdvisoryId)` through the outbox in the same transaction. `RefineNarrativeHandler` has **no
    DbContext dependency**, so Wolverine opens no transaction: it reads the facts with Dapper (own schema, `tenant_id`
    filter, pending rows only), calls the narrator with a timeout, validates, and cascades

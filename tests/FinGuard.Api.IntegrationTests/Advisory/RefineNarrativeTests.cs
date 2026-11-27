@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using Dapper;
 using FinGuard.Advisory.Features.GetAdvisory;
+using FinGuard.Advisory.Features.Refinement;
 using FinGuard.Api.IntegrationTests.Portfolio;
 using FinGuard.Portfolio.Features.ReceiveSubmission;
 using FinGuard.Tenancy.Development;
@@ -111,6 +112,22 @@ public sealed class RefineNarrativeTests(ModelNarratorHost host) : IClassFixture
         Assert.Equal(("Model", (string?)null), (read!.Narrator, read.AiContext));
     }
 
+    [Fact]
+    public async Task Upload_Balanced_ProposalNotNeeded_RequestsNoContext()
+    {
+        // No proposal, nothing to explain (D-295): the model is never asked.
+        host.ChatClient.Respond = _ => Task.FromResult(Context);
+        var calls = host.ChatClient.Calls;
+
+        var (session, advisory) = await UploadAndTrackAsync("2025-12-31", "valid-balanced.csv");
+
+        Assert.Empty(session.Sent.MessagesOf<RefineNarrative>());
+        Assert.Equal(calls, host.ChatClient.Calls);
+        Assert.Equal(("Template", (string?)null, "NotRequested", (string?)null),
+            (advisory.Narrator, advisory.Model, advisory.Refinement, advisory.AiContext));
+        Assert.Equal((0L, "NotRequested", (string?)null), await StoredStateAsync(advisory.SubmissionId));
+    }
+
     private static void AssertTemplate(AdvisoryResponse advisory, string cutOffDate)
     {
         Assert.Equal("Template", advisory.Narrator);
@@ -124,22 +141,27 @@ public sealed class RefineNarrativeTests(ModelNarratorHost host) : IClassFixture
         Assert.Equal(((string?)null, "Rejected", (string?)null), (advisory.Model, advisory.Refinement, advisory.AiContext));
     }
 
+    private async Task<AdvisoryResponse> UploadAndReadAsync(string cutOffDate) =>
+        (await UploadAndTrackAsync(cutOffDate, "valid-shares-heavy.csv")).Advisory;
+
     // Upload as Alice (seeded on this host's database) and wait until the refinement chain has finished.
-    private async Task<AdvisoryResponse> UploadAndReadAsync(string cutOffDate)
+    private async Task<(ITrackedSession Session, AdvisoryResponse Advisory)> UploadAndTrackAsync(
+        string cutOffDate, string sample)
     {
         using var client = host.CreateClient(DevIdentities.Alice);
         SubmissionReceivedResponse? body = null;
-        await host.Factory.Services.TrackActivity().Timeout(TimeSpan.FromSeconds(30)).DoNotAssertOnExceptionsDetected()
+        var session = await host.Factory.Services.TrackActivity().Timeout(TimeSpan.FromSeconds(30))
+            .DoNotAssertOnExceptionsDetected()
             .ExecuteAndWaitAsync((Func<Wolverine.IMessageContext, Task>)(async _ =>
             {
                 using var response = await client.UploadAsync(
-                    "portfolio.csv", _ct, AdvisoryTestData.Sample("valid-shares-heavy.csv"), cutOffDate);
+                    "portfolio.csv", _ct, AdvisoryTestData.Sample(sample), cutOffDate);
                 Assert.Equal(HttpStatusCode.Created, response.StatusCode);
                 body = await response.Content.ReadFromJsonAsync<SubmissionReceivedResponse>(_ct);
             }));
 
         var advisory = await client.GetFromJsonAsync<AdvisoryResponse>(PathFor(body!.SubmissionId), _ct);
-        return advisory!;
+        return (session, advisory!);
     }
 
     // Dead letters on this host's database, and the stored refinement columns.
