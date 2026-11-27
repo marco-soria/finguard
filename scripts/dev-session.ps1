@@ -7,6 +7,7 @@
     -Snapshot     Record what is already running (processes, containers) in .git/finguard-session-baseline.txt.
     -StartAspire  The only way an agent starts Aspire: `aspire start` for this repo, recorded in
                   .git/finguard-agent-processes.txt (PID, start time, branch). Prints the dashboard URL.
+                  Add -NoAi to start without the Ollama model (FinGuard:Ai:Enabled=false, ADR-0015).
     -Report       (default) List this repo's AppHosts, Api / ng serve / dcp processes, Playwright browsers,
                   Testcontainers and Aspire session containers, marked baseline / agent / new / unknown owner.
     -Stop         Stop agent-recorded AppHosts (any session) gracefully, then every other "new" item, then run
@@ -23,6 +24,7 @@
 param(
     [Parameter(ParameterSetName = 'Snapshot')][switch] $Snapshot,
     [Parameter(ParameterSetName = 'StartAspire')][switch] $StartAspire,
+    [Parameter(ParameterSetName = 'StartAspire')][switch] $NoAi,
     [Parameter(ParameterSetName = 'Report')][switch] $Report,
     [Parameter(ParameterSetName = 'Stop')][switch] $Stop
 )
@@ -185,13 +187,20 @@ switch ($PSCmdlet.ParameterSetName) {
     }
     'StartAspire' {
         if (-not $PSCmdlet.ShouldProcess($AppHostProject, 'aspire start')) { return }
-        $json = aspire start --apphost $AppHostProject --non-interactive --format Json 2>$null | Out-String
+        # The AppHost reads FinGuard:Ai:Enabled from its environment; the process inherits this session's variables.
+        $env:FinGuard__Ai__Enabled = if ($NoAi) { 'false' } else { 'true' }
+        try {
+            $json = aspire start --apphost $AppHostProject --non-interactive --format Json 2>$null | Out-String
+        }
+        finally {
+            Remove-Item Env:FinGuard__Ai__Enabled -ErrorAction SilentlyContinue
+        }
         if ($LASTEXITCODE -ne 0) { throw "aspire start failed (exit $LASTEXITCODE)." }
         $start = ($json.Substring($json.IndexOf('{'))) | ConvertFrom-Json
         $proc = Get-ProcessTable | Where-Object Pid -eq ([int]$start.appHostPid)
         $branch = (git -C $RepoRoot branch --show-current).Trim()
         if (-not (Test-Path $AgentFile)) { '# Agent-started processes (never committed)' | Set-Content $AgentFile -Encoding utf8 }
-        "P:$($proc.Pid):$($proc.Started) started=$(Get-Date -Format o) branch=$branch apphost=$($start.appHostPath)" |
+        "P:$($proc.Pid):$($proc.Started) started=$(Get-Date -Format o) branch=$branch ai=$(-not $NoAi) apphost=$($start.appHostPath)" |
             Add-Content -Path $AgentFile -Encoding utf8
         Write-Host "AppHost PID $($start.appHostPid) recorded in $AgentFile"
         Write-Host "Dashboard: $($start.dashboardUrl)"

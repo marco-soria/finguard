@@ -41,6 +41,27 @@ Commands, for tests, E2E and migrations.
 The AppHost registers the Api with `AddDotnetProject` (Aspire 17), so Aspire builds it and runs it as
 `FinGuard.Api.exe`. `aspire run --watch` does not support `AddDotnetProject` projects yet; we do not use it.
 
+### Local model (ADR-0015)
+By default the AppHost also starts an `ollama` container with the model `narrator` (`llama3.2:3b`). The first start
+downloads the `ollama/ollama` image (about 1.5 to 3 GB) and the model (about 2.0 GB); both are cached, the model in the
+`ollama` data volume (never remove it to "clean up"). The Api does not wait for the model: advisories are written from
+the template at once and replaced by the model's text only when it passes validation.
+```powershell
+pwsh scripts/dev-session.ps1 -StartAspire -NoAi     # agents: no Ollama container, template narratives only
+$env:FinGuard__Ai__Enabled = 'false'; aspire run    # owner: the same switch by hand
+dotnet user-secrets set "Parameters:narrator-model" "qwen2.5:3b" --project src/backend/FinGuard.AppHost  # another model
+```
+CI, the tests and a machine without Ollama run without the model; nothing else changes.
+
+## Pinned packages
+Packages held below the line the rest of the solution uses. Each brief's preflight checks whether the condition to
+move is met (`AGENTS.md`, Stack) and reports it; nobody upgrades them without approval.
+
+| Package | Pinned | Reason | Move when |
+| --- | --- | --- | --- |
+| `Aspire.Npgsql.EntityFrameworkCore.PostgreSQL` | 13.6.5 | No stable 17.x (R-45) | A stable 17.x is on NuGet |
+| `CommunityToolkit.Aspire.OllamaSharp` | 13.6.1 | 17.0.0 needs `Microsoft.Extensions.AI` 11.x, which pulls .NET 11 abstractions into net10.0 (R-51, D-290) | A version needs only 10.x abstractions, or the solution moves to .NET 11 |
+
 ## Close a session
 ```powershell
 pwsh scripts/dev-session.ps1 -Report   # what this repo has running: baseline / agent / new / unknown owner

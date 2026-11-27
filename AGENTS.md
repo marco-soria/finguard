@@ -18,6 +18,9 @@ This is a portfolio project: cost must stay near zero until Phase 5 (see ADR-000
 - Wolverine 6.x (CQRS handlers, messaging, PostgreSQL transactional outbox).
 - Angular 22 (TypeScript 6, Node 24 LTS) with **pnpm** only.
 - Microsoft Agent Framework 1.x (`Microsoft.Agents.AI`) over `Microsoft.Extensions.AI`, behind the `IAdvisoryNarrator` port (ADR-0006). Stable packages only.
+- Brief preflight: check NuGet (`dotnet package search <id> --exact-match`) for a stable 17.x of
+  `Aspire.Npgsql.EntityFrameworkCore.PostgreSQL` and a `CommunityToolkit.Aspire.OllamaSharp` that needs no .NET 11
+  abstractions; report the result in the plan, never upgrade without approval (`docs/dev-environment.md`, Pinned packages).
 - Azure (Phase 5 only): Container Apps, PostgreSQL Flexible Server, Key Vault, Application Insights,
   Azure AI Foundry, Microsoft Entra External ID.
 
