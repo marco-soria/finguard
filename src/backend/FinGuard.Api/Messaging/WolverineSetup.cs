@@ -35,6 +35,7 @@ internal static class WolverineSetup
             // Cascaded events survive a crash between commit and handling (D-71).
             opts.Policies.UseDurableLocalQueues();
             opts.Policies.AddMiddleware(typeof(TenantPropagationMiddleware));
+            opts.AddAdvisoryMessaging();
             // Module DbContexts registered through Aspire's EnrichNpgsqlDbContext are resolved from the message scope
             // (service location). ITenantContext must come from that same scope, or the middleware sets the tenant on
             // an inlined `new TenantContext()` the DbContext never sees and every write fails closed (D-95).

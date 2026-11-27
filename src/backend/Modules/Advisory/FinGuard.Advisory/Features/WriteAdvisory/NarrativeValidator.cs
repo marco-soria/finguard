@@ -4,8 +4,8 @@ using FinGuard.BuildingBlocks.Results;
 namespace FinGuard.Advisory.Features.WriteAdvisory;
 
 /// <summary>
-/// Every number in a narrative must appear among the facts' display texts (D-254, ADR-0002). Pure. The template is
-/// checked now; Brief #19 applies the same check to model output.
+/// Every number in a narrative must appear among the facts' display texts (D-254, ADR-0002). Pure. Only the template
+/// writes the narrative; the model's context paragraph has no numbers at all (<c>AiContextValidator</c>, D-293).
 /// </summary>
 public static partial class NarrativeValidator
 {

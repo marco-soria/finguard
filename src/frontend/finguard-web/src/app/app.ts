@@ -8,12 +8,13 @@ import { catchError, map, Observable, of, startWith, switchMap } from 'rxjs';
 import { TenancyApi } from './core/api/tenancy-api';
 import { AuthService } from './core/auth/auth.service';
 import { Theme, ThemeService } from './core/theme/theme.service';
+import { SiteFooter } from './shared/site-footer/site-footer';
 
 type TenantState = { status: 'idle' | 'loading' | 'error' } | { status: 'loaded'; name: string };
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, MatButton, MatButtonToggle, MatButtonToggleGroup, MatToolbar],
+  imports: [RouterOutlet, MatButton, MatButtonToggle, MatButtonToggleGroup, MatToolbar, SiteFooter],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

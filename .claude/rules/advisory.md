@@ -4,14 +4,26 @@ paths:
   - "tests/**/*Advisory*/**"
 ---
 
-# Advisory rules (ADR-0002, ADR-0006, ADR-0014)
+# Advisory rules (ADR-0002, ADR-0006, ADR-0014, ADR-0015)
 
 - Every number in a narrative comes from `AdvisoryFacts` display texts, formatted once by `AdvisoryFormat`
   (mirrors the SPA's `UsdPipe`, `formatPercent`, `formatRatio`; shared test vectors in both suites).
 - Narrators never compute amounts, ratios or statuses; they only explain what `EvaluationCompleted` says.
 - Facts carry no free text: only event values, class names and formatted numbers (`EvaluationCompleted_CarriesNoFreeText`).
 - Every narrative passes `NarrativeValidator` before it is stored. A template that fails is a bug: throw.
-- Narrators implement `IAdvisoryNarrator`; no model package outside the narrator adapter (ADR-0006).
+- Narrators implement `IAdvisoryNarrator`. Agent Framework, `Microsoft.Extensions.AI` and Ollama types only in
+  `FinGuard.Advisory.Infrastructure`; no model package in any other assembly (architecture tests).
+- The template always writes the narrative, every figure and status; it is never replaced. The model only adds one
+  `ai_context` paragraph, stored only after `AiContextValidator` passes: no digits, no amount or percent symbols or
+  words, no status wording, plain text, one paragraph of 150 to 700 characters, no disclaimer (ADR-0015, D-293).
+- The model agent has fixed instructions only: no tools, no memory, no MCP. Prompt input is class names, the reduced
+  and receiving classes and the target in words (`NarratorPrompt`): no figures, no statuses. Changing the instructions
+  bumps `NarratorPrompt.Version` and the snapshot hash.
+- API and UI fail closed: a narrator other than `Template` gets no AI context.
+- AI context is requested only when a model is configured and the proposal is not `NotNeeded`; otherwise the
+  refinement stays `NotRequested` (D-295).
+- The model never runs inside a transaction: `RefineNarrativeHandler` takes no DbContext (architecture test).
+- Never put prompts or completions in logs or traces: the chat client's telemetry runs with sensitive data off.
 - Narratives are plain-text paragraphs separated by one blank line: no Markdown, no HTML. The SPA uses interpolation.
 - Never log or put in `ToString()` facts, narrative text, amounts, ratios or dates: identifiers only (D-162).
 - The consumer is idempotent by `EventId`; one advisory per evaluation (`advisory.advisories`).

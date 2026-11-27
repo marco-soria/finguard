@@ -7,6 +7,9 @@
     <!-- No stable 17.x yet (only 17.0.0-preview.1); 13.6.5 has no Aspire dependencies. Move to AspireVersion when
          17.x stable ships (R-45, checked by hand in each phase's majors review). -->
     <AspireNpgsqlEfVersion>13.6.5</AspireNpgsqlEfVersion>
+    <!-- 17.0.0 needs Microsoft.Extensions.AI >= 11.0.0, which pulls .NET 11 abstractions into net10.0; 13.6.1 needs
+         >= 10.6.0 and has no Aspire dependencies. Move to AspireVersion with the move to .NET 11 (R-51, D-290). -->
+    <OllamaClientVersion>13.6.1</OllamaClientVersion>
     <WolverineVersion>6.64.0</WolverineVersion>
     <!-- Latest stable 10.x; the 11.x line targets .NET 11 and is out of scope for net10.0. -->
     <MicrosoftNet10Version>10.0.15</MicrosoftNet10Version>
@@ -19,6 +22,9 @@
     <PackageVersion Include="Aspire.Hosting.JavaScript" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Npgsql" Version="$(AspireVersion)" />
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="$(AspireNpgsqlEfVersion)" />
+    <!-- Local model narrator (ADR-0015): hosting in the AppHost, client in Advisory's Infrastructure. -->
+    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Ollama" Version="$(AspireVersion)" />
+    <PackageVersion Include="CommunityToolkit.Aspire.OllamaSharp" Version="$(OllamaClientVersion)" />
   </ItemGroup>
   <ItemGroup Label="Messaging">
     <PackageVersion Include="WolverineFx" Version="$(WolverineVersion)" />

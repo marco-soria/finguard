@@ -3,6 +3,108 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-27 (session 30: Brief #19 executed)
+
+Branch `feat/model-narrator`. The brief's commits, one bug fix found in the live runs (D-292) and one owner redesign
+after the live runs (D-293): the model no longer rewrites the narrative, it adds one context paragraph. ADR-0015
+accepted in its D-293 form. Phase 4 complete.
+
+### Owner answers to the plan and the live runs
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-290 | `CommunityToolkit.Aspire.OllamaSharp` pinned to 13.6.1 (property `OllamaClientVersion` in `Directory.Packages.props`): 17.0.0 needs `Microsoft.Extensions.AI` ≥ 11.0.0, which pulls .NET 11 abstractions into net10.0. Hosting package `CommunityToolkit.Aspire.Hosting.Ollama` stays on 17.0.0. "Pinned packages" table in `docs/dev-environment.md`; every brief's plan reports a NuGet check (AGENTS.md, Stack) | R-51. Evidence below |
+| D-293 | The model no longer rewrites the narrative. The template always writes it, every figure and status, and is never replaced (`narrator` stays `Template`). The model adds one paragraph, `ai_context` (text, nullable, migration `AddAiContext`; `AddNarrativeRefinement` kept as applied), on the reasoning behind the proposal. `AiContextValidator` replaces D-283: no digits; no `%`, currency symbol or currency/percent word; no status wording (breach, breached, exceeds, exceeded, above the limit, warning, near the limit, compliant, within the limit, limit used); plain text; one paragraph of 150 to 700 characters; no model disclaimer. Reasons `Digits`, `Symbols`, `StatusWording`, `Format`, `Length`. Prompt v2 (`2026-11-27.2`): input is class names, reduced and receiving classes and the target in words only. API adds `aiContext`; the panel shows a "Context" subsection ("Written by an AI model ({model}). It contains no figures or statuses; all figures above come from the evaluation.") and "Adding AI context…" while pending. API and UI fail closed for any narrator other than `Template`. AI off by default (`FinGuard:Ai:Enabled=false`); `dev-session.ps1 -WithAi` replaces `-NoAi`; `OLLAMA_KEEP_ALIVE=2m` | Supersedes D-283 and the overwrite part of D-281/D-288. Reason: accepted rewrites stated wrong class statuses and passed every rule (kept as regression tests) |
+
+### Decisions taken during execution
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-291 | Refinement code lives in `Features/Refinement` (a `RefineNarrative` folder clashed with the message type). `IAdvisoryNarrator` gains `ModelId` (null for the template). The Ollama client runs with its health check off. Without a model, `IAdvisoryNarrator` falls back to the template (`TryAdd`) only to satisfy the handler's dependency. Integration tests use `ModelNarratorHost`: a fake `IChatClient`, its own database per test class, so its Wolverine node never takes the shared host's messages. The third manual sample is a Warning portfolio (`invalid-mixed.csv` is rejected, so it has no advisory). The footer's "(opens in a new tab)" uses a local `.visually-hidden` class | |
+| D-292 | ServiceDefaults' standard resilience handler (10 s per attempt, retries, 30 s total) also wrapped the Ollama client's `HttpClient` (`narrator_httpClient`): local model calls were cut at 10 s and sent again, so the narrator's own timeout never applied (Ollama logged 500 at 10.00 s; one run ended `ModelError` after about 31 s). That client now has no resilience handler and no `HttpClient` timeout (`RemoveAllResilienceHandlers`, EXTEXP0001 suppressed with a comment). A test inspects the handler chain of the client the integration really uses | Bug fix commit with a failing test first |
+| D-295 | AI context is requested only when the proposal status is not `NotNeeded`: with no proposal there is nothing to explain. Otherwise the refinement stays `NotRequested`, no `RefineNarrative` is sent and the panel shows no Context subsection (`EvaluationCompletedHandler.RequestsContext`; unit and integration tests with the balanced sample) | Owner review of the close-out. Removes the balanced run 2 problem by construction |
+| D-294 | Local data only: the six rows written by the first design (`narrator = 'Model'`) were deleted from the owner's development database with one approved `DELETE … WHERE narrator <> 'Template'` (6 rows). No migration, no volume removed | Owner approved |
+
+### .NET 11 check (owner condition on D-290)
+`dotnet list FinGuard.slnx package --include-transitive` after restore: no `Microsoft.Extensions.*` or
+`Microsoft.Extensions.AI*` package at 11.x. Advisory resolves `CommunityToolkit.Aspire.OllamaSharp` 13.6.1,
+`Microsoft.Agents.AI` 1.28.0, `Microsoft.Agents.AI.Abstractions` 1.28.0, `Microsoft.Extensions.AI` 10.11.0,
+`Microsoft.Extensions.AI.Abstractions` 10.11.0, `Microsoft.Extensions.AI.Evaluation` 10.11.0, `OllamaSharp` 5.4.12.
+`Microsoft.Agents.AI` 1.28.0's own net10.0 dependencies are all 10.x (`Microsoft.Extensions.AI` 10.11.0,
+`Microsoft.Extensions.Compliance.Abstractions` 10.10.0, `DependencyInjection.Abstractions` 10.0.13,
+`Logging.Abstractions` 10.0.13, `VectorData.Abstractions` 10.10.0). The only 11.x package anywhere is
+`System.Diagnostics.DiagnosticSource` 11.0.0, which was already there through `OpenTelemetry.Api` 1.21.0 (also in the
+untouched Tenancy project).
+
+### Results
+- Tests: backend 587 (unit 399, architecture 20, integration 168; baseline 502), Vitest 146 (baseline 135), E2E 12
+  (11 plus the footer). E2E passed twice on the default (AI off) after the redesign, and four times with AI off before it.
+- Live runs, final design (`-WithAi`, `llama3.2:3b`, CPU): 6/6 accepted (valid-balanced 2/2, valid-shares-heavy 2/2,
+  Warning cash portfolio 2/2); Ollama call 4.1 to 9.4 s (first call includes loading the model), 4 to 12 s from upload
+  to the stored outcome. Owner check: two texts are generic but plausible; balanced run 2 says Shares "have grown
+  significantly" and moves Shares back although balanced has no proposal (no longer possible: D-295 requests no context
+  without a proposal), and the Warning runs say reducing Cash brings it "closer to its maximum allocation" (wrong
+  direction, kept under R-52). Neither has figures or status words. No further tuning.
+- Live runs, first design, after the D-292 fix: 2/6 accepted (both Warning cash runs, both with wrong class statuses),
+  4 `StatusMismatch` (balanced and shares-heavy). Before the fix: 2/6 accepted, 3 `StatusMismatch`, 1 `ModelError`.
+- Ollama stopped mid-run: refinement `Rejected`/`ModelError` within about 2 s, template unchanged, no context, dead
+  letters 0, Api `/health` 200 (first and final design).
+- Cost while generating: about 3 GB of RAM and all 16 cores (owner observation, in `docs/dev-environment.md`).
+
+### Risks and flags
+- **R-51 Ollama client pinned to 13.6.1 until the move to .NET 11** (D-290). Move when a version needs only 10.x
+  abstractions or the solution moves to .NET 11.
+- **R-52 AI context may be generic; acceptance re-measured with Azure AI Foundry in Phase 5.** The validator blocks
+  figures and statuses, not vague or slightly wrong reasoning (see the live runs above).
+- R-50 measured: with the final design the local model is accepted 6/6 at 4 to 12 s; quality is R-52.
+- `RemoveAllResilienceHandlers` is experimental (EXTEXP0001): re-check on each `Microsoft.Extensions.Http.Resilience`
+  upgrade; `NarratorHttpClientTests` fails if the handler comes back.
+
+### Next step
+Owner: review and push `feat/model-narrator`, open the PR. Then sync `decisions.md` to the Project (D-226) and start
+Phase 5 with Brief #20.
+
+## Delta 2026-11-27 (session 29: Phase 5 outline and Brief #19 planning)
+
+### Owner answers and plan agreed in the planning chat
+
+| ID    | Decision                                                                                                                                                                                                                                    | Notes                                                  |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| D-271 | Region East US 2 for every Azure resource; the Entra external tenant stores data in the United States (confirm on creation)                                                                                                                 | SWA backend regions and Foundry models available there |
+| D-272 | Azure names follow CAF: `<abbr>-finguard-prod-eus2` (`rg`, `log`, `appi`, `kv`, `id`, `cae`, `ca`, `caj`, `cr`, `psql`, `swa`, `aif`/`proj`); model deployment named `narrator`; tags `workload`, `env`, `owner`, `managedBy`               | Exact list in the Phase 5 briefs                       |
+| D-273 | Hostnames: `finguard.marcosoria.dev` (SPA) and `api.finguard.marcosoria.dev` (API), Cloudflare DNS-only records. The owner is new to DNS: the Phase 5 brief that needs them gives step-by-step instructions                                 | Domain bought 2026-11-27 on Cloudflare                 |
+| D-274 | Azure infrastructure as code: Aspire-generated Bicep (`aspire publish` for review, deployment from GitHub Actions); a minimal hand-written Bicep or script only for what Aspire does not model. Terraform not used for Azure                |                                                        |
+| D-275 | The Entra external tenant is created by hand with a runbook and kept when the resource group is destroyed (reused in Phase 6)                                                                                                               |                                                        |
+| D-276 | No portfolio seed: self-service sign-up and downloadable sample CSVs                                                                                                                                                                        |                                                        |
+| D-277 | Phase 6: Aspire Docker Compose publisher + Dokploy (Aspirate not used); confirmed in Phase 6                                                                                                                                                |                                                        |
+| D-278 | `docs/testing/manual-smoke.md` is the manual checklist for local, Azure and VPS                                                                                                                                                             |                                                        |
+| D-279 | Phase 5 plan: deploy with GitHub Actions, record one or two English technical videos (flow, Application Insights), export what is needed, then delete the resource group; Phase 6 keeps the project online on the VPS                       | Owner plan, confirmed                                  |
+| D-280 | Azure account: pay-as-you-go since 2026-02, with about 10 months of 12-month free services left (until about 2027-02); Phase 5 must finish before then. Verify the PostgreSQL B1MS free meter in the portal's Free services view before #20 |                                                        |
+
+### Brief #19 decisions
+
+| ID    | Decision                                                                                                                                                                            | Notes                                 |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| D-281 | Refinement is a separate step: `RefineNarrative` (no DbContext, model call with timeout) → `StoreRefinedNarrative` (short EF write, applies only when `Pending`)                    | Resolves the #18 note on transactions |
+| D-282 | Expected model failures set `Rejected` with a reason code; no retry, no error queue                                                                                                 |                                       |
+| D-283 | Validator rules for model text: numbers, status phrase, plain-text format, length; disclaimer appended by code                                                                      | ADR-0015                              |
+| D-284 | Prompt input = facts' display texts only; fixed versioned instructions; no few-shot numbers                                                                                         |                                       |
+| D-285 | One Agent Framework agent, no tools; types only in `Advisory/Infrastructure`                                                                                                        | ADR-0006                              |
+| D-286 | Ollama in the AppHost with a model parameter (default `llama3.2:3b`, assumption), referenced without `WaitFor`; `FinGuard:Ai:Enabled` switch and `-NoAi`                            |                                       |
+| D-287 | OpenTelemetry on the chat client with sensitive data off; metric `finguard.advisory.refinements` by outcome                                                                         |                                       |
+| D-288 | API `model` and `refinement`; UI source line and pending text                                                                                                                       |                                       |
+| D-289 | Footer: `© 2026[–year] Marco Soria · Designed and developed by Marco Soria · MIT License · Source on GitHub` + `Demo application. Not investment advice.`; `LICENSE` holder updated | No "All rights reserved" (MIT)        |
+
+### Risks and flags
+
+- **R-50 Local model quality and latency.** A 3B model on CPU may be slow or fail validation often. The template
+  always remains; the manual runs measure the acceptance rate. Production uses Azure AI Foundry (Phase 5).
+- R-35 also covers `StoreRefinedNarrative` (narrative text with amounts in envelope storage).
+
+### Next step
+
+Sync `decisions.md` to the Project (Phase 4 close, D-226). Then Phase 5 kickoff: Brief #20, the walking skeleton on
+Azure Container Apps through GitHub Actions. One brief of notice before any Azure resource: the owner prepares the
+subscription budget and the Entra external tenant with the runbook from #20.
+
 ## Delta 2026-11-26 (session 28: Brief #18 executed)
 
 Branch `feat/advisory-template-narrative`. The brief's four commits, plus a test commit that reports the R-49

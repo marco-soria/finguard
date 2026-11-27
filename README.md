@@ -14,7 +14,7 @@ an AI narrative. It is a portfolio project built local-first, at near-zero cost 
 | 1 Walking skeleton | ✓ Done | Development login, tenant resolution, Angular shell, file upload and submission history end to end |
 | 2 Portfolio ingestion | ✓ Done | CSV validation, rejected files with errors, idempotent uploads, current submission per cut-off date, `SubmissionAccepted` event to Compliance |
 | 3 Compliance | ✓ Done | Domain model and versioned global limit policy ([ADR-0012](docs/adr/0012-compliance-domain-model.md)), evaluation of every accepted submission with `EvaluationCompleted`, result API, result on the submission detail page, system/light/dark theme |
-| 4 Advisory | In progress | Deterministic rebalance proposal ([ADR-0013](docs/adr/0013-rebalance-engine.md)) stored with every evaluation, in `EvaluationCompleted`, the API and the detail page. Template narrative for every evaluation, validated against its facts ([ADR-0014](docs/adr/0014-advisory-narrative.md)). Next: AI narrative behind `IAdvisoryNarrator` with the template as fallback |
+| 4 Advisory | ✓ Done | Deterministic rebalance proposal ([ADR-0013](docs/adr/0013-rebalance-engine.md)) stored with every evaluation, in `EvaluationCompleted`, the API and the detail page. Template narrative for every evaluation, validated against its facts ([ADR-0014](docs/adr/0014-advisory-narrative.md)). Optional AI context paragraph from a local model, with no figures or statuses, shown only when it passes validation ([ADR-0015](docs/adr/0015-model-narrator.md)) |
 | 5 Azure | Planned | Container Apps, Static Web Apps, Entra External ID, Key Vault, observability |
 
 Event flow today: an accepted upload publishes `SubmissionAccepted` (class totals) through the outbox in the same
@@ -25,11 +25,21 @@ publishes `EvaluationCompleted` with its rebalance proposal; `GET /api/complianc
 The detail page of an accepted submission shows its compliance result: overall status, policy version, one row per
 asset class (book value, share, limit, utilization, status), the alerts and the rebalancing proposal (current,
 proposed and signed change per class that moves, with a totals row), followed by the Advisory section: a plain-text
-narrative of the result written from a template. Screenshots from the sample data:
+narrative of the result. Screenshots from the sample data:
 
 | Light | Dark |
 | --- | --- |
 | ![Breached sample submission, light theme](docs/images/evaluation-light.png) | ![Breached sample submission, dark theme](docs/images/evaluation-dark.png) |
+
+How the AI context works ([ADR-0015](docs/adr/0015-model-narrator.md)): the template writes the whole narrative, every
+figure and every status, and is never replaced, so the page never waits for a model. When the local model is switched
+on (`dev-session.ps1 -StartAspire -WithAi`: Ollama in Aspire, `llama3.2:3b` by default), a separate step outside any
+database transaction asks one Microsoft Agent Framework agent, with no tools, for one extra paragraph on the reasoning
+behind the proposal. It sees class names only, never amounts, statuses or CSV content. The paragraph is shown under
+"Context" only if it has no digits, no amount or percent words, no status wording, is plain text and one paragraph of
+reasonable length; otherwise nothing is added and the reason is recorded. The model is off by default: CI, the tests
+and a plain `-StartAspire` run with the template only. A first design that let the model rewrite the narrative was
+dropped after live runs showed wrong per-class statuses that passed its checks.
 
 Every decision is recorded in the [decisions log](docs/decisions.md) (append-only).
 
@@ -143,5 +153,6 @@ scripts/              dev-session.ps1 (session snapshot, Aspire start and stop)
 - [Decisions log](docs/decisions.md)
 - [CI/CD](docs/ci-cd.md)
 - [Git workflow](docs/git-workflow.md)
-- [Development environment](docs/dev-environment.md): prerequisites, shells, closing a session, resetting the dev
-  database
+- [Development environment](docs/dev-environment.md): prerequisites, shells, the local model, pinned packages,
+  closing a session, resetting the dev database
+- [Manual smoke checklist](docs/testing/manual-smoke.md): local, Azure and VPS

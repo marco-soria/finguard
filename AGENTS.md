@@ -18,6 +18,9 @@ This is a portfolio project: cost must stay near zero until Phase 5 (see ADR-000
 - Wolverine 6.x (CQRS handlers, messaging, PostgreSQL transactional outbox).
 - Angular 22 (TypeScript 6, Node 24 LTS) with **pnpm** only.
 - Microsoft Agent Framework 1.x (`Microsoft.Agents.AI`) over `Microsoft.Extensions.AI`, behind the `IAdvisoryNarrator` port (ADR-0006). Stable packages only.
+- Brief preflight: check NuGet (`dotnet package search <id> --exact-match`) for a stable 17.x of
+  `Aspire.Npgsql.EntityFrameworkCore.PostgreSQL` and a `CommunityToolkit.Aspire.OllamaSharp` that needs no .NET 11
+  abstractions; report the result in the plan, never upgrade without approval (`docs/dev-environment.md`, Pinned packages).
 - Azure (Phase 5 only): Container Apps, PostgreSQL Flexible Server, Key Vault, Application Insights,
   Azure AI Foundry, Microsoft Entra External ID.
 
@@ -60,7 +63,8 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
   goes to classes below their target proportionally to headroom. Order: breached classes first, then alert classes.
   Rounding to cents must preserve the total. Proposal status `NotNeeded`, `Full` or `Partial` (verification; no relax step).
 - Advisory (ADR-0014): one plain-text English narrative per evaluation from `EvaluationCompleted`, written by the
-  `TemplateNarrator` now (a model in #19 may replace it after validation). Evaluations stored before Advisory have none.
+  `TemplateNarrator`, never replaced; an optional model adds one validated context paragraph with no figures or
+  statuses (ADR-0015). Evaluations stored before Advisory have none.
 - Limits are evaluated on book value (ADR-0010).
 - Portfolio validation: complete data, `book_value >= 0` per row and total > 0, currency `USD` only
   (case-insensitive), known asset class, description optional ≤ 150 characters and not stored. `position_id` and

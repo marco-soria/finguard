@@ -25,6 +25,9 @@ public static class Extensions
     private const string WolverineActivitySource = "Wolverine";
     private const string WolverineMeters = "Wolverine*";
 
+    // FinGuard's own meters, for example "FinGuard.Advisory" (finguard.advisory.refinements).
+    private const string FinGuardMeters = "FinGuard.*";
+
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
         // Cloud seam (ADR-0005): Key Vault only when KeyVault:Uri is set; otherwise no Azure call is made.
@@ -70,7 +73,8 @@ public static class Extensions
                 metrics.AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
-                    .AddMeter(WolverineMeters);
+                    .AddMeter(WolverineMeters)
+                    .AddMeter(FinGuardMeters);
             })
             .WithTracing(tracing =>
             {

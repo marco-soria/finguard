@@ -1,11 +1,12 @@
+using FinGuard.Advisory.Features.Refinement;
 using FinGuard.BuildingBlocks.Tenancy;
 
 namespace FinGuard.Advisory.Persistence;
 
 /// <summary>
 /// The advisory of one evaluation (ADR-0014): the facts the narrator used and the narrative it wrote. A plain
-/// persistence entity (aggregates exist only in Compliance, ADR-0007). Brief #19 may replace <see cref="Narrative"/>
-/// and <see cref="Narrator"/> with validated model output; the facts never change.
+/// persistence entity (aggregates exist only in Compliance, ADR-0007). The narrative and the facts never change; a
+/// validated model paragraph may be added once as <see cref="AiContext"/>, while the refinement is pending (D-293).
 /// </summary>
 internal sealed class Advisory : ITenantOwned
 {
@@ -34,6 +35,48 @@ internal sealed class Advisory : ITenantOwned
     public string Narrator { get; private set; } = string.Empty;
 
     public DateTimeOffset GeneratedAt { get; private set; }
+
+    /// <summary>One of <see cref="Features.Refinement.RefinementStatus"/>.</summary>
+    public string RefinementStatus { get; private set; } = Features.Refinement.RefinementStatus.NotRequested;
+
+    /// <summary>The <see cref="RefinementOutcome"/> that rejected the model text; null otherwise.</summary>
+    public string? RefinementReason { get; private set; }
+
+    /// <summary>The model that wrote <see cref="AiContext"/>; null otherwise.</summary>
+    public string? ModelId { get; private set; }
+
+    /// <summary>One plain-text paragraph of context with no figures or statuses (D-293); null unless accepted.</summary>
+    public string? AiContext { get; private set; }
+
+    public void RequestRefinement() => RefinementStatus = Features.Refinement.RefinementStatus.Pending;
+
+    /// <summary>
+    /// Applies a refinement outcome only while pending, so a redelivered message changes nothing. Returns whether it
+    /// applied.
+    /// </summary>
+    public bool ApplyRefinement(RefinementOutcome outcome, string? aiContext, string? modelId)
+    {
+        if (RefinementStatus != Features.Refinement.RefinementStatus.Pending)
+        {
+            return false;
+        }
+
+        if (outcome == RefinementOutcome.Accepted)
+        {
+            ArgumentException.ThrowIfNullOrEmpty(aiContext);
+            ArgumentException.ThrowIfNullOrEmpty(modelId);
+            AiContext = aiContext;
+            ModelId = modelId;
+            RefinementStatus = Features.Refinement.RefinementStatus.Accepted;
+        }
+        else
+        {
+            RefinementStatus = Features.Refinement.RefinementStatus.Rejected;
+            RefinementReason = outcome.ToString();
+        }
+
+        return true;
+    }
 
     // TenantId stays empty: TenantStampingInterceptor sets it from ITenantContext on save (ADR-0004).
     public static Advisory Create(

@@ -1,3 +1,4 @@
+using FinGuard.Advisory.Features.Refinement;
 using FinGuard.BuildingBlocks.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -24,6 +25,10 @@ public sealed class AdvisoryDbContext(DbContextOptions<AdvisoryDbContext> option
             advisory.HasIndex(a => a.SourceEventId).IsUnique();
             advisory.Property(a => a.Facts).HasColumnType("jsonb");
             advisory.Property(a => a.Narrator).HasMaxLength(16);
+            advisory.Property(a => a.RefinementStatus).HasMaxLength(16).HasDefaultValue(RefinementStatus.NotRequested);
+            advisory.Property(a => a.RefinementReason).HasMaxLength(32);
+            advisory.Property(a => a.ModelId).HasMaxLength(64);
+            advisory.Property(a => a.AiContext);
         });
 
         // Last: the base class adds the tenant filter to the entity types mapped above.

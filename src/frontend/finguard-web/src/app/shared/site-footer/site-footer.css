@@ -1,0 +1,24 @@
+.site-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--mat-sys-outline-variant);
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-body-small);
+}
+
+.site-footer p {
+  margin: 0.25rem 0;
+}
+
+.site-footer a {
+  color: inherit;
+}
+
+/* Read by screen readers only: the links open in a new tab. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
