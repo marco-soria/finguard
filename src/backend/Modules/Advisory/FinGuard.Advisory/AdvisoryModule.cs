@@ -36,7 +36,7 @@ public static class AdvisoryModule
         });
         // Lets the Api apply every module's migrations without seeing the internal DbContext types.
         builder.Services.AddScoped<DbContext>(sp => sp.GetRequiredService<AdvisoryDbContext>());
-        // The template always writes first (ADR-0014); the model refines it only when configured (ADR-0015).
+        // The template always writes the narrative (ADR-0014); the model adds a context paragraph only when configured (D-293).
         builder.Services.AddSingleton<TemplateNarrator>();
         var modelEnabled = builder.AddNarratorModel();
         // Without a model no RefineNarrative is ever sent; the template only satisfies the handler's dependency.

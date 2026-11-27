@@ -1,4 +1,5 @@
 using Dapper;
+using FinGuard.Advisory.Features.WriteAdvisory;
 using FinGuard.BuildingBlocks.Results;
 using FinGuard.BuildingBlocks.Tenancy;
 using Npgsql;
@@ -14,7 +15,7 @@ public static class GetAdvisoryHandler
     private const string Sql = """
         SELECT evaluation_id AS "EvaluationId", submission_id AS "SubmissionId", narrator AS "Narrator",
                generated_at AS "GeneratedAt", narrative AS "Narrative", model_id AS "Model",
-               refinement_status AS "Refinement"
+               refinement_status AS "Refinement", ai_context AS "AiContext"
         FROM advisory.advisories
         WHERE submission_id = @SubmissionId AND tenant_id = @TenantId;
         """;
@@ -35,11 +36,13 @@ public static class GetAdvisoryHandler
         var paragraphs = row.Narrative.Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return new AdvisoryResponse(
             row.EvaluationId, row.SubmissionId, row.Narrator, new DateTimeOffset(row.GeneratedAt), paragraphs, row.Model,
-            row.Refinement);
+            row.Refinement,
+            // Fail closed: AI context only ever sits beside the template narrative (D-293).
+            row.Narrator == TemplateNarrator.Name ? row.AiContext : null);
     }
 
     // Npgsql hands timestamptz to Dapper as a UTC DateTime (backend rules).
     private sealed record Row(
         Guid EvaluationId, Guid SubmissionId, string Narrator, DateTime GeneratedAt, string Narrative, string? Model,
-        string Refinement);
+        string Refinement, string? AiContext);
 }

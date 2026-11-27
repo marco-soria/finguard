@@ -16,18 +16,29 @@ import { NOT_FOUND_RETRY_DELAYS_MS, retryWhileNotFound } from '../../shared/retr
 
 export type AdvisoryState = 'none' | 'pending' | 'timeout' | 'error' | 'ready';
 
-export const REFINEMENT_PENDING_TEXT = 'An AI-written version is being prepared…';
+export const REFINEMENT_PENDING_TEXT = 'Adding AI context…';
 
-/** Which narrator wrote the text (D-288). Model text is shown only after it passed validation (ADR-0015). */
-export function sourceLine(advisory: AdvisoryResponse): string | null {
-  switch (advisory.narrator) {
-    case 'Template':
-      return 'Written from a template.';
-    case 'Model':
-      return `Written by an AI model (${advisory.model ?? 'unknown'}) and checked against the evaluation's numbers.`;
-    default:
-      return null;
+/** The narrative is always the template's (D-293); the label never depends on the narrator value. */
+export const TEMPLATE_SOURCE_TEXT = 'Written from a template.';
+
+export interface AiContext {
+  text: string;
+  label: string;
+}
+
+/**
+ * The validated AI context paragraph, or null (D-293). Fails closed: only beside a `Template` narrative, only when
+ * accepted, and only with a text and a model.
+ */
+export function aiContextOf(advisory: AdvisoryResponse): AiContext | null {
+  const { narrator, refinement, aiContext, model } = advisory;
+  if (narrator !== 'Template' || refinement !== 'Accepted' || !aiContext || !model) {
+    return null;
   }
+  return {
+    text: aiContext,
+    label: `Written by an AI model (${model}). It contains no figures or statuses; all figures above come from the evaluation.`,
+  };
 }
 
 /** The narrative of an evaluation (D-257). Paragraphs are plain text, shown by interpolation only (D-253). */
@@ -48,7 +59,7 @@ export class AdvisoryPanel {
   );
   protected readonly advisory = inject(AdvisoryApi).advisory(this.requestId);
   private readonly retry = retryWhileNotFound(this.advisory, ADVISORY_NOT_FOUND);
-  /** Reloads made while the model rewrite is pending; the polling stops silently after the last delay. */
+  /** Reloads made while the AI context is pending; the polling stops silently after the last delay. */
   private readonly refinementPolls = signal(0);
 
   private readonly value = computed(() =>
@@ -58,11 +69,12 @@ export class AdvisoryPanel {
     this.hasProposal() ? this.retry.state() : 'none',
   );
   protected readonly paragraphs = computed(() => this.value()?.paragraphs ?? []);
-  protected readonly source = computed(() => {
+  protected readonly source = TEMPLATE_SOURCE_TEXT;
+  protected readonly context = computed(() => {
     const advisory = this.value();
-    return advisory ? sourceLine(advisory) : null;
+    return advisory ? aiContextOf(advisory) : null;
   });
-  /** The template is already a complete answer: this note only says a model version may replace it. */
+  /** The template is already a complete answer: this note only says a context paragraph may follow. */
   protected readonly refining = computed(
     () =>
       this.value()?.refinement === 'Pending' &&

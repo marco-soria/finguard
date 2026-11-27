@@ -28,6 +28,7 @@ public sealed class AdvisoryDbContext(DbContextOptions<AdvisoryDbContext> option
             advisory.Property(a => a.RefinementStatus).HasMaxLength(16).HasDefaultValue(RefinementStatus.NotRequested);
             advisory.Property(a => a.RefinementReason).HasMaxLength(32);
             advisory.Property(a => a.ModelId).HasMaxLength(64);
+            advisory.Property(a => a.AiContext);
         });
 
         // Last: the base class adds the tenant filter to the entity types mapped above.

@@ -1,32 +1,38 @@
 using System.Text.Json;
 using FinGuard.Advisory.Features.WriteAdvisory;
-using FinGuard.Compliance.Contracts;
 
 namespace FinGuard.Advisory.Infrastructure;
 
 /// <summary>
-/// The model's fixed instructions and its input (D-284, ADR-0015). The input is JSON of the facts' display texts,
-/// class names and statuses only: no raw decimals, no ids, no tenant data and no free text (D-250). No few-shot
-/// examples: a model copies their numbers. Change <see cref="Instructions"/> only with a new <see cref="Version"/>.
+/// The model's fixed instructions and its input (D-284, D-293, ADR-0015). The model writes one context paragraph next
+/// to the template, which already states every figure and status. The input is class names only: which classes the
+/// proposal reduces and which receive money, and the rebalancing target in words. No amounts, no ratios, no statuses,
+/// no ids, no tenant data and no free text (D-250). No few-shot examples. Change <see cref="Instructions"/> only with a
+/// new <see cref="Version"/>.
 /// </summary>
 public static class NarratorPrompt
 {
-    public const string Version = "2026-11-27.1";
+    public const string Version = "2026-11-27.2";
 
     public const string Instructions = """
-        You explain the result of a portfolio compliance evaluation to a finance reader, in English.
-        The user message is JSON with the facts. Follow every rule:
-        - Use only these facts. Add no other facts, opinions, forecasts or advice beyond the proposal they describe.
-        - Copy every number exactly as it is written in the facts, with its $ sign, commas, decimals and " %" suffix.
-          Never calculate, round, convert or abbreviate a number. Write no other number; write counts in words.
-        - Write the text of "requiredPhrase" word for word. Never write any text listed in "forbiddenPhrases".
-        - Explain the overall result, then each asset class whose status is Warning or Breached (its share of the
-          portfolio, its limit and how much of the limit is used). When "proposalStatus" is not NotNeeded, explain how
-          the proposal moves money: which classes are reduced or increased, by how much and to what amount.
-        - Plain text only: no Markdown, no headings, no lists, no bold, no tables, no links, no HTML.
-        - Write two to four short paragraphs separated by one blank line, under two hundred words in total.
-        - Do not add a disclaimer or a closing remark; one is added after your text.
+        You add one paragraph of context to a portfolio compliance advisory, for a finance reader, in English.
+        The advisory above your paragraph already states every figure and every status. Never repeat or estimate them.
+        The user message is JSON: the asset classes, the classes the rebalancing proposal reduces, the classes that
+        receive the money, and the rebalancing target in words. Follow every rule:
+        - Explain the reasoning behind the proposal: why a concentration close to a maximum allocation matters, and
+          what moving the reduced classes back toward the target achieves for the portfolio. When no class is reduced,
+          explain why keeping each class below its maximum allocation matters.
+        - You may name the asset classes from the JSON. Write no digits, no numbers, no amounts and no percentages,
+          and no currency or percent words.
+        - Never use these words: breach, breached, exceeds, exceeded, above the limit, warning, near the limit,
+          compliant, within the limit, limit used.
+        - Give no investment advice: no buy or sell recommendations, no timing, no forecasts, no products.
+        - Plain text only: exactly one paragraph, no Markdown, no headings, no lists, no bold, no links, no HTML.
+        - Write between thirty and one hundred words. Add no disclaimer and no closing remark.
         """;
+
+    /// <summary>The target in words: the ratio itself is a figure, and figures belong to the template only.</summary>
+    public const string TargetInWords = "a fixed safety margin below the maximum allocation of each class";
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
@@ -35,32 +41,10 @@ public static class NarratorPrompt
         ArgumentNullException.ThrowIfNull(facts);
         var input = new
         {
-            cutOffDate = facts.CutOffDateText,
-            policyVersion = facts.PolicyVersionText,
-            overallStatus = facts.OverallStatus.ToString(),
-            requiredPhrase = NarrativeValidator.StatusPhrase(facts.OverallStatus),
-            forbiddenPhrases = Enum.GetValues<ComplianceStatusCode>()
-                .Where(s => s != facts.OverallStatus)
-                .Select(NarrativeValidator.StatusPhrase)
-                .ToArray(),
-            proposalStatus = facts.ProposalStatus.ToString(),
-            rebalanceTargetOfLimit = facts.TargetRatioText,
-            assetClasses = facts.Classes.Select(c => new
-            {
-                name = c.Name,
-                status = c.Status.ToString(),
-                bookValue = c.BookValueText,
-                shareOfPortfolio = c.ShareText,
-                limit = c.LimitText,
-                limitUsed = c.UtilizationText,
-                proposedBookValue = c.ProposedText,
-                proposedChange = c.Change switch
-                {
-                    < 0m => "reduce by " + c.ChangeText,
-                    > 0m => "increase by " + c.ChangeText,
-                    _ => "unchanged",
-                },
-            }).ToArray(),
+            assetClasses = facts.Classes.Select(c => c.Name).ToArray(),
+            reducedClasses = facts.Classes.Where(c => c.Change < 0m).Select(c => c.Name).ToArray(),
+            receivingClasses = facts.Classes.Where(c => c.Change > 0m).Select(c => c.Name).ToArray(),
+            rebalancingTarget = TargetInWords,
         };
         return JsonSerializer.Serialize(input, Json);
     }

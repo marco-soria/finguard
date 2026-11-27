@@ -29,6 +29,10 @@ namespace FinGuard.Advisory.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("AiContext")
+                        .HasColumnType("text")
+                        .HasColumnName("ai_context");
+
                     b.Property<Guid>("EvaluationId")
                         .HasColumnType("uuid")
                         .HasColumnName("evaluation_id");

@@ -5,9 +5,8 @@ namespace FinGuard.Advisory.Persistence;
 
 /// <summary>
 /// The advisory of one evaluation (ADR-0014): the facts the narrator used and the narrative it wrote. A plain
-/// persistence entity (aggregates exist only in Compliance, ADR-0007). A validated model text may replace
-/// <see cref="Narrative"/> and <see cref="Narrator"/> once, while the refinement is pending (ADR-0015); the facts never
-/// change.
+/// persistence entity (aggregates exist only in Compliance, ADR-0007). The narrative and the facts never change; a
+/// validated model paragraph may be added once as <see cref="AiContext"/>, while the refinement is pending (D-293).
 /// </summary>
 internal sealed class Advisory : ITenantOwned
 {
@@ -43,8 +42,11 @@ internal sealed class Advisory : ITenantOwned
     /// <summary>The <see cref="RefinementOutcome"/> that rejected the model text; null otherwise.</summary>
     public string? RefinementReason { get; private set; }
 
-    /// <summary>The model that wrote <see cref="Narrative"/>; null for the template.</summary>
+    /// <summary>The model that wrote <see cref="AiContext"/>; null otherwise.</summary>
     public string? ModelId { get; private set; }
+
+    /// <summary>One plain-text paragraph of context with no figures or statuses (D-293); null unless accepted.</summary>
+    public string? AiContext { get; private set; }
 
     public void RequestRefinement() => RefinementStatus = Features.Refinement.RefinementStatus.Pending;
 
@@ -52,7 +54,7 @@ internal sealed class Advisory : ITenantOwned
     /// Applies a refinement outcome only while pending, so a redelivered message changes nothing. Returns whether it
     /// applied.
     /// </summary>
-    public bool ApplyRefinement(RefinementOutcome outcome, string? narrative, string? modelId)
+    public bool ApplyRefinement(RefinementOutcome outcome, string? aiContext, string? modelId)
     {
         if (RefinementStatus != Features.Refinement.RefinementStatus.Pending)
         {
@@ -61,10 +63,9 @@ internal sealed class Advisory : ITenantOwned
 
         if (outcome == RefinementOutcome.Accepted)
         {
-            ArgumentException.ThrowIfNullOrEmpty(narrative);
+            ArgumentException.ThrowIfNullOrEmpty(aiContext);
             ArgumentException.ThrowIfNullOrEmpty(modelId);
-            Narrative = narrative;
-            Narrator = ModelNarrator;
+            AiContext = aiContext;
             ModelId = modelId;
             RefinementStatus = Features.Refinement.RefinementStatus.Accepted;
         }
@@ -76,9 +77,6 @@ internal sealed class Advisory : ITenantOwned
 
         return true;
     }
-
-    /// <summary>The value of <see cref="Narrator"/> for an accepted model text.</summary>
-    public const string ModelNarrator = "Model";
 
     // TenantId stays empty: TenantStampingInterceptor sets it from ITenantContext on save (ADR-0004).
     public static Advisory Create(

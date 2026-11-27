@@ -16,7 +16,7 @@ namespace FinGuard.Advisory.Features.WriteAdvisory;
 /// <see cref="AdvisoryDbContext"/> only; Wolverine's EF middleware saves and commits. The envelope tenant is already
 /// checked against the payload tenant by <c>TenantPropagationMiddleware</c>. With a model configured it marks the
 /// advisory <c>Pending</c> and cascades <see cref="RefineNarrative"/> through the outbox, in the same
-/// transaction; the model call itself never runs here (D-281).
+/// transaction, to add the AI context paragraph; the model call itself never runs here (D-281, D-293).
 /// </summary>
 public sealed partial class EvaluationCompletedHandler(
     TemplateNarrator narrator, IOptions<AdvisoryOptions> options, TimeProvider time,

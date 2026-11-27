@@ -8,9 +8,9 @@ using Npgsql;
 namespace FinGuard.Advisory.Features.Refinement;
 
 /// <summary>
-/// Asks the model for a narrative (D-281, ADR-0015). No DbContext, so Wolverine opens no transaction: the model call
+/// Asks the model for the context paragraph (D-281, D-293, ADR-0015). No DbContext, so Wolverine opens no transaction: the model call
 /// may take seconds without holding a connection. Reads the facts with Dapper (own schema, <c>tenant_id</c> filter),
-/// calls the narrator, normalizes and validates its text, and cascades <see cref="StoreRefinedNarrative"/>. Expected
+/// calls the model narrator, normalizes and validates its paragraph, and cascades <see cref="StoreRefinedNarrative"/>. Expected
 /// model failures become a rejection reason (D-282): no retry, no error queue. Anything else follows the error policy.
 /// </summary>
 public sealed partial class RefineNarrativeHandler(IAdvisoryNarrator narrator, ILogger<RefineNarrativeHandler> logger)
@@ -72,27 +72,26 @@ public sealed partial class RefineNarrativeHandler(IAdvisoryNarrator narrator, I
             return Rejected(advisoryId, RefinementOutcome.ModelError);
         }
 
-        var normalized = NarrativeValidator.NormalizeModelText(text);
-        var validation = NarrativeValidator.ValidateModelText(normalized, facts);
+        var normalized = AiContextValidator.Normalize(text);
+        var validation = AiContextValidator.Validate(normalized);
         if (validation.IsFailure)
         {
             return Rejected(advisoryId, ReasonOf(validation.Error));
         }
 
         var modelId = narrator.ModelId is { Length: > 0 } id ? id[..Math.Min(id.Length, MaxModelIdLength)] : "unknown";
-        // The disclaimer is code's, never the model's (D-283).
-        return new StoreRefinedNarrative(
-            advisoryId, RefinementOutcome.Accepted, normalized + "\n\n" + TemplateNarrator.Disclaimer, modelId);
+        return new StoreRefinedNarrative(advisoryId, RefinementOutcome.Accepted, normalized, modelId);
     }
 
     private static StoreRefinedNarrative Rejected(Guid advisoryId, RefinementOutcome outcome) =>
         new(advisoryId, outcome, null, null);
 
     private static RefinementOutcome ReasonOf(BuildingBlocks.Results.Error error) =>
-        error == NarrativeValidator.UnknownNumber ? RefinementOutcome.UnknownNumber
-        : error == NarrativeValidator.StatusMismatch ? RefinementOutcome.StatusMismatch
-        : error == NarrativeValidator.Format ? RefinementOutcome.Format
-        : error == NarrativeValidator.Length ? RefinementOutcome.Length
+        error == AiContextValidator.Digits ? RefinementOutcome.Digits
+        : error == AiContextValidator.Symbols ? RefinementOutcome.Symbols
+        : error == AiContextValidator.StatusWording ? RefinementOutcome.StatusWording
+        : error == AiContextValidator.Format ? RefinementOutcome.Format
+        : error == AiContextValidator.Length ? RefinementOutcome.Length
         : throw new InvalidOperationException($"Unknown narrative error {error.Code}.");
 
     // Identifier and outcome code only: never prompts, completions, facts or amounts (D-162, D-287).

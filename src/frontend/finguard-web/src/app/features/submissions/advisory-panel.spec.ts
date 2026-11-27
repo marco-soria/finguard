@@ -22,9 +22,19 @@ describe('AdvisoryPanel', () => {
     ],
     model: null,
     refinement: 'NotRequested',
+    aiContext: null,
   };
   const pending = { ...advisory, refinement: 'Pending' };
-  const byModel = { ...advisory, narrator: 'Model', model: 'llama3.2:3b', refinement: 'Accepted' };
+  const contextText =
+    'Holding too much of the portfolio in Shares concentrates its risk in one kind of asset.';
+  const withContext = {
+    ...advisory,
+    model: 'llama3.2:3b',
+    refinement: 'Accepted',
+    aiContext: contextText,
+  };
+  const contextLabel =
+    'Written by an AI model (llama3.2:3b). It contains no figures or statuses; all figures above come from the evaluation.';
 
   const create = (hasProposal: boolean) => {
     fixture = TestBed.createComponent(AdvisoryPanel);
@@ -157,18 +167,45 @@ describe('AdvisoryPanel', () => {
     );
   });
 
-  it('names the model in the source line for a model-written text', async () => {
+  const contextSection = () => element.querySelector('.advisory-context');
+  const shownContext = () => ({
+    heading: contextSection()?.querySelector('#advisory-context-title')?.textContent?.trim(),
+    text: contextSection()?.querySelector('.advisory-context-text')?.textContent?.trim(),
+    label: contextSection()?.querySelector('.advisory-context-label')?.textContent?.trim(),
+  });
+
+  it('shows the template and then a Context subsection with the model label when accepted', async () => {
     create(true);
-    backend.expectOne(url).flush(byModel);
+    backend.expectOne(url).flush(withContext);
     await fixture.whenStable();
 
-    expect(source()).toBe(
-      "Written by an AI model (llama3.2:3b) and checked against the evaluation's numbers.",
-    );
+    expect(
+      Array.from(element.querySelectorAll('.advisory-text p')).map((p) => p.textContent?.trim()),
+    ).toEqual(advisory.paragraphs);
+    expect(source()).toBe('Written from a template.');
+    expect(shownContext()).toEqual({ heading: 'Context', text: contextText, label: contextLabel });
     expect(refiningNote()).toBeUndefined();
   });
 
-  it('shows the template and the pending note while the model version is prepared', async () => {
+  it('shows markup in the context as text, never as HTML', async () => {
+    create(true);
+    backend.expectOne(url).flush({ ...withContext, aiContext: '<b>Shares</b>' });
+    await fixture.whenStable();
+
+    expect(contextSection()?.querySelector('b')).toBeNull();
+    expect(shownContext().text).toBe('<b>Shares</b>');
+  });
+
+  it('fails closed for an unknown narrator: template label and no Context subsection', async () => {
+    create(true);
+    backend.expectOne(url).flush({ ...withContext, narrator: 'Model' });
+    await fixture.whenStable();
+
+    expect(source()).toBe('Written from a template.');
+    expect(contextSection()).toBeNull();
+  });
+
+  it('shows the template and the pending note while the AI context is added', async () => {
     vi.useFakeTimers();
     create(true);
     backend.expectOne(url).flush(pending);
@@ -176,10 +213,11 @@ describe('AdvisoryPanel', () => {
 
     expect(state()).toBe('ready');
     expect(source()).toBe('Written from a template.');
-    expect(refiningNote()).toBe('An AI-written version is being prepared…');
+    expect(refiningNote()).toBe('Adding AI context…');
+    expect(contextSection()).toBeNull();
   });
 
-  it('replaces the template when a reload finds the accepted model text', async () => {
+  it('adds the Context subsection when a reload finds the accepted context', async () => {
     vi.useFakeTimers();
     create(true);
     backend.expectOne(url).flush(pending);
@@ -187,10 +225,10 @@ describe('AdvisoryPanel', () => {
 
     vi.advanceTimersByTime(NOT_FOUND_RETRY_DELAYS_MS[0]);
     await settle();
-    backend.expectOne(url).flush(byModel);
+    backend.expectOne(url).flush(withContext);
     await settle();
 
-    expect(source()).toContain('Written by an AI model (llama3.2:3b)');
+    expect(shownContext().label).toBe(contextLabel);
     expect(refiningNote()).toBeUndefined();
   });
 
@@ -212,14 +250,16 @@ describe('AdvisoryPanel', () => {
     backend.expectNone(url);
     expect(refiningNote()).toBeUndefined();
     expect(source()).toBe('Written from a template.');
+    expect(contextSection()).toBeNull();
   });
 
-  it('shows nothing extra for a rejected model text', async () => {
+  it('shows no Context subsection when the context was rejected or not requested', async () => {
     create(true);
     backend.expectOne(url).flush({ ...advisory, refinement: 'Rejected' });
     await fixture.whenStable();
 
     expect(source()).toBe('Written from a template.');
+    expect(contextSection()).toBeNull();
     expect(refiningNote()).toBeUndefined();
   });
 });

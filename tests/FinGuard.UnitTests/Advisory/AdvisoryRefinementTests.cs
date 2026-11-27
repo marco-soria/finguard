@@ -2,11 +2,11 @@ using FinGuard.Advisory.Features.Refinement;
 
 namespace FinGuard.UnitTests.Advisory;
 
-/// <summary>D-281: an outcome applies once, only while the refinement is pending.</summary>
+/// <summary>D-281, D-293: an outcome applies once, only while pending; the template narrative never changes.</summary>
 public sealed class AdvisoryRefinementTests
 {
     [Fact]
-    public void ApplyRefinement_Pending_Accepted_ReplacesNarrative()
+    public void ApplyRefinement_Pending_Accepted_AddsContextAndKeepsTemplate()
     {
         var advisory = Pending();
 
@@ -14,8 +14,9 @@ public sealed class AdvisoryRefinementTests
 
         Assert.True(applied);
         Assert.Equal(
-            ("model text", "Model", "fake-model", RefinementStatus.Accepted, (string?)null),
-            (advisory.Narrative, advisory.Narrator, advisory.ModelId, advisory.RefinementStatus, advisory.RefinementReason));
+            ("template", "Template", "model text", "fake-model", RefinementStatus.Accepted, (string?)null),
+            (advisory.Narrative, advisory.Narrator, advisory.AiContext, advisory.ModelId, advisory.RefinementStatus,
+                advisory.RefinementReason));
     }
 
     [Fact]
@@ -23,11 +24,11 @@ public sealed class AdvisoryRefinementTests
     {
         var advisory = Pending();
 
-        advisory.ApplyRefinement(RefinementOutcome.UnknownNumber, null, null);
+        advisory.ApplyRefinement(RefinementOutcome.StatusWording, null, null);
 
         Assert.Equal(
-            ("template", "Template", (string?)null, RefinementStatus.Rejected, "UnknownNumber"),
-            (advisory.Narrative, advisory.Narrator, advisory.ModelId, advisory.RefinementStatus, advisory.RefinementReason));
+            ("template", (string?)null, (string?)null, RefinementStatus.Rejected, "StatusWording"),
+            (advisory.Narrative, advisory.AiContext, advisory.ModelId, advisory.RefinementStatus, advisory.RefinementReason));
     }
 
     [Fact]
@@ -39,7 +40,7 @@ public sealed class AdvisoryRefinementTests
         var applied = advisory.ApplyRefinement(RefinementOutcome.Accepted, "model text", "fake-model");
 
         Assert.False(applied);
-        Assert.Equal(("template", RefinementStatus.Rejected), (advisory.Narrative, advisory.RefinementStatus));
+        Assert.Equal(((string?)null, RefinementStatus.Rejected), (advisory.AiContext, advisory.RefinementStatus));
     }
 
     [Fact]
@@ -50,7 +51,7 @@ public sealed class AdvisoryRefinementTests
         var applied = advisory.ApplyRefinement(RefinementOutcome.Accepted, "model text", "fake-model");
 
         Assert.False(applied);
-        Assert.Equal(("template", RefinementStatus.NotRequested), (advisory.Narrative, advisory.RefinementStatus));
+        Assert.Equal(((string?)null, RefinementStatus.NotRequested), (advisory.AiContext, advisory.RefinementStatus));
     }
 
     private static FinGuard.Advisory.Persistence.Advisory Create() =>

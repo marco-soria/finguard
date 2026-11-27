@@ -7,8 +7,8 @@ namespace FinGuard.Advisory.Infrastructure;
 
 /// <summary>
 /// The model narrator (ADR-0006, ADR-0015): one Agent Framework agent over the injected <see cref="IChatClient"/>, with
-/// fixed instructions and no tools, no memory and no MCP. It returns the model's raw text; the caller normalizes and
-/// validates it. A call longer than <see cref="AdvisoryOptions.TimeoutSeconds"/> throws <see cref="TimeoutException"/>.
+/// fixed instructions and no tools, no memory and no MCP. It writes the context paragraph shown beside the template
+/// (D-293), never the narrative itself. It returns the model's raw text; the caller normalizes and validates it. A call longer than <see cref="AdvisoryOptions.TimeoutSeconds"/> throws <see cref="TimeoutException"/>.
 /// </summary>
 public sealed class AgentFrameworkNarrator : IAdvisoryNarrator
 {

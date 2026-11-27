@@ -5,7 +5,7 @@ using static FinGuard.UnitTests.Advisory.ModelTextTestData;
 
 namespace FinGuard.UnitTests.Advisory;
 
-/// <summary>D-281, D-282: every expected model failure becomes a rejection reason; nothing escapes.</summary>
+/// <summary>D-281, D-282, D-293: every expected model failure becomes a rejection reason; nothing escapes.</summary>
 public sealed class RefineNarrativeTests
 {
     private static readonly AdvisoryFacts Facts = AdvisoryFactsBuilder.From(SharesHeavy());
@@ -14,21 +14,23 @@ public sealed class RefineNarrativeTests
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task RefineAsync_ValidText_AcceptsWithDisclaimerAndModel()
+    public async Task RefineAsync_ValidContext_AcceptsNormalizedTextWithModelAndNoDisclaimer()
     {
-        var result = await Refine(_ => Task.FromResult(SharesHeavyParaphrase.Replace("\n\n", "\r\n\r\n", StringComparison.Ordinal)));
+        var raw = "  " + ValidContext.Replace(". ", ".\r\n", StringComparison.Ordinal) + "\r\n";
 
-        Assert.Equal(
-            new StoreRefinedNarrative(AdvisoryId, RefinementOutcome.Accepted, SharesHeavyParaphrase + "\n\n" + Disclaimer, "fake-model"),
-            result);
+        var result = await Refine(_ => Task.FromResult(raw));
+
+        Assert.Equal(new StoreRefinedNarrative(AdvisoryId, RefinementOutcome.Accepted, ValidContext, "fake-model"), result);
     }
 
     public static TheoryData<string, RefinementOutcome> RejectedTexts => new()
     {
-        { SharesHeavyParaphrase.Replace("$637,500.00", "$637,600.00", StringComparison.Ordinal), RefinementOutcome.UnknownNumber },
-        { SharesHeavyParaphrase.Replace("breaches", "exceeds", StringComparison.Ordinal), RefinementOutcome.StatusMismatch },
-        { SharesHeavyParaphrase.Replace("Shares make up", "**Shares** make up", StringComparison.Ordinal), RefinementOutcome.Format },
-        { "Shares breaches its limit.", RefinementOutcome.Length },
+        { ValidContext + " It moves money from 1 class.", RefinementOutcome.Digits },
+        { ValidContext + " It moves a few dollars.", RefinementOutcome.Symbols },
+        { ValidContext + " Shares exceeds its maximum.", RefinementOutcome.StatusWording },
+        { ValidContext.Replace("Shares", "**Shares**", StringComparison.Ordinal), RefinementOutcome.Format },
+        { "Shares are concentrated.", RefinementOutcome.Length },
+        { LiveRewrites[0], RefinementOutcome.Digits },
     };
 
     [Theory]
@@ -69,7 +71,7 @@ public sealed class RefineNarrativeTests
     [Fact]
     public void StoreRefinedNarrative_ToString_CarriesNoText()
     {
-        var message = new StoreRefinedNarrative(AdvisoryId, RefinementOutcome.Accepted, SharesHeavyParaphrase, "fake-model");
+        var message = new StoreRefinedNarrative(AdvisoryId, RefinementOutcome.Accepted, ValidContext, "fake-model");
 
         Assert.Equal($"StoreRefinedNarrative {{ AdvisoryId = {AdvisoryId}, Outcome = Accepted }}", message.ToString());
     }

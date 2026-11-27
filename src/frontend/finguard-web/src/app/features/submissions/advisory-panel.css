@@ -15,6 +15,16 @@
   font: var(--mat-sys-body-small);
 }
 
+.advisory-context {
+  max-width: 60rem;
+  margin-top: 1rem;
+}
+
+.advisory-context h5 {
+  margin: 0 0 0.5rem;
+  font: var(--mat-sys-title-small);
+}
+
 .detail-error {
   color: var(--mat-sys-error);
 }

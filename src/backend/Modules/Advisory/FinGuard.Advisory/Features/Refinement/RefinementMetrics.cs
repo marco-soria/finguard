@@ -10,7 +10,7 @@ public static class RefinementMetrics
     private static readonly Meter Meter = new(MeterName);
 
     private static readonly Counter<long> Refinements = Meter.CreateCounter<long>(
-        "finguard.advisory.refinements", description: "Model narrative refinements by outcome.");
+        "finguard.advisory.refinements", description: "AI context paragraphs by outcome.");
 
     public static void Record(RefinementOutcome outcome) =>
         Refinements.Add(1, new KeyValuePair<string, object?>("outcome", Tag(outcome)));
@@ -20,8 +20,9 @@ public static class RefinementMetrics
         RefinementOutcome.Accepted => "accepted",
         RefinementOutcome.Timeout => "timeout",
         RefinementOutcome.ModelError => "model_error",
-        RefinementOutcome.UnknownNumber => "rejected_unknown_number",
-        RefinementOutcome.StatusMismatch => "rejected_status_mismatch",
+        RefinementOutcome.Digits => "rejected_digits",
+        RefinementOutcome.Symbols => "rejected_symbols",
+        RefinementOutcome.StatusWording => "rejected_status_wording",
         RefinementOutcome.Format => "rejected_format",
         RefinementOutcome.Length => "rejected_length",
         _ => throw new ArgumentOutOfRangeException(nameof(outcome)),

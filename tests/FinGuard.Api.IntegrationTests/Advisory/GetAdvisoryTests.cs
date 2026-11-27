@@ -37,7 +37,8 @@ public sealed class GetAdvisoryTests(ApiFixture fixture)
         var advisory = await client.GetFromJsonAsync<AdvisoryResponse>(PathFor(submissionId), _ct);
 
         Assert.NotNull(advisory);
-        Assert.Equal(("Template", (string?)null, "NotRequested"), (advisory.Narrator, advisory.Model, advisory.Refinement));
+        Assert.Equal(("Template", (string?)null, "NotRequested", (string?)null),
+            (advisory.Narrator, advisory.Model, advisory.Refinement, advisory.AiContext));
     }
 
     [Fact]

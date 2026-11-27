@@ -23,8 +23,13 @@
         <p>{{ paragraph }}</p>
       }
     </div>
-    @if (source(); as s) {
-      <p class="advisory-source">{{ s }}</p>
+    <p class="advisory-source">{{ source }}</p>
+    @if (context(); as c) {
+      <section class="advisory-context" aria-labelledby="advisory-context-title">
+        <h5 id="advisory-context-title">Context</h5>
+        <p class="advisory-context-text">{{ c.text }}</p>
+        <p class="advisory-source advisory-context-label">{{ c.label }}</p>
+      </section>
     }
     @if (refining()) {
       <p class="advisory-source advisory-refining" role="status">{{ refiningText }}</p>

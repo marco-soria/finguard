@@ -11,76 +11,79 @@ using Wolverine.Tracking;
 namespace FinGuard.Api.IntegrationTests.Advisory;
 
 /// <summary>
-/// Brief #19 (D-281, D-282): after the template is stored, the model's text replaces it only when it passes
-/// validation; every expected failure keeps the template, records a reason and leaves no dead letter.
+/// Brief #19 (D-281, D-282, D-293): the template narrative is always stored and never changes. The model adds one
+/// context paragraph only when it passes validation; every expected failure records a reason and leaves no dead
+/// letter.
 /// </summary>
 public sealed class RefineNarrativeTests(ModelNarratorHost host) : IClassFixture<ModelNarratorHost>
 {
-    // The shares-heavy sample in different words; every number copied from the facts, no disclaimer.
-    private const string Paraphrase =
-        "On 2026-06-30, the portfolio breaches its limit for Shares under policy version 1. Shares make up 73.33 % " +
-        "of the portfolio while the limit is 25.00 %, so 293.33 % of the limit is used.\n\n" +
-        "The proposal reduces Shares by $1,562,500.00 to $637,500.00, which is 85.00 % of its limit. The released " +
-        "amount goes to Cash (+$693,374.43), Real estate (+$517,623.26) and Fixed income (+$351,502.31). After " +
-        "these moves, every asset class is within its limit.";
+    // One paragraph, class names only: no figures, no symbols, no status wording.
+    private const string Context =
+        "Holding too much of the portfolio in Shares concentrates its risk in one kind of asset, so a fall in that " +
+        "market would weigh heavily on the whole portfolio. Moving Shares back to a fixed safety margin below its " +
+        "maximum allocation spreads that money across Cash, Fixed income and Real estate, which keeps the portfolio " +
+        "diversified and leaves room for market movements before any class reaches its maximum again.";
 
-    private const string Disclaimer = "This text explains a deterministic calculation. It is not investment advice.";
+    // A first-design rewrite: figures and class statuses, which the context paragraph may not contain.
+    private const string Rewrite =
+        "The overall result of the portfolio compliance evaluation is Breached. Shares make up 73.33 % of the " +
+        "portfolio while the limit is 25.00 %, so 293.33 % of the limit is used, which exceeds the limit.";
 
     private readonly CancellationToken _ct = TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task Upload_SharesHeavy_ModelTextAccepted_StoresModelNarrative()
+    public async Task Upload_SharesHeavy_ContextAccepted_KeepsTemplateAndAddsContext()
     {
-        host.ChatClient.Respond = _ => Task.FromResult(Paraphrase);
+        host.ChatClient.Respond = _ => Task.FromResult(Context);
 
         var advisory = await UploadAndReadAsync("2026-06-30");
 
-        Assert.Equal(("Model", "fake-model", "Accepted"), (advisory.Narrator, advisory.Model, advisory.Refinement));
-        Assert.Equal([.. Paraphrase.Split("\n\n"), Disclaimer], advisory.Paragraphs);
+        AssertTemplate(advisory, "2026-06-30");
+        Assert.Equal(("fake-model", "Accepted", Context), (advisory.Model, advisory.Refinement, advisory.AiContext));
         Assert.Equal((0L, "Accepted", (string?)null), await StoredStateAsync(advisory.SubmissionId));
     }
 
     [Fact]
-    public async Task Upload_SharesHeavy_ModelChangesANumber_KeepsTemplate()
+    public async Task Upload_SharesHeavy_ModelWritesFiguresAndStatuses_RejectsContext()
     {
-        host.ChatClient.Respond = _ => Task.FromResult(Paraphrase.Replace("$637,500.00", "$637,600.00", StringComparison.Ordinal));
+        host.ChatClient.Respond = _ => Task.FromResult(Rewrite);
 
         var advisory = await UploadAndReadAsync("2026-05-31");
 
-        AssertTemplateKept(advisory, "2026-05-31");
-        Assert.Equal((0L, "Rejected", "UnknownNumber"), await StoredStateAsync(advisory.SubmissionId));
+        AssertNoContext(advisory, "2026-05-31");
+        Assert.Equal((0L, "Rejected", "Digits"), await StoredStateAsync(advisory.SubmissionId));
     }
 
     [Fact]
-    public async Task Upload_SharesHeavy_ModelThrows_KeepsTemplate()
+    public async Task Upload_SharesHeavy_ModelThrows_RejectsContext()
     {
         host.ChatClient.Respond = _ => throw new HttpRequestException("connection refused");
 
         var advisory = await UploadAndReadAsync("2026-04-30");
 
-        AssertTemplateKept(advisory, "2026-04-30");
+        AssertNoContext(advisory, "2026-04-30");
         Assert.Equal((0L, "Rejected", "ModelError"), await StoredStateAsync(advisory.SubmissionId));
     }
 
     [Fact]
-    public async Task Upload_SharesHeavy_ModelTimesOut_KeepsTemplate()
+    public async Task Upload_SharesHeavy_ModelTimesOut_RejectsContext()
     {
         host.ChatClient.Respond = async ct =>
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, ct);
-            return Paraphrase;
+            return Context;
         };
 
         var advisory = await UploadAndReadAsync("2026-03-31");
 
-        AssertTemplateKept(advisory, "2026-03-31");
+        AssertNoContext(advisory, "2026-03-31");
         Assert.Equal((0L, "Rejected", "Timeout"), await StoredStateAsync(advisory.SubmissionId));
     }
 
     [Fact]
-    public async Task GetAdvisory_ModelNarrativeOfOtherTenant_ReturnsNotFound()
+    public async Task GetAdvisory_ContextOfOtherTenant_ReturnsNotFound()
     {
-        host.ChatClient.Respond = _ => Task.FromResult(Paraphrase);
+        host.ChatClient.Respond = _ => Task.FromResult(Context);
         var advisory = await UploadAndReadAsync("2026-02-28");
         using var bob = host.CreateClient(DevIdentities.Bob);
 
@@ -89,11 +92,36 @@ public sealed class RefineNarrativeTests(ModelNarratorHost host) : IClassFixture
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private static void AssertTemplateKept(AdvisoryResponse advisory, string cutOffDate)
+    [Fact]
+    public async Task GetAdvisory_UnknownNarrator_ReturnsNoContext()
     {
-        Assert.Equal(("Template", (string?)null, "Rejected"), (advisory.Narrator, advisory.Model, advisory.Refinement));
+        // A row written by the first design (narrator = 'Model'): the API fails closed and drops the context.
+        host.ChatClient.Respond = _ => Task.FromResult(Context);
+        var advisory = await UploadAndReadAsync("2026-01-31");
+        await using (var connection = new NpgsqlConnection(host.ConnectionString))
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "UPDATE advisory.advisories SET narrator = 'Model' WHERE submission_id = @SubmissionId",
+                new { advisory.SubmissionId }, cancellationToken: _ct));
+        }
+
+        using var client = host.CreateClient(DevIdentities.Alice);
+        var read = await client.GetFromJsonAsync<AdvisoryResponse>(PathFor(advisory.SubmissionId), _ct);
+
+        Assert.Equal(("Model", (string?)null), (read!.Narrator, read.AiContext));
+    }
+
+    private static void AssertTemplate(AdvisoryResponse advisory, string cutOffDate)
+    {
+        Assert.Equal("Template", advisory.Narrator);
         var template = AdvisoryTestData.SharesHeavyNarrative.Replace("2026-06-30", cutOffDate, StringComparison.Ordinal);
         Assert.Equal(template.Split("\n\n"), advisory.Paragraphs);
+    }
+
+    private static void AssertNoContext(AdvisoryResponse advisory, string cutOffDate)
+    {
+        AssertTemplate(advisory, cutOffDate);
+        Assert.Equal(((string?)null, "Rejected", (string?)null), (advisory.Model, advisory.Refinement, advisory.AiContext));
     }
 
     // Upload as Alice (seeded on this host's database) and wait until the refinement chain has finished.
