@@ -17,7 +17,9 @@ namespace FinGuard.Api.IntegrationTests.Advisory;
 /// </summary>
 public sealed class ModelNarratorHost(ApiFixture fixture) : IAsyncLifetime
 {
-    public const string DatabaseName = "finguard_model";
+    // One database per host instance: each test class that uses this fixture gets its own.
+    private readonly string _databaseName = $"finguard_model_{Guid.NewGuid():N}";
+
     public const string ModelId = "fake-model";
 
     public ScriptedChatClient ChatClient { get; } = new();
@@ -31,11 +33,11 @@ public sealed class ModelNarratorHost(ApiFixture fixture) : IAsyncLifetime
         await using (var server = new NpgsqlConnection(fixture.ConnectionString))
         {
             await server.OpenAsync();
-            await using var create = new NpgsqlCommand($"CREATE DATABASE {DatabaseName}", server);
+            await using var create = new NpgsqlCommand($"CREATE DATABASE {_databaseName}", server);
             await create.ExecuteNonQueryAsync();
         }
 
-        ConnectionString = new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = DatabaseName }
+        ConnectionString = new NpgsqlConnectionStringBuilder(fixture.ConnectionString) { Database = _databaseName }
             .ConnectionString;
         Factory = new ApiFixture.ApiFactory(ConnectionString, builder =>
         {
