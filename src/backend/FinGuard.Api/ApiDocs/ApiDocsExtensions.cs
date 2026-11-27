@@ -26,9 +26,15 @@ internal static class ApiDocsExtensions
 
         // Anonymous so the docs open in a browser; the operations themselves still require a token.
         app.MapOpenApi().AllowAnonymous();
+        // Scalar 3.x turns on telemetry, its AI agent, MCP and web fonts by default; the docs make no third-party calls.
         app.MapScalarApiReference(options => options
                 .WithTitle("FinGuard API")
-                .AddPreferredSecuritySchemes(BearerScheme))
+                .AddPreferredSecuritySchemes(BearerScheme)
+                .DisableTelemetry()
+                .DisableAgent()
+                .DisableMcp()
+                .DisableDefaultFonts()
+                .HideDeveloperTools())
             .AllowAnonymous();
         return app;
     }
