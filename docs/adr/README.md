@@ -19,3 +19,4 @@ ADR to change its meaning: add a new one that supersedes it.
 | [0012](0012-compliance-domain-model.md) | Compliance domain model | Accepted |
 | [0013](0013-rebalance-engine.md) | Rebalance engine | Accepted |
 | [0014](0014-advisory-narrative.md) | Advisory facts, template narrator and narrative validation | Accepted |
+| [0015](0015-model-narrator.md) | Model narrator: an AI context paragraph beside the template | Accepted |

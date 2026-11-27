@@ -63,7 +63,8 @@ Modules: `Tenancy`, `Portfolio`, `Compliance`, `Advisory` (`Audit` is Phase 5, o
   goes to classes below their target proportionally to headroom. Order: breached classes first, then alert classes.
   Rounding to cents must preserve the total. Proposal status `NotNeeded`, `Full` or `Partial` (verification; no relax step).
 - Advisory (ADR-0014): one plain-text English narrative per evaluation from `EvaluationCompleted`, written by the
-  `TemplateNarrator` now (a model in #19 may replace it after validation). Evaluations stored before Advisory have none.
+  `TemplateNarrator`, never replaced; an optional model adds one validated context paragraph with no figures or
+  statuses (ADR-0015). Evaluations stored before Advisory have none.
 - Limits are evaluated on book value (ADR-0010).
 - Portfolio validation: complete data, `book_value >= 0` per row and total > 0, currency `USD` only
   (case-insensitive), known asset class, description optional ≤ 150 characters and not stored. `position_id` and
