@@ -42,6 +42,11 @@ namespace FinGuard.Advisory.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("generated_at");
 
+                    b.Property<string>("ModelId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("model_id");
+
                     b.Property<string>("Narrative")
                         .IsRequired()
                         .HasColumnType("text")
@@ -52,6 +57,19 @@ namespace FinGuard.Advisory.Persistence.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)")
                         .HasColumnName("narrator");
+
+                    b.Property<string>("RefinementReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("refinement_reason");
+
+                    b.Property<string>("RefinementStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasDefaultValue("NotRequested")
+                        .HasColumnName("refinement_status");
 
                     b.Property<Guid>("SourceEventId")
                         .HasColumnType("uuid")

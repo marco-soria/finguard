@@ -89,7 +89,8 @@ public sealed class ApiFixture : IAsyncLifetime
     }
 
     /// <summary>The Api as tests boot it. Internal so a test can start a second instance on real Kestrel.</summary>
-    internal sealed class ApiFactory(string connectionString) : WebApplicationFactory<Program>
+    internal sealed class ApiFactory(string connectionString, Action<IWebHostBuilder>? configure = null)
+        : WebApplicationFactory<Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -104,6 +105,7 @@ public sealed class ApiFixture : IAsyncLifetime
                 services.AddTransient<IStartupFilter, ThrowingEndpointStartupFilter>();
                 services.AddTransient<IStartupFilter, TenantProbeStartupFilter>();
             });
+            configure?.Invoke(builder);
         }
     }
 }

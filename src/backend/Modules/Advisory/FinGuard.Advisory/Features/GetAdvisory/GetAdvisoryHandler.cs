@@ -13,7 +13,8 @@ public static class GetAdvisoryHandler
     // Unknown, another tenant's or not yet written all read as not found, so existence is never revealed (D-197).
     private const string Sql = """
         SELECT evaluation_id AS "EvaluationId", submission_id AS "SubmissionId", narrator AS "Narrator",
-               generated_at AS "GeneratedAt", narrative AS "Narrative"
+               generated_at AS "GeneratedAt", narrative AS "Narrative", model_id AS "Model",
+               refinement_status AS "Refinement"
         FROM advisory.advisories
         WHERE submission_id = @SubmissionId AND tenant_id = @TenantId;
         """;
@@ -33,9 +34,12 @@ public static class GetAdvisoryHandler
         // Paragraphs are separated by one blank line (ADR-0014).
         var paragraphs = row.Narrative.Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return new AdvisoryResponse(
-            row.EvaluationId, row.SubmissionId, row.Narrator, new DateTimeOffset(row.GeneratedAt), paragraphs);
+            row.EvaluationId, row.SubmissionId, row.Narrator, new DateTimeOffset(row.GeneratedAt), paragraphs, row.Model,
+            row.Refinement);
     }
 
     // Npgsql hands timestamptz to Dapper as a UTC DateTime (backend rules).
-    private sealed record Row(Guid EvaluationId, Guid SubmissionId, string Narrator, DateTime GeneratedAt, string Narrative);
+    private sealed record Row(
+        Guid EvaluationId, Guid SubmissionId, string Narrator, DateTime GeneratedAt, string Narrative, string? Model,
+        string Refinement);
 }

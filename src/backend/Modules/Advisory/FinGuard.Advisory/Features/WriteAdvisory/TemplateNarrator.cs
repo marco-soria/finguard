@@ -13,6 +13,8 @@ public sealed class TemplateNarrator : IAdvisoryNarrator
 
     public const string Disclaimer = "This text explains a deterministic calculation. It is not investment advice.";
 
+    public string? ModelId => null;
+
     public Task<string> NarrateAsync(AdvisoryFacts facts, CancellationToken ct) => Task.FromResult(Narrate(facts));
 
     public static string Narrate(AdvisoryFacts facts)

@@ -27,6 +27,20 @@ public sealed class GetAdvisoryTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task Upload_NoModelConfigured_RefinementNotRequested()
+    {
+        // The shared host has no narrator connection string, like CI and a machine without Ollama (ADR-0015).
+        var identity = await fixture.ProvisionTenantAsync(_ct);
+        using var client = fixture.CreateClient(identity);
+        var submissionId = await UploadAsync(client, "valid-shares-heavy.csv");
+
+        var advisory = await client.GetFromJsonAsync<AdvisoryResponse>(PathFor(submissionId), _ct);
+
+        Assert.NotNull(advisory);
+        Assert.Equal(("Template", (string?)null, "NotRequested"), (advisory.Narrator, advisory.Model, advisory.Refinement));
+    }
+
+    [Fact]
     public async Task GetAdvisory_OtherTenant_ReturnsNotFound()
     {
         var owner = await fixture.ProvisionTenantAsync(_ct);

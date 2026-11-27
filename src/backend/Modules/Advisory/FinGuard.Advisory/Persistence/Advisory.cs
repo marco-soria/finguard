@@ -1,11 +1,13 @@
+using FinGuard.Advisory.Features.Refinement;
 using FinGuard.BuildingBlocks.Tenancy;
 
 namespace FinGuard.Advisory.Persistence;
 
 /// <summary>
 /// The advisory of one evaluation (ADR-0014): the facts the narrator used and the narrative it wrote. A plain
-/// persistence entity (aggregates exist only in Compliance, ADR-0007). Brief #19 may replace <see cref="Narrative"/>
-/// and <see cref="Narrator"/> with validated model output; the facts never change.
+/// persistence entity (aggregates exist only in Compliance, ADR-0007). A validated model text may replace
+/// <see cref="Narrative"/> and <see cref="Narrator"/> once, while the refinement is pending (ADR-0015); the facts never
+/// change.
 /// </summary>
 internal sealed class Advisory : ITenantOwned
 {
@@ -34,6 +36,49 @@ internal sealed class Advisory : ITenantOwned
     public string Narrator { get; private set; } = string.Empty;
 
     public DateTimeOffset GeneratedAt { get; private set; }
+
+    /// <summary>One of <see cref="Features.Refinement.RefinementStatus"/>.</summary>
+    public string RefinementStatus { get; private set; } = Features.Refinement.RefinementStatus.NotRequested;
+
+    /// <summary>The <see cref="RefinementOutcome"/> that rejected the model text; null otherwise.</summary>
+    public string? RefinementReason { get; private set; }
+
+    /// <summary>The model that wrote <see cref="Narrative"/>; null for the template.</summary>
+    public string? ModelId { get; private set; }
+
+    public void RequestRefinement() => RefinementStatus = Features.Refinement.RefinementStatus.Pending;
+
+    /// <summary>
+    /// Applies a refinement outcome only while pending, so a redelivered message changes nothing. Returns whether it
+    /// applied.
+    /// </summary>
+    public bool ApplyRefinement(RefinementOutcome outcome, string? narrative, string? modelId)
+    {
+        if (RefinementStatus != Features.Refinement.RefinementStatus.Pending)
+        {
+            return false;
+        }
+
+        if (outcome == RefinementOutcome.Accepted)
+        {
+            ArgumentException.ThrowIfNullOrEmpty(narrative);
+            ArgumentException.ThrowIfNullOrEmpty(modelId);
+            Narrative = narrative;
+            Narrator = ModelNarrator;
+            ModelId = modelId;
+            RefinementStatus = Features.Refinement.RefinementStatus.Accepted;
+        }
+        else
+        {
+            RefinementStatus = Features.Refinement.RefinementStatus.Rejected;
+            RefinementReason = outcome.ToString();
+        }
+
+        return true;
+    }
+
+    /// <summary>The value of <see cref="Narrator"/> for an accepted model text.</summary>
+    public const string ModelNarrator = "Model";
 
     // TenantId stays empty: TenantStampingInterceptor sets it from ITenantContext on save (ADR-0004).
     public static Advisory Create(

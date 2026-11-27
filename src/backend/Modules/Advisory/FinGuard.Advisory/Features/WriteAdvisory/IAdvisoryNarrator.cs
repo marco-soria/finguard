@@ -6,5 +6,8 @@ namespace FinGuard.Advisory.Features.WriteAdvisory;
 /// </summary>
 public interface IAdvisoryNarrator
 {
+    /// <summary>The model that writes the text, or null for a narrator without a model (the template).</summary>
+    string? ModelId { get; }
+
     Task<string> NarrateAsync(AdvisoryFacts facts, CancellationToken ct);
 }
