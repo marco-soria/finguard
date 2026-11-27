@@ -20,7 +20,11 @@ describe('AdvisoryPanel', () => {
       'On 2026-06-30, the portfolio breaches the limit for Shares under policy version 1.',
       'This text explains a deterministic calculation. It is not investment advice.',
     ],
+    model: null,
+    refinement: 'NotRequested',
   };
+  const pending = { ...advisory, refinement: 'Pending' };
+  const byModel = { ...advisory, narrator: 'Model', model: 'llama3.2:3b', refinement: 'Accepted' };
 
   const create = (hasProposal: boolean) => {
     fixture = TestBed.createComponent(AdvisoryPanel);
@@ -49,6 +53,8 @@ describe('AdvisoryPanel', () => {
 
   const state = () => element.querySelector('.advisory')?.getAttribute('data-advisory-state');
   const note = () => element.querySelector('.advisory [role="status"]')?.textContent?.trim();
+  const source = () => element.querySelector('.advisory-source')?.textContent?.trim();
+  const refiningNote = () => element.querySelector('.advisory-refining')?.textContent?.trim();
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -149,5 +155,71 @@ describe('AdvisoryPanel', () => {
     expect(element.querySelector('.advisory [role="alert"]')?.textContent?.trim()).toBe(
       'Something went wrong. Please try again.',
     );
+  });
+
+  it('names the model in the source line for a model-written text', async () => {
+    create(true);
+    backend.expectOne(url).flush(byModel);
+    await fixture.whenStable();
+
+    expect(source()).toBe(
+      "Written by an AI model (llama3.2:3b) and checked against the evaluation's numbers.",
+    );
+    expect(refiningNote()).toBeUndefined();
+  });
+
+  it('shows the template and the pending note while the model version is prepared', async () => {
+    vi.useFakeTimers();
+    create(true);
+    backend.expectOne(url).flush(pending);
+    await settle();
+
+    expect(state()).toBe('ready');
+    expect(source()).toBe('Written from a template.');
+    expect(refiningNote()).toBe('An AI-written version is being prepared…');
+  });
+
+  it('replaces the template when a reload finds the accepted model text', async () => {
+    vi.useFakeTimers();
+    create(true);
+    backend.expectOne(url).flush(pending);
+    await settle();
+
+    vi.advanceTimersByTime(NOT_FOUND_RETRY_DELAYS_MS[0]);
+    await settle();
+    backend.expectOne(url).flush(byModel);
+    await settle();
+
+    expect(source()).toContain('Written by an AI model (llama3.2:3b)');
+    expect(refiningNote()).toBeUndefined();
+  });
+
+  it('stops polling silently after the last delay and keeps the template', async () => {
+    vi.useFakeTimers();
+    create(true);
+    backend.expectOne(url).flush(pending);
+    await settle();
+    for (const delay of NOT_FOUND_RETRY_DELAYS_MS) {
+      vi.advanceTimersByTime(delay);
+      await settle();
+      backend.expectOne(url).flush(pending);
+      await settle();
+    }
+
+    vi.advanceTimersByTime(60_000);
+    await settle();
+
+    backend.expectNone(url);
+    expect(refiningNote()).toBeUndefined();
+    expect(source()).toBe('Written from a template.');
+  });
+
+  it('shows nothing extra for a rejected model text', async () => {
+    create(true);
+    backend.expectOne(url).flush({ ...advisory, refinement: 'Rejected' });
+    await fixture.whenStable();
+
+    expect(source()).toBe('Written from a template.');
+    expect(refiningNote()).toBeUndefined();
   });
 });

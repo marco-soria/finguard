@@ -8,11 +8,17 @@ import { Injectable, Signal } from '@angular/core';
 export interface AdvisoryResponse {
   evaluationId: string;
   submissionId: string;
-  /** Which narrator wrote the text, for example `Template`. */
+  /** Which narrator wrote the text: `Template` or `Model`. */
   narrator: string;
   generatedAt: string;
   paragraphs: string[];
+  /** The model that wrote the text; null for the template (ADR-0015). */
+  model: string | null;
+  refinement: AdvisoryRefinement;
 }
+
+/** Whether a model rewrite was requested and how it ended (ADR-0015). */
+export type AdvisoryRefinement = 'NotRequested' | 'Pending' | 'Accepted' | 'Rejected';
 
 /** The API's 404 code for an unknown, foreign or not-yet-written advisory (D-256). */
 export const ADVISORY_NOT_FOUND = 'Advisory.Advisory.NotFound';

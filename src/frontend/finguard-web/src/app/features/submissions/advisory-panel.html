@@ -26,5 +26,8 @@
     @if (source(); as s) {
       <p class="advisory-source">{{ s }}</p>
     }
+    @if (refining()) {
+      <p class="advisory-source advisory-refining" role="status">{{ refiningText }}</p>
+    }
   }
 </section>
