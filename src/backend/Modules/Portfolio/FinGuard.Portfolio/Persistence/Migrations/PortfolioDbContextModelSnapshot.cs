@@ -119,6 +119,10 @@ namespace FinGuard.Portfolio.Persistence.Migrations
                     b.HasIndex("TenantId", "CutOffDate", "Sha256")
                         .HasDatabaseName("ix_submissions_tenant_id_cut_off_date_sha256");
 
+                    b.HasIndex("TenantId", "ReceivedAt", "Id")
+                        .IsDescending(false, true, true)
+                        .HasDatabaseName("ix_submissions_tenant_id_received_at_id");
+
                     b.ToTable("submissions", "portfolio");
                 });
 

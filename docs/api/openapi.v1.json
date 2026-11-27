@@ -204,8 +204,52 @@
           "Portfolio"
         ],
         "summary": "Submission history",
-        "description": "The tenant\u0027s submissions, newest first.",
+        "description": "One page of the tenant\u0027s submissions, newest first (received time, then id). Query parameters, all optional and combined with AND: \u0060limit\u0060 (1 to 100, default 25), \u0060cursor\u0060 (the previous page\u0027s \u0060nextCursor\u0060), \u0060status\u0060 (\u0060Accepted\u0060 or \u0060Rejected\u0060), \u0060cutOffFrom\u0060 and \u0060cutOffTo\u0060 (inclusive, yyyy-MM-dd), \u0060currentOnly\u0060 (true or false). \u0060isCurrent\u0060 is computed over all of the tenant\u0027s submissions, not the page. \u0060nextCursor\u0060 is null on the last page.\n\n400 codes, checked in this order (the first failing rule answers): \u0060Portfolio.Submissions.InvalidLimit\u0060, \u0060Portfolio.Submissions.InvalidCursor\u0060, \u0060Portfolio.Submissions.InvalidStatus\u0060, \u0060Portfolio.Submissions.InvalidCutOffRange\u0060, \u0060Portfolio.Submissions.InvalidCurrentOnly\u0060.",
         "operationId": "ListSubmissions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cutOffFrom",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cutOffTo",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "currentOnly",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "401": {
             "description": "Unauthorized",
@@ -233,6 +277,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SubmissionListResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem\u002Bjson": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
                 }
               }
             }
@@ -980,7 +1034,8 @@
       },
       "SubmissionListResponse": {
         "required": [
-          "items"
+          "items",
+          "nextCursor"
         ],
         "type": "object",
         "properties": {
@@ -989,6 +1044,12 @@
             "items": {
               "$ref": "#/components/schemas/SubmissionListItem"
             }
+          },
+          "nextCursor": {
+            "type": [
+              "null",
+              "string"
+            ]
           }
         }
       },
