@@ -27,6 +27,7 @@ builder.AddFinGuardAuthentication();
 builder.AddFinGuardMessaging();
 builder.AddFinGuardApiDocs();
 builder.AddFinGuardRateLimiting();
+builder.AddFinGuardForwardedHeaders();
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
@@ -36,6 +37,7 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
 var app = builder.Build();
 
+app.UseFinGuardForwardedHeaders();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
