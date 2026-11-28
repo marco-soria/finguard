@@ -48,6 +48,12 @@ internal sealed class Advisory : ITenantOwned
     /// <summary>One plain-text paragraph of context with no figures or statuses (D-293); null unless accepted.</summary>
     public string? AiContext { get; private set; }
 
+    /// <summary>
+    /// PostgreSQL's <c>xmin</c> system column as an optimistic concurrency token (D-317): two concurrent updates of the
+    /// same row cannot both commit; the loser gets a <c>DbUpdateConcurrencyException</c> and Wolverine retries it.
+    /// </summary>
+    public uint Version { get; private set; }
+
     public void RequestRefinement() => RefinementStatus = Features.Refinement.RefinementStatus.Pending;
 
     /// <summary>
