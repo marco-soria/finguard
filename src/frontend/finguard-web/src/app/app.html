@@ -3,16 +3,16 @@
     <h1>FinGuard</h1>
     <div class="app-session">
       <!-- A browser preference, so it shows on /login too. -->
-      <mat-button-toggle-group
-        aria-label="Theme"
-        hideSingleSelectionIndicator
-        [value]="theme.theme()"
-        (change)="setTheme($event.value)"
+      <button
+        matIconButton
+        type="button"
+        [attr.aria-label]="themeLabel()"
+        [matTooltip]="themeLabel()"
+        (click)="theme.toggle()"
       >
-        <mat-button-toggle value="system">System</mat-button-toggle>
-        <mat-button-toggle value="light">Light</mat-button-toggle>
-        <mat-button-toggle value="dark">Dark</mat-button-toggle>
-      </mat-button-toggle-group>
+        <!-- The icon of the theme a click switches to (D-319). -->
+        <mat-icon [svgIcon]="theme.effective() === 'dark' ? 'light_mode' : 'dark_mode'" />
+      </button>
       @if (auth.isAuthenticated()) {
         @let state = tenant();
         @if (state.status === 'loaded') {

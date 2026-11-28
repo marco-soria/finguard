@@ -189,4 +189,29 @@ describe('UploadForm', () => {
     );
     expect(submitButton().disabled).toBe(false);
   });
+
+  it('explains a 429 and keeps the file and date for a manual retry', async () => {
+    setDate('2026-11-19');
+    setFile(csv('kept.csv'));
+
+    submit();
+    backend
+      .expectOne('/api/v1/portfolio/submissions')
+      .flush(
+        { title: 'Too many requests', status: 429, code: 'RateLimit.Exceeded' },
+        { status: 429, statusText: 'Too Many Requests', headers: { 'Retry-After': '30' } },
+      );
+    await fixture.whenStable();
+
+    expect(text('[role="alert"]')).toBe('Too many requests. Try again in 30 seconds.');
+    expect(submitButton().disabled).toBe(false);
+    // No automatic retry: nothing is sent until the user submits again, with the same file and date.
+    backend.expectNone('/api/v1/portfolio/submissions');
+    submit();
+    const retry = backend.expectOne('/api/v1/portfolio/submissions');
+    const body = retry.request.body as FormData;
+    expect((body.get('file') as File).name).toBe('kept.csv');
+    expect(body.get('cutOffDate')).toBe('2026-11-19');
+    retry.flush({});
+  });
 });

@@ -61,7 +61,10 @@ internal static class ReceiveSubmissionEndpoint
             .Produces<SubmissionReceivedResponse>(StatusCodes.Status201Created)
             .Produces<SubmissionReceivedResponse>()
             .ProducesProblem(StatusCodes.Status400BadRequest)
-            .ProducesProblem(StatusCodes.Status413PayloadTooLarge);
+            .ProducesProblem(StatusCodes.Status413PayloadTooLarge)
+            // The expensive path (CSV, evaluation, AI): a token bucket per tenant on top of the global limiter (D-313).
+            .RequireRateLimiting(RateLimitPolicies.Uploads)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
         return group;
     }
 

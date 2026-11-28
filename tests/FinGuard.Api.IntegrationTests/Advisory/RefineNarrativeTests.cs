@@ -7,6 +7,7 @@ using FinGuard.Api.IntegrationTests.Portfolio;
 using FinGuard.Portfolio.Features.ReceiveSubmission;
 using FinGuard.Tenancy.Development;
 using Npgsql;
+using Wolverine;
 using Wolverine.Tracking;
 
 namespace FinGuard.Api.IntegrationTests.Advisory;
@@ -126,6 +127,60 @@ public sealed class RefineNarrativeTests(ModelNarratorHost host) : IClassFixture
         Assert.Equal(("Template", (string?)null, "NotRequested", (string?)null),
             (advisory.Narrator, advisory.Model, advisory.Refinement, advisory.AiContext));
         Assert.Equal((0L, "NotRequested", (string?)null), await StoredStateAsync(advisory.SubmissionId));
+    }
+
+    [Fact]
+    public async Task StoreRefinedNarrative_ConcurrentDeliveries_OneApplies_NoDeadLetter()
+    {
+        // An advisory back in Pending, as if its refinement were still running.
+        host.ChatClient.Respond = _ => throw new HttpRequestException("connection refused");
+        var advisory = await UploadAndReadAsync("2025-11-30");
+        await using var locker = new NpgsqlConnection(host.ConnectionString);
+        await locker.OpenAsync(_ct);
+        var advisoryId = await locker.ExecuteScalarAsync<Guid>(new CommandDefinition(
+            "UPDATE advisory.advisories SET refinement_status = 'Pending', refinement_reason = NULL " +
+            "WHERE submission_id = @SubmissionId RETURNING id",
+            new { advisory.SubmissionId }, cancellationToken: _ct));
+
+        // A row lock that leaves xmin alone: both handlers load the Pending row, then both block on their UPDATE.
+        await using var transaction = await locker.BeginTransactionAsync(_ct);
+        await locker.ExecuteAsync(new CommandDefinition(
+            "SELECT 1 FROM advisory.advisories WHERE id = @advisoryId FOR UPDATE",
+            new { advisoryId }, transaction, cancellationToken: _ct));
+
+        var tenant = new DeliveryOptions { TenantId = DevIdentities.Alice.TenantId.ToString() };
+        var session = await host.Factory.Services.TrackActivity().Timeout(TimeSpan.FromSeconds(30))
+            .DoNotAssertOnExceptionsDetected()
+            .ExecuteAndWaitAsync((Func<IMessageContext, Task>)(async bus =>
+            {
+                await bus.PublishAsync(
+                    new StoreRefinedNarrative(advisoryId, RefinementOutcome.Accepted, Context, ModelNarratorHost.ModelId), tenant);
+                await bus.PublishAsync(
+                    new StoreRefinedNarrative(advisoryId, RefinementOutcome.ModelError, null, null), tenant);
+                await WaitForLockWaitersAsync(2);
+                await transaction.CommitAsync(_ct);
+            }));
+
+        // The loser's UPDATE matched no row (xmin moved), was retried, found the row no longer Pending and did nothing.
+        // Two deliveries plus one retry: tracking records the retried attempt, not its DbUpdateConcurrencyException.
+        Assert.Equal(3, session.AllRecordsInOrder().Count(r => r.MessageEventType == MessageEventType.ExecutionStarted));
+        var (deadLetters, status, reason) = await StoredStateAsync(advisory.SubmissionId);
+        Assert.Equal(0L, deadLetters);
+        Assert.True((status, reason) is ("Accepted", null) or ("Rejected", "ModelError"), $"{status} {reason}");
+    }
+
+    // Polls pg_stat_activity until that many backends wait on a lock in this host's database.
+    private async Task WaitForLockWaitersAsync(int count)
+    {
+        await using var connection = new NpgsqlConnection(host.ConnectionString);
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                   "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'",
+                   cancellationToken: _ct)) < count)
+        {
+            Assert.True(DateTime.UtcNow < deadline, "The handlers never blocked on the row lock.");
+            await Task.Delay(20, _ct);
+        }
     }
 
     private static void AssertTemplate(AdvisoryResponse advisory, string cutOffDate)

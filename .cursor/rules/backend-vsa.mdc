@@ -36,6 +36,10 @@ alwaysApply: false
 - Upload endpoints (`IFormFile`) call `.DisableAntiforgery()` only because authentication is JWT bearer, no cookies
   (D-92). They set a per-endpoint body limit (`RequestSizeLimitAttribute` metadata) and a matching `WithFormOptions`.
   Never log file names, file contents or file hashes; log the submission id and the size only (D-91).
+- Rate limiting (ADR-0016): every request passes the global limiter (tenant or client IP). A new endpoint that does
+  expensive work (uploads, evaluations, model calls) also requires a named policy from `RateLimitPolicies` and declares
+  `ProducesProblem(429)`. Health endpoints are never rate limited (`DisableRateLimiting()`). Rate-limit and
+  forwarded-header logs carry the policy and partition kind only: never tenant ids, IPs, user ids or paths with ids.
 - Never call `TenantContext.SetTenant` outside the Tenancy module and the BuildingBlocks `TenantPropagationMiddleware`;
   everything else reads `ITenantContext`. Handlers get the tenant from the envelope (ADR-0009).
 - One DbContext per handler. Cross-module effects go only through integration events.

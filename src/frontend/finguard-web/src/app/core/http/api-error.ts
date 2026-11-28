@@ -10,6 +10,8 @@ export class ApiError extends Error {
     readonly detail?: string,
     readonly code?: string,
     readonly traceId?: string,
+    /** From a 429's `Retry-After` header, in whole seconds (D-318). */
+    readonly retryAfterSeconds?: number,
   ) {
     super(title);
     this.name = 'ApiError';

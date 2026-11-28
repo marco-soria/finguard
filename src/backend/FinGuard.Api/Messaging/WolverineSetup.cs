@@ -4,6 +4,7 @@ using FinGuard.BuildingBlocks.Tenancy;
 using FinGuard.Compliance;
 using FinGuard.Portfolio;
 using FinGuard.Tenancy;
+using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
@@ -48,6 +49,12 @@ internal static class WolverineSetup
 
             // Retries the whole handler, transaction included (R-20: Dapper queries get no automatic retry).
             opts.Policies.OnException<NpgsqlException>(e => e.IsTransient)
+                .RetryWithCooldown(TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(250), TimeSpan.FromSeconds(1))
+                .Then.MoveToErrorQueue();
+
+            // Optimistic concurrency (xmin, D-317): the retry runs the handler again on a fresh DbContext, which reloads the
+            // row and finds it already updated. Global, not per module: only Advisory has a concurrency token today.
+            opts.Policies.OnException<DbUpdateConcurrencyException>()
                 .RetryWithCooldown(TimeSpan.FromMilliseconds(50), TimeSpan.FromMilliseconds(250), TimeSpan.FromSeconds(1))
                 .Then.MoveToErrorQueue();
 

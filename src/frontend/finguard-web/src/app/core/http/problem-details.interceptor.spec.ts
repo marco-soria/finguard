@@ -26,9 +26,13 @@ describe('problemDetailsInterceptor', () => {
 
   afterEach(() => backend.verify());
 
-  async function failWith(body: object | string | null, status: number): Promise<unknown> {
+  async function failWith(
+    body: object | string | null,
+    status: number,
+    headers?: Record<string, string>,
+  ): Promise<unknown> {
     const call = firstValueFrom(http.get('/api/x'));
-    backend.expectOne('/api/x').flush(body, { status, statusText: 'Error' });
+    backend.expectOne('/api/x').flush(body, { status, statusText: 'Error', headers });
     return call.then(
       () => null,
       (error: unknown) => error,
@@ -77,6 +81,26 @@ describe('problemDetailsInterceptor', () => {
     expect(error).toEqual(new ApiError(502, GENERIC_ERROR_TITLE));
   });
 
+  it('maps a 429 with Retry-After to its seconds', async () => {
+    const error = await failWith(
+      { title: 'Too many requests', status: 429, code: 'RateLimit.Exceeded' },
+      429,
+      { 'Retry-After': '42' },
+    );
+
+    expect(error).toEqual(
+      new ApiError(429, 'Too many requests', undefined, 'RateLimit.Exceeded', undefined, 42),
+    );
+  });
+
+  it('ignores a Retry-After that is not whole seconds', async () => {
+    const error = await failWith({ title: 'Too many requests' }, 429, {
+      'Retry-After': 'Wed, 21 Oct 2026 07:28:00 GMT',
+    });
+
+    expect((error as ApiError).retryAfterSeconds).toBeUndefined();
+  });
+
   it('maps an empty error body to a generic ApiError', async () => {
     const error = await failWith(null, 500);
 
@@ -105,6 +129,31 @@ describe('errorMessage', () => {
     const error = new ApiError(404, 'Resource not found', 'The submission does not exist.');
 
     expect(errorMessage(error)).toBe('Resource not found: The submission does not exist.');
+  });
+
+  it('explains a 429 with the retry delay', () => {
+    const error = new ApiError(
+      429,
+      'Too many requests',
+      'Server detail',
+      'RateLimit.Exceeded',
+      undefined,
+      42,
+    );
+
+    expect(errorMessage(error)).toBe('Too many requests. Try again in 42 seconds.');
+  });
+
+  it('uses the singular for a one-second delay', () => {
+    const error = new ApiError(429, 'Too many requests', undefined, undefined, undefined, 1);
+
+    expect(errorMessage(error)).toBe('Too many requests. Try again in 1 second.');
+  });
+
+  it('explains a 429 without Retry-After', () => {
+    expect(errorMessage(new ApiError(429, GENERIC_ERROR_TITLE))).toBe(
+      'Too many requests. Try again in a moment.',
+    );
   });
 
   it('never shows server text for a 500', () => {

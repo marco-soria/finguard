@@ -29,6 +29,8 @@ public sealed class AdvisoryDbContext(DbContextOptions<AdvisoryDbContext> option
             advisory.Property(a => a.RefinementReason).HasMaxLength(32);
             advisory.Property(a => a.ModelId).HasMaxLength(64);
             advisory.Property(a => a.AiContext);
+            // A system column: no schema change, PostgreSQL bumps it on every update (Npgsql concurrency tokens).
+            advisory.Property(a => a.Version).IsRowVersion().HasColumnName("xmin").HasColumnType("xid");
         });
 
         // Last: the base class adds the tenant filter to the entity types mapped above.

@@ -99,6 +99,10 @@ public sealed class ApiFixture : IAsyncLifetime
             // Blank cloud settings so local user-secrets or environment variables cannot switch a seam on.
             builder.UseSetting("KeyVault:Uri", string.Empty);
             builder.UseSetting("APPLICATIONINSIGHTS_CONNECTION_STRING", string.Empty);
+            // The assembly shares one host and two tenants: limits out of reach. Rate-limit tests set small ones.
+            builder.UseSetting("RateLimiting:ReadsPerMinute", "1000000");
+            builder.UseSetting("RateLimiting:AnonymousPerMinute", "1000000");
+            builder.UseSetting("RateLimiting:UploadsPerMinute", "1000000");
             builder.ConfigureServices(services =>
             {
                 services.AddLogging(logging => logging.AddFakeLogging());

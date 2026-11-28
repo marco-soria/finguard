@@ -34,7 +34,8 @@ internal static class ListSubmissionsEndpoint
             .WithSummary("Submission history")
             .WithDescription(Description)
             .Produces<SubmissionListResponse>()
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
         return group;
     }
 }

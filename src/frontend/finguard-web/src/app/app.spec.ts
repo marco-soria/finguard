@@ -1,4 +1,6 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatTooltip } from '@angular/material/tooltip';
+import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
 import { Observable, of, Subject, throwError } from 'rxjs';
 import { App } from './app';
@@ -7,7 +9,8 @@ import { AuthProvider } from './core/auth/auth-provider';
 import { AuthService } from './core/auth/auth.service';
 import { FakeAuthProvider } from './core/auth/fake-auth-provider';
 import { ApiError } from './core/http/api-error';
-import { ThemeService } from './core/theme/theme.service';
+import { registerThemeIcons } from './core/theme/theme-icons';
+import { THEME_STORAGE_KEY } from './core/theme/theme.service';
 
 describe('App', () => {
   let provider: FakeAuthProvider;
@@ -88,28 +91,45 @@ describe('App', () => {
     expect(signOut).toHaveBeenCalledOnce();
   });
 
-  it('offers a theme toggle with an accessible name, also when signed out', () => {
-    const element = render(false);
+  const themeButton = (fixture: ComponentFixture<App>) =>
+    fixture.debugElement.query(By.directive(MatTooltip));
 
-    const group = element.querySelector('header mat-button-toggle-group');
-    expect(group?.getAttribute('aria-label')).toBe('Theme');
-    expect(
-      Array.from(group?.querySelectorAll('button') ?? []).map((b) => b.textContent?.trim()),
-    ).toEqual(['System', 'Light', 'Dark']);
-  });
+  function renderTheme(): ComponentFixture<App> {
+    TestBed.runInInjectionContext(registerThemeIcons);
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    return fixture;
+  }
 
-  it('changes the theme from the toggle', () => {
-    localStorage.clear();
-    const element = render(false);
-    const dark = Array.from(element.querySelectorAll<HTMLButtonElement>('header button')).find(
-      (b) => b.textContent?.trim() === 'Dark',
-    );
+  describe('theme toggle', () => {
+    beforeEach(() => localStorage.clear());
 
-    dark?.click();
+    afterEach(() => {
+      localStorage.clear();
+      document.documentElement.style.colorScheme = '';
+    });
 
-    expect(TestBed.inject(ThemeService).theme()).toBe('dark');
-    expect(document.documentElement.style.colorScheme).toBe('dark');
-    localStorage.clear();
-    document.documentElement.style.colorScheme = '';
+    it('offers dark in light mode, with a label and a tooltip, also when signed out', () => {
+      const fixture = renderTheme();
+      const button = themeButton(fixture);
+
+      expect(button.attributes['aria-label']).toBe('Switch to dark theme');
+      expect(button.injector.get(MatTooltip).message).toBe('Switch to dark theme');
+      expect(button.query(By.css('mat-icon')).attributes['data-mat-icon-name']).toBe('dark_mode');
+    });
+
+    it('switches to dark on click and then offers light', () => {
+      const fixture = renderTheme();
+
+      (themeButton(fixture).nativeElement as HTMLButtonElement).click();
+      fixture.detectChanges();
+
+      const button = themeButton(fixture);
+      expect(button.attributes['aria-label']).toBe('Switch to light theme');
+      expect(button.injector.get(MatTooltip).message).toBe('Switch to light theme');
+      expect(button.query(By.css('mat-icon')).attributes['data-mat-icon-name']).toBe('light_mode');
+      expect(document.documentElement.style.colorScheme).toBe('dark');
+      expect(localStorage.getItem(THEME_STORAGE_KEY)).toBe('dark');
+    });
   });
 });
