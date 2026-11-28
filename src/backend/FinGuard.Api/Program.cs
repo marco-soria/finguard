@@ -5,6 +5,7 @@ using FinGuard.Api.DevAuth;
 using FinGuard.Api.Errors;
 using FinGuard.Api.Messaging;
 using FinGuard.Api.Persistence;
+using FinGuard.Api.RateLimiting;
 using FinGuard.BuildingBlocks.Persistence;
 using FinGuard.Compliance;
 using FinGuard.Portfolio;
@@ -25,6 +26,7 @@ builder.AddFinGuardAuthentication();
 
 builder.AddFinGuardMessaging();
 builder.AddFinGuardApiDocs();
+builder.AddFinGuardRateLimiting();
 
 Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
@@ -45,6 +47,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseTenancy();
+// After tenancy so the tenant is known; before authorization so anonymous floods are counted before the 401 (D-313).
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapDefaultEndpoints();
