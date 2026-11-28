@@ -3,6 +3,67 @@
 Paste this file into the Claude Project knowledge and update it at the end of every session
 ("Decisions delta"). Newest delta first.
 
+## Delta 2026-11-27 (session 34: Brief #21 executed)
+
+Branch `feat/rate-limiting-and-theme-toggle`, the brief's five commits. Planning IDs D-313 to D-321 and R-54 kept (the
+log ended at D-312).
+
+### Decisions and approved deviations
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-322 | R-55 cause: test isolation, not the app. `duplicate.e2e.ts` read Alice's unfiltered history while `history.e2e.ts` seeds 27 Alice uploads in parallel, which pushed the first upload's row off page 1 (25 rows). Reproduced 6 of 6 when both specs run together (`element(s) not found` at line 44, as in the chore run). Fix: the spec filters its history to its own cut-off date; 20 / 20 afterwards. The reload already resets the list (`firstPage()` clears the items; Vitest "starts again from the first page after a reload"), so no app change and no new Vitest case | R-55 closed |
+| D-323 | Development limits: `ReadsPerMinute` 1200, `AnonymousPerMinute` 300, `UploadsPerMinute` 120; production defaults 120 / 20 / 10 unchanged. Anonymous raised by the owner at plan approval (`/scalar` assets, dev sign-in, reloads). Reads raised with owner approval after the second back-to-back E2E run hit the 120 tenant window (35 rejections, all `global (tenant partition)`); three back-to-back runs then passed with 0 rejections | Deviation from D-314 (only Uploads was raised) |
+| D-324 | Test limits: the shared `ApiFixture` sets every limit to 1,000,000 so existing tests are never throttled; rate-limit and forwarded-header tests boot their own host (`ApiFactory` with small limits), so each starts from zero counters | Deviation from the brief's "ApiFixture with small limits" |
+| D-325 | Rate-limit unit tests (options validation, partition selection, `Retry-After` rounding) live in `FinGuard.Api.IntegrationTests/RateLimiting/` without a database: the types are in the Api, which `FinGuard.UnitTests` does not reference. `RateLimitingOptions`, `RequestPartition` and `RateLimitingSetup` are public for that reason | |
+| D-326 | Rejection log names the limiter that rejected: each partitioner records `(policy, kind)` in `HttpContext.Items`; the endpoint policy only runs after the global limiter granted a permit, so the last writer is the rejecter. Message: "Request rejected by rate limit policy {Policy} ({PartitionKind} partition)" | D-315 |
+| D-327 | 429 ProblemDetails `type` is RFC 6585 section 4 (ASP.NET Core's defaults have none for 429), `title` "Too many requests". `Retry-After` = whole seconds rounded up, at least 1. The SPA reads only delay-seconds; an HTTP-date counts as absent ("in a moment"). `Retry-After` is not a CORS-safelisted header: if the SPA moves to another origin in Phase 5, expose it (ADR-0016 check) | |
+| D-328 | Forwarded headers: .NET 10 names verified on Microsoft Learn: `KnownNetworks` is obsolete (`ASPDEPR005`), replaced by `KnownIPNetworks` (`System.Net.IPNetwork`); `KnownProxies` unchanged; `ForwardLimit` default 1. Both lists cleared under the D-316 trust assumption, written in the code comment and ADR-0016. The automated security review flagged the clearing as spoofable; accepted for the stated reason, re-checked in Phase 5 | D-316 |
+| D-329 | `xmin`: `Advisory.Version` (`uint`) with `IsRowVersion().HasColumnName("xmin").HasColumnType("xid")` (explicit, so snake_case naming cannot rename it). EF required a migration (`AddAdvisoryRowVersion`); its script holds only the history insert, Npgsql emits no DDL for the system column. `has-pending-model-changes` clean afterwards | D-317 |
+| D-330 | Wolverine `OnException<DbUpdateConcurrencyException>().RetryWithCooldown(50 ms, 250 ms, 1 s).Then.MoveToErrorQueue()` is **global**, next to the transient Npgsql policy: only Advisory has a concurrency token, so scoping adds code for no gain. The concurrency test holds a `FOR UPDATE` row lock (leaves `xmin` alone) until both handlers block, then releases it; tracking shows three executions (two deliveries, one retry), state from exactly one message, dead letters 0. Wolverine tracking records the retried attempt but not its exception | D-317 |
+| D-331 | Theme: `Theme` is now `light` / `dark`; `effective()` = stored choice or `matchMedia('(prefers-color-scheme: dark)')` with a change listener; `apply()` writes the stored value or `light dark`. Icons from google/material-design-icons `symbols/web/*/materialsymbolsoutlined/*_24px.svg`, fetched for this session. `screenshots.e2e.ts` now emulates a light OS and toggles to dark | D-319, D-320 |
+| D-332 | OllamaSharp 17.0.0 (published since the last check) stays out: D-290 already found it pulls `Microsoft.Extensions.AI` 11 and .NET 11 abstractions; Dependabot #33 closed with ignore commands. `Aspire.Npgsql.EntityFrameworkCore.PostgreSQL` still has no stable 17.x (13.6.5 newest) | R-51 |
+
+### Results
+- Backend `dotnet test -c Release`: 675 / 675 (baseline 655; +20: rate-limit unit 12, rate-limit integration 5,
+  forwarded headers 2, advisory concurrency 1). Build 0 warnings, `dotnet format --verify-no-changes` clean. OpenAPI
+  snapshot regenerated (429 on upload and list).
+- Vitest 171 / 171 (baseline 161; 429 mapping and message, upload form after a 429, theme service and toolbar button).
+  `pnpm lint`, `pnpm build`, `prettier --check src e2e` clean.
+- E2E 13 / 13 three times back-to-back against `-StartAspire` with the Development limits, 0 rate-limit rejections
+  (baseline 13; `theme.e2e.ts` rewritten for the icon toggle).
+- Manual burst with a temporarily lowered limit: skipped (owner may skip); covered by Vitest and the integration tests.
+
+### Risks and flags
+- **R-54** per-replica counters (Appendix A).
+- The `OnRejected` path builds its logger per rejection (`ILoggerFactory.CreateLogger`); cheap, but only on 429s.
+- Snapshot script builds Debug, which a running Aspire API locks; this session ran the same test with `-c Release`.
+
+### Next step
+Sync `decisions.md` to the Project (end of pre-cloud hardening). Then Phase 5 kickoff (Brief #22) with the Azure
+runbook.
+
+## Delta 2026-11-27 (session 33: Brief #21 planning)
+
+| ID | Decision | Notes |
+| --- | --- | --- |
+| D-313 | Rate limiter placement and partitions: after tenancy, before authorization; tenant fixed window for reads, IP fixed window for anonymous calls, token-bucket `uploads` policy per tenant chained with the global limiter; health excluded | Details D-306; ADR-0016 |
+| D-314 | Limits in a validated `RateLimiting` options section; Development raises the upload limit (E2E seeds 27 uploads); tests set small limits explicitly | |
+| D-315 | 429 as ProblemDetails `RateLimit.Exceeded` with `Retry-After`; rejection logs carry partition kind and policy name only | |
+| D-316 | Forwarded headers on outside Development, `ForwardLimit = 1`, known proxies cleared only because the Api is reachable solely through the platform proxy | Verify in Phase 5 (ACA) and Phase 6 (Traefik) |
+| D-317 | `xmin` row version on advisories; Wolverine retries `DbUpdateConcurrencyException`; the handler no-ops when no longer `Pending` | D-298 |
+| D-318 | SPA explains 429 with the retry delay; no automatic retry; the upload form keeps its file | |
+| D-319 | Theme: one icon button (sun/moon) that follows the OS until the user chooses, then stores `light` or `dark`; legacy `system` = no choice; no reset control | Replaces the three-button selector of #15 |
+| D-320 | Icons: inline SVGs from Material Symbols registered with `MatIconRegistry`; no Font Awesome, no external icon font; attribution in `THIRD-PARTY-NOTICES.md` | |
+| D-321 | Dependabot PRs: merge when CI is green; on conflicts comment `@dependabot rebase`; close only with an ignore command and a reason; never delete the branch as a way to skip | Owner process, from the planning chat |
+
+### Risks
+- **R-54 Per-replica rate limits.** With N replicas the effective limit is N times the configured one. Accepted
+  while Phase 5 runs one replica; revisit if scaling out.
+
+### Next step
+Sync `decisions.md` to the Project (end of pre-cloud hardening). Then Phase 5 kickoff: the owner prepares the Azure
+budget, the Entra external tenant and the GitHub-to-Azure credential with the runbook delivered before Brief #22.
+
 ## Delta 2026-11-27 (session 32: Brief #20 executed)
 
 Branch `feat/api-surface`. The brief's five commits plus one fix (Scalar third-party calls). Breaking change: every

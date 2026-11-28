@@ -13,9 +13,9 @@ an AI narrative. It is a portfolio project built local-first, at near-zero cost 
 | 0 Foundations | ✓ Done | Solution skeleton, Aspire, PostgreSQL, module DbContexts, Wolverine outbox, CI |
 | 1 Walking skeleton | ✓ Done | Development login, tenant resolution, Angular shell, file upload and submission history end to end |
 | 2 Portfolio ingestion | ✓ Done | CSV validation, rejected files with errors, idempotent uploads, current submission per cut-off date, `SubmissionAccepted` event to Compliance |
-| 3 Compliance | ✓ Done | Domain model and versioned global limit policy ([ADR-0012](docs/adr/0012-compliance-domain-model.md)), evaluation of every accepted submission with `EvaluationCompleted`, result API, result on the submission detail page, system/light/dark theme |
+| 3 Compliance | ✓ Done | Domain model and versioned global limit policy ([ADR-0012](docs/adr/0012-compliance-domain-model.md)), evaluation of every accepted submission with `EvaluationCompleted`, result API, result on the submission detail page, light and dark theme (one toolbar button; follows the operating system until you choose) |
 | 4 Advisory | ✓ Done | Deterministic rebalance proposal ([ADR-0013](docs/adr/0013-rebalance-engine.md)) stored with every evaluation, in `EvaluationCompleted`, the API and the detail page. Template narrative for every evaluation, validated against its facts ([ADR-0014](docs/adr/0014-advisory-narrative.md)). Optional AI context paragraph from a local model, with no figures or statuses, shown only when it passes validation ([ADR-0015](docs/adr/0015-model-narrator.md)) |
-| Pre-cloud hardening | In progress | API under `/api/v1` with an OpenAPI document rendered by Scalar, paged and filtered submission history (Brief #20); rate limiting, forwarded headers and row versioning next (Brief #21) |
+| Pre-cloud hardening | ✓ Done | API under `/api/v1` with an OpenAPI document rendered by Scalar, paged and filtered submission history (Brief #20); rate limiting per tenant and per IP, forwarded headers behind the platform proxy, `xmin` row versioning on advisories ([ADR-0016](docs/adr/0016-request-protection.md), Brief #21) |
 | 5 Azure | Planned | Container Apps, Static Web Apps, Entra External ID, Key Vault, observability |
 
 Event flow today: an accepted upload publishes `SubmissionAccepted` (class totals) through the outbox in the same
@@ -134,6 +134,22 @@ tenant's submissions. An invalid value answers 400 with one code, checked in thi
 | `Portfolio.Submissions.InvalidStatus` | `status` is not `Accepted` or `Rejected` |
 | `Portfolio.Submissions.InvalidCutOffRange` | a date is not `yyyy-MM-dd`, or `cutOffFrom` is after `cutOffTo` |
 | `Portfolio.Submissions.InvalidCurrentOnly` | `currentOnly` is not `true` or `false` |
+
+### Rate limits
+
+Requests are limited per tenant and, without a tenant, per client IP ([ADR-0016](docs/adr/0016-request-protection.md)).
+Over a limit the API answers `429` ProblemDetails with code `RateLimit.Exceeded` and a `Retry-After` header in seconds;
+the app shows "Too many requests. Try again in N seconds." and keeps the selected file. Nothing retries
+automatically. `/health` and `/alive` are never limited.
+
+| Limit | Applies to | Production default | Development |
+| --- | --- | --- | --- |
+| `ReadsPerMinute` | every request of a tenant (fixed window) | 120 | 1200 |
+| `AnonymousPerMinute` | every request without a tenant, per client IP (fixed window) | 20 | 300 |
+| `UploadsPerMinute` | `POST /api/v1/portfolio/submissions` per tenant (token bucket, on top of reads) | 10 | 120 |
+
+The values live in the `RateLimiting` configuration section. Counters are kept in memory per replica, so with N
+replicas the effective limit is N times the configured one.
 
 ## Changing a limit
 
