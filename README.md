@@ -48,13 +48,13 @@ Every decision is recorded in the [decisions log](docs/decisions.md) (append-onl
 
 ```mermaid
 flowchart LR
-  SPA["Angular SPA"] -->|"HTTPS + bearer token"| API["Api (Minimal APIs)"]
+  SPA["Angular SPA"] -->|"HTTPS + bearer token"| API["Api (Minimal APIs) "]
   subgraph Monolith["Modular monolith (.NET 10)"]
     API --> Tenancy
     API --> Portfolio
     API --> Compliance
     API --> Advisory
-    Portfolio -. "integration events" .-> Outbox[("Wolverine outbox")]
+    Portfolio -. "integration events" .-> Outbox[("Wolverine outbox ")]
     Outbox -.-> Compliance
     Compliance -.-> Outbox
     Outbox -.-> Advisory
