@@ -18,6 +18,11 @@ test('Uploading the same file twice returns the first; a newer file becomes curr
   const history = page.getByRole('table', { name: /Your submissions/ });
 
   await signInAs(page, 'Alice');
+  // Other flows upload as Alice in parallel (history.e2e.ts seeds 27 rows), which can push this flow's rows off the
+  // first page; filtering on this flow's cut-off date keeps them there (R-55).
+  await page.getByLabel('Cut-off from').fill(cutOffDate);
+  await page.getByLabel('Cut-off to').fill(cutOffDate);
+  await expect(page).toHaveURL(new RegExp(`cutOffFrom=${cutOffDate}&cutOffTo=${cutOffDate}`));
   await upload(page, firstName, firstCsv, cutOffDate);
   await expect(page.getByRole('status')).toContainText(`Accepted ${firstName}: 1 positions.`);
 
